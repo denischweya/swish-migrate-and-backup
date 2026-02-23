@@ -76,6 +76,22 @@ final class BackupManager {
 	}
 
 	/**
+	 * Configure batch sizes from options.
+	 *
+	 * @param array $options Backup options.
+	 * @return void
+	 */
+	private function configure_batch_sizes( array $options ): void {
+		if ( isset( $options['db_batch_size'] ) ) {
+			$this->database_backup->set_rows_per_batch( (int) $options['db_batch_size'] );
+		}
+
+		if ( isset( $options['file_batch_size'] ) ) {
+			$this->file_backup->set_files_per_batch( (int) $options['file_batch_size'] );
+		}
+	}
+
+	/**
 	 * Create a full backup.
 	 *
 	 * @param array $options Backup options.
@@ -85,6 +101,9 @@ final class BackupManager {
 		$job_id = $this->generate_job_id();
 		$this->logger->set_job_id( $job_id );
 		$this->logger->info( 'Starting full backup', array( 'options' => $options ) );
+
+		// Configure batch sizes for shared hosting compatibility.
+		$this->configure_batch_sizes( $options );
 
 		/**
 		 * Fires before a backup starts.
@@ -222,6 +241,9 @@ final class BackupManager {
 		$this->logger->set_job_id( $job_id );
 		$this->logger->info( 'Starting database backup' );
 
+		// Configure batch sizes for shared hosting compatibility.
+		$this->configure_batch_sizes( $options );
+
 		$this->create_job_record( $job_id, 'database' );
 
 		try {
@@ -294,6 +316,9 @@ final class BackupManager {
 		$job_id = $this->generate_job_id();
 		$this->logger->set_job_id( $job_id );
 		$this->logger->info( 'Starting files backup' );
+
+		// Configure batch sizes for shared hosting compatibility.
+		$this->configure_batch_sizes( $options );
 
 		$this->create_job_record( $job_id, 'files' );
 
@@ -475,13 +500,23 @@ final class BackupManager {
 		$job = $wpdb->get_row(
 			$wpdb->prepare(
 				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-				"SELECT status, progress, error_message FROM {$table} WHERE job_id = %s",
+				"SELECT status, progress, error_message, file_path, file_size FROM {$table} WHERE job_id = %s",
 				$job_id
 			),
 			ARRAY_A
 		);
 
-		return $job ?: null;
+		if ( ! $job ) {
+			return null;
+		}
+
+		return array(
+			'status'   => $job['status'],
+			'progress' => (int) $job['progress'],
+			'message'  => $job['error_message'] ?? '',
+			'path'     => $job['file_path'] ?? '',
+			'size'     => (int) ( $job['file_size'] ?? 0 ),
+		);
 	}
 
 	/**
@@ -612,13 +647,20 @@ final class BackupManager {
 
 		$table = $wpdb->prefix . 'swish_backup_jobs';
 
+		$data = array(
+			'status'   => $status,
+			'progress' => $progress,
+		);
+
+		// Store status message for API retrieval.
+		if ( $message ) {
+			$data['error_message'] = $message; // Reuse error_message for status messages during processing.
+		}
+
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->update(
 			$table,
-			array(
-				'status'   => $status,
-				'progress' => $progress,
-			),
+			$data,
 			array( 'job_id' => $job_id )
 		);
 

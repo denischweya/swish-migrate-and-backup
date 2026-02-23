@@ -1,0 +1,22 @@
+{
+	"name": "swish-migrate-and-backup",
+	"version": "1.0.0",
+	"description": "WordPress backup and migration plugin with React admin dashboard",
+	"author": "Denis Bosire",
+	"license": "GPL-2.0-or-later",
+	"scripts": {
+		"build": "wp-scripts build",
+		"start": "wp-scripts start",
+		"lint:js": "wp-scripts lint-js",
+		"lint:css": "wp-scripts lint-style"
+	},
+	"devDependencies": {
+		"@wordpress/scripts": "^27.0.0"
+	},
+	"dependencies": {
+		"@wordpress/api-fetch": "^6.0.0",
+		"@wordpress/components": "^27.0.0",
+		"@wordpress/element": "^5.0.0",
+		"@wordpress/i18n": "^4.0.0"
+	}
+}

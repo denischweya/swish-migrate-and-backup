@@ -32,8 +32,15 @@ final class DatabaseBackup {
 
 	/**
 	 * Maximum rows per batch for memory efficiency.
+	 *
+	 * @var int
 	 */
-	private const ROWS_PER_BATCH = 1000;
+	private int $rows_per_batch = 500;
+
+	/**
+	 * Default rows per batch.
+	 */
+	private const DEFAULT_ROWS_PER_BATCH = 500;
 
 	/**
 	 * Constructor.
@@ -53,6 +60,26 @@ final class DatabaseBackup {
 	public function set_excluded_tables( array $tables ): self {
 		$this->excluded_tables = $tables;
 		return $this;
+	}
+
+	/**
+	 * Set the number of rows per batch.
+	 *
+	 * @param int $rows_per_batch Rows per batch (50-2000).
+	 * @return self
+	 */
+	public function set_rows_per_batch( int $rows_per_batch ): self {
+		$this->rows_per_batch = max( 50, min( 2000, $rows_per_batch ) );
+		return $this;
+	}
+
+	/**
+	 * Get the current rows per batch setting.
+	 *
+	 * @return int
+	 */
+	public function get_rows_per_batch(): int {
+		return $this->rows_per_batch;
 	}
 
 	/**
@@ -256,7 +283,7 @@ final class DatabaseBackup {
 				$wpdb->prepare(
 					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 					"SELECT * FROM `{$table}` LIMIT %d OFFSET %d",
-					self::ROWS_PER_BATCH,
+					$this->rows_per_batch,
 					$offset
 				),
 				ARRAY_A
@@ -268,7 +295,7 @@ final class DatabaseBackup {
 
 			$this->write_insert_statements( $handle, $table, $column_list, $rows, $columns );
 
-			$offset += self::ROWS_PER_BATCH;
+			$offset += $this->rows_per_batch;
 
 			// Free up memory.
 			unset( $rows );
