@@ -1,0 +1,44 @@
+{
+    "name": "swish/migrate-and-backup",
+    "description": "A production-ready WordPress backup and migration plugin with cloud storage support.",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0-or-later",
+    "authors": [
+        {
+            "name": "Swish",
+            "email": "info@example.com"
+        }
+    ],
+    "require": {
+        "php": ">=8.1"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.0",
+        "wp-coding-standards/wpcs": "^3.0",
+        "dealerdirect/phpcodesniffer-composer-installer": "^1.0",
+        "phpcompatibility/phpcompatibility-wp": "^2.1",
+        "yoast/phpunit-polyfills": "^2.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "SwishMigrateAndBackup\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "SwishMigrateAndBackup\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "phpcs": "phpcs --standard=WordPress src/",
+        "phpcbf": "phpcbf --standard=WordPress src/"
+    },
+    "config": {
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true
+        },
+        "sort-packages": true
+    },
+    "minimum-stability": "stable"
+}
