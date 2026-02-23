@@ -106,10 +106,24 @@ final class RestController extends WP_REST_Controller {
 					'callback'            => array( $this, 'create_backup' ),
 					'permission_callback' => array( $this, 'check_admin_permission' ),
 					'args'                => array(
-						'type' => array(
+						'type'            => array(
 							'type'    => 'string',
 							'enum'    => array( 'full', 'database', 'files' ),
 							'default' => 'full',
+						),
+						'db_batch_size'   => array(
+							'type'              => 'integer',
+							'default'           => 500,
+							'minimum'           => 50,
+							'maximum'           => 2000,
+							'sanitize_callback' => 'absint',
+						),
+						'file_batch_size' => array(
+							'type'              => 'integer',
+							'default'           => 100,
+							'minimum'           => 25,
+							'maximum'           => 500,
+							'sanitize_callback' => 'absint',
 						),
 					),
 				),
@@ -246,6 +260,37 @@ final class RestController extends WP_REST_Controller {
 				),
 			)
 		);
+
+		// Settings routes.
+		register_rest_route(
+			$this->namespace,
+			'/settings',
+			array(
+				array(
+					'methods'             => WP_REST_Server::READABLE,
+					'callback'            => array( $this, 'get_settings' ),
+					'permission_callback' => array( $this, 'check_admin_permission' ),
+				),
+				array(
+					'methods'             => WP_REST_Server::EDITABLE,
+					'callback'            => array( $this, 'update_settings' ),
+					'permission_callback' => array( $this, 'check_admin_permission' ),
+				),
+			)
+		);
+
+		// Dashboard stats route.
+		register_rest_route(
+			$this->namespace,
+			'/stats',
+			array(
+				array(
+					'methods'             => WP_REST_Server::READABLE,
+					'callback'            => array( $this, 'get_dashboard_stats' ),
+					'permission_callback' => array( $this, 'check_admin_permission' ),
+				),
+			)
+		);
 	}
 
 	/**
@@ -282,6 +327,8 @@ final class RestController extends WP_REST_Controller {
 			'backup_uploads'       => $settings['backup_uploads'] ?? true,
 			'backup_core_files'    => $settings['backup_core_files'] ?? true,
 			'storage_destinations' => $request->get_param( 'destinations' ) ?? array( 'local' ),
+			'db_batch_size'        => $request->get_param( 'db_batch_size' ) ?? 500,
+			'file_batch_size'      => $request->get_param( 'file_batch_size' ) ?? 100,
 		);
 
 		$result = match ( $type ) {
@@ -512,5 +559,118 @@ final class RestController extends WP_REST_Controller {
 		}
 
 		return rest_ensure_response( $job );
+	}
+
+	/**
+	 * Get settings.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response
+	 */
+	public function get_settings( WP_REST_Request $request ): WP_REST_Response {
+		$settings = get_option( 'swish_backup_settings', array() );
+
+		$defaults = array(
+			'db_batch_size'        => 500,
+			'file_batch_size'      => 100,
+			'backup_database'      => true,
+			'backup_plugins'       => true,
+			'backup_themes'        => true,
+			'backup_uploads'       => true,
+			'backup_core_files'    => true,
+			'compression_level'    => 6,
+			'default_storage'      => 'local',
+			'exclude_files'        => array(),
+			'email_notifications'  => false,
+			'notification_email'   => get_option( 'admin_email' ),
+		);
+
+		return rest_ensure_response( wp_parse_args( $settings, $defaults ) );
+	}
+
+	/**
+	 * Update settings.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response
+	 */
+	public function update_settings( WP_REST_Request $request ): WP_REST_Response {
+		$settings = get_option( 'swish_backup_settings', array() );
+		$params = $request->get_json_params();
+
+		// Sanitize and validate batch sizes.
+		if ( isset( $params['db_batch_size'] ) ) {
+			$settings['db_batch_size'] = max( 50, min( 2000, absint( $params['db_batch_size'] ) ) );
+		}
+
+		if ( isset( $params['file_batch_size'] ) ) {
+			$settings['file_batch_size'] = max( 25, min( 500, absint( $params['file_batch_size'] ) ) );
+		}
+
+		// Other settings.
+		$boolean_settings = array(
+			'backup_database',
+			'backup_plugins',
+			'backup_themes',
+			'backup_uploads',
+			'backup_core_files',
+			'email_notifications',
+		);
+
+		foreach ( $boolean_settings as $key ) {
+			if ( isset( $params[ $key ] ) ) {
+				$settings[ $key ] = (bool) $params[ $key ];
+			}
+		}
+
+		if ( isset( $params['compression_level'] ) ) {
+			$settings['compression_level'] = max( 0, min( 9, absint( $params['compression_level'] ) ) );
+		}
+
+		if ( isset( $params['default_storage'] ) ) {
+			$settings['default_storage'] = sanitize_text_field( $params['default_storage'] );
+		}
+
+		if ( isset( $params['notification_email'] ) ) {
+			$settings['notification_email'] = sanitize_email( $params['notification_email'] );
+		}
+
+		update_option( 'swish_backup_settings', $settings );
+
+		return rest_ensure_response( array(
+			'success'  => true,
+			'settings' => $settings,
+		) );
+	}
+
+	/**
+	 * Get dashboard stats.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response
+	 */
+	public function get_dashboard_stats( WP_REST_Request $request ): WP_REST_Response {
+		$backups = $this->backup_manager->get_backups( 50 );
+		$last_backup = ! empty( $backups ) ? $backups[0] : null;
+
+		// Get storage adapters status.
+		$adapters = array();
+		foreach ( $this->storage_manager->get_adapters() as $id => $adapter ) {
+			$adapters[ $id ] = array(
+				'name'       => $adapter->get_name(),
+				'configured' => $adapter->is_configured(),
+			);
+		}
+
+		// Calculate total storage used.
+		$total_size = array_sum( array_column( $backups, 'size' ) );
+
+		return rest_ensure_response( array(
+			'total_backups' => count( $backups ),
+			'total_size'    => $total_size,
+			'last_backup'   => $last_backup,
+			'storage'       => $adapters,
+			'site_url'      => get_site_url(),
+		) );
 	}
 }

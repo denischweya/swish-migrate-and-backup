@@ -34,8 +34,15 @@ final class FileBackup {
 
 	/**
 	 * Maximum files per batch.
+	 *
+	 * @var int
 	 */
-	private const FILES_PER_BATCH = 100;
+	private int $files_per_batch = 100;
+
+	/**
+	 * Default files per batch.
+	 */
+	private const DEFAULT_FILES_PER_BATCH = 100;
 
 	/**
 	 * Constructor.
@@ -70,6 +77,26 @@ final class FileBackup {
 	public function set_exclude_patterns( array $patterns ): self {
 		$this->exclude_patterns = array_merge( $this->exclude_patterns, $patterns );
 		return $this;
+	}
+
+	/**
+	 * Set the number of files per batch.
+	 *
+	 * @param int $files_per_batch Files per batch (25-500).
+	 * @return self
+	 */
+	public function set_files_per_batch( int $files_per_batch ): self {
+		$this->files_per_batch = max( 25, min( 500, $files_per_batch ) );
+		return $this;
+	}
+
+	/**
+	 * Get the current files per batch setting.
+	 *
+	 * @return int
+	 */
+	public function get_files_per_batch(): int {
+		return $this->files_per_batch;
 	}
 
 	/**
