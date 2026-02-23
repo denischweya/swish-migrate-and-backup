@@ -1,0 +1,384 @@
+/**
+ * Swish Migrate and Backup - Admin Styles
+ */
+
+/* Layout */
+.swish-backup-wrap {
+	max-width: 1200px;
+}
+
+.swish-backup-dashboard {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+	gap: 20px;
+	margin-top: 20px;
+}
+
+/* Cards */
+.swish-backup-card {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	padding: 20px;
+	margin-bottom: 20px;
+}
+
+.swish-backup-card h2 {
+	margin-top: 0;
+	padding-bottom: 10px;
+	border-bottom: 1px solid #eee;
+}
+
+.swish-backup-card-footer {
+	margin-top: 15px;
+	padding-top: 15px;
+	border-top: 1px solid #eee;
+}
+
+/* Actions */
+.swish-backup-actions {
+	display: flex;
+	gap: 10px;
+	margin-top: 15px;
+}
+
+/* Status Grid */
+.swish-backup-status-grid {
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
+	gap: 15px;
+}
+
+.swish-backup-status-item {
+	padding: 15px;
+	background: #f6f7f7;
+	border-radius: 4px;
+}
+
+.swish-backup-status-label {
+	display: block;
+	font-size: 12px;
+	color: #646970;
+	margin-bottom: 5px;
+}
+
+.swish-backup-status-value {
+	display: block;
+	font-size: 18px;
+	font-weight: 600;
+	color: #1d2327;
+}
+
+/* Status Badges */
+.swish-backup-status-badge {
+	display: inline-block;
+	padding: 3px 8px;
+	border-radius: 3px;
+	font-size: 12px;
+	font-weight: 500;
+}
+
+.swish-backup-status-success {
+	background: #d4edda;
+	color: #155724;
+}
+
+.swish-backup-status-warning {
+	background: #fff3cd;
+	color: #856404;
+}
+
+.swish-backup-status-error {
+	background: #f8d7da;
+	color: #721c24;
+}
+
+/* Type Badges */
+.swish-backup-type-badge {
+	display: inline-block;
+	padding: 3px 8px;
+	border-radius: 3px;
+	font-size: 11px;
+	font-weight: 500;
+	text-transform: uppercase;
+}
+
+.swish-backup-type-full {
+	background: #e7f5ff;
+	color: #1971c2;
+}
+
+.swish-backup-type-database {
+	background: #fff9db;
+	color: #e67700;
+}
+
+.swish-backup-type-files {
+	background: #e6fcf5;
+	color: #087f5b;
+}
+
+/* Empty State */
+.swish-backup-empty-state {
+	text-align: center;
+	padding: 60px 20px;
+	background: #f6f7f7;
+	border-radius: 4px;
+}
+
+.swish-backup-empty-state .dashicons {
+	font-size: 48px;
+	width: 48px;
+	height: 48px;
+	color: #c3c4c7;
+	margin-bottom: 15px;
+}
+
+.swish-backup-empty-state h2 {
+	margin-bottom: 10px;
+}
+
+.swish-backup-empty-state p {
+	color: #646970;
+	margin-bottom: 20px;
+}
+
+/* Progress Bar */
+.swish-backup-progress-bar {
+	height: 20px;
+	background: #f0f0f1;
+	border-radius: 10px;
+	overflow: hidden;
+	margin: 20px 0;
+}
+
+.swish-backup-progress-bar-inner {
+	height: 100%;
+	background: linear-gradient(90deg, #2271b1, #135e96);
+	border-radius: 10px;
+	transition: width 0.3s ease;
+}
+
+.swish-backup-progress-status {
+	text-align: center;
+	color: #646970;
+}
+
+/* Modal */
+.swish-backup-modal {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: rgba(0, 0, 0, 0.7);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 100000;
+}
+
+.swish-backup-modal-content {
+	background: #fff;
+	padding: 30px;
+	border-radius: 4px;
+	max-width: 500px;
+	width: 90%;
+}
+
+.swish-backup-modal-content h3 {
+	margin-top: 0;
+}
+
+.swish-backup-modal-actions {
+	display: flex;
+	gap: 10px;
+	margin-top: 20px;
+}
+
+.swish-backup-warning {
+	background: #fff3cd;
+	border: 1px solid #ffc107;
+	color: #856404;
+	padding: 15px;
+	border-radius: 4px;
+	margin-bottom: 20px;
+}
+
+.swish-backup-restore-options label {
+	display: block;
+	margin-bottom: 10px;
+}
+
+/* Backup Type Selector */
+.swish-backup-type-options {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 15px;
+	margin-top: 15px;
+}
+
+.swish-backup-type-option {
+	padding: 20px;
+	text-align: center;
+	border: 2px solid #dcdcde;
+	border-radius: 4px;
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.swish-backup-type-option:hover {
+	border-color: #2271b1;
+	background: #f0f6fc;
+}
+
+.swish-backup-type-option.selected {
+	border-color: #2271b1;
+	background: #f0f6fc;
+}
+
+.swish-backup-type-option .dashicons {
+	font-size: 32px;
+	width: 32px;
+	height: 32px;
+	color: #2271b1;
+	margin-bottom: 10px;
+}
+
+.swish-backup-type-option h3 {
+	margin: 0 0 5px;
+	font-size: 14px;
+}
+
+.swish-backup-type-option p {
+	margin: 0;
+	font-size: 12px;
+	color: #646970;
+}
+
+/* Migration Wizard */
+.swish-backup-migration-wizard {
+	max-width: 800px;
+}
+
+.swish-backup-migration-options {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 15px;
+}
+
+.swish-backup-migration-option {
+	padding: 30px 20px;
+	text-align: center;
+	border: 2px solid #dcdcde;
+	border-radius: 4px;
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.swish-backup-migration-option:hover {
+	border-color: #2271b1;
+	background: #f0f6fc;
+}
+
+.swish-backup-migration-option .dashicons {
+	font-size: 48px;
+	width: 48px;
+	height: 48px;
+	color: #2271b1;
+	margin-bottom: 15px;
+}
+
+.swish-backup-migration-option h3 {
+	margin: 0 0 10px;
+}
+
+.swish-backup-migration-option p {
+	margin: 0;
+	color: #646970;
+}
+
+.swish-backup-migration-nav {
+	display: flex;
+	justify-content: space-between;
+	margin-top: 20px;
+	padding-top: 20px;
+	border-top: 1px solid #dcdcde;
+}
+
+/* Upload Area */
+.swish-backup-upload-area {
+	border: 2px dashed #c3c4c7;
+	border-radius: 4px;
+	padding: 40px;
+	text-align: center;
+	transition: all 0.2s ease;
+}
+
+.swish-backup-upload-area:hover,
+.swish-backup-upload-area.dragover {
+	border-color: #2271b1;
+	background: #f0f6fc;
+}
+
+.swish-backup-upload-area .dashicons {
+	font-size: 48px;
+	width: 48px;
+	height: 48px;
+	color: #c3c4c7;
+}
+
+/* Success Message */
+.swish-backup-success-message {
+	text-align: center;
+	padding: 40px;
+}
+
+.swish-backup-success-message .dashicons {
+	font-size: 64px;
+	width: 64px;
+	height: 64px;
+	color: #00a32a;
+}
+
+/* Tables */
+.swish-backup-wrap .wp-list-table .column-filename {
+	width: 35%;
+}
+
+.swish-backup-wrap .wp-list-table .column-type {
+	width: 10%;
+}
+
+.swish-backup-wrap .wp-list-table .column-size {
+	width: 10%;
+}
+
+.swish-backup-wrap .wp-list-table .column-date {
+	width: 20%;
+}
+
+.swish-backup-wrap .wp-list-table .column-actions {
+	width: 25%;
+}
+
+.swish-backup-checksum {
+	color: #646970;
+	font-family: monospace;
+}
+
+/* Responsive */
+@media screen and (max-width: 782px) {
+	.swish-backup-dashboard {
+		grid-template-columns: 1fr;
+	}
+
+	.swish-backup-type-options,
+	.swish-backup-migration-options {
+		grid-template-columns: 1fr;
+	}
+
+	.swish-backup-status-grid {
+		grid-template-columns: 1fr;
+	}
+}
