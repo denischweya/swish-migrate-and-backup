@@ -1,6 +1,10 @@
 # Swish Migrate and Backup
 
-A production-ready WordPress backup and migration plugin with cloud storage support.
+**The ultimate WordPress backup, migration, and restore plugin with cloud storage support.**
+
+Swish Migrate and Backup is a powerful, production-ready WordPress plugin that simplifies website backups, migrations, and restores. Create full site backups (database, plugins, themes, uploads, and core files), database-only backups, or files-only backups with intelligent chunked processing for large sites. Store your backups locally or sync them to Amazon S3, Dropbox, or Google Drive. Schedule automated backups with WP-Cron, verify backup integrity with checksums, and restore with one click.
+
+Migrating to a new domain? Swish handles serialization-safe search and replace for seamless URL updates. Built with security in mind—featuring nonce verification, capability checks, encrypted credentials, and signed download URLs. Extensible architecture lets developers add custom storage adapters. Built by [Denis Bosire](https://denis.swishfolio.com/).
 
 ## Features
 
