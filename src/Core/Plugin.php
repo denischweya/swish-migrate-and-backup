@@ -348,7 +348,7 @@ final class Plugin {
 
 			wp_enqueue_style(
 				'swish-backup-dashboard',
-				SWISH_BACKUP_PLUGIN_URL . 'build/index.css',
+				SWISH_BACKUP_PLUGIN_URL . 'build/style-index.css',
 				array( 'wp-components' ),
 				$assets['version'] ?? SWISH_BACKUP_VERSION
 			);
