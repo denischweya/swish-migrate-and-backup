@@ -4,7 +4,7 @@
  * Plugin URI: https://denis.swishfolio.com/swish-migrate-and-backup
  * Description: A WordPress backup and migration plugin with cloud storage support & no limits.
  * Version: 1.0.1
- * Author: Fortisthemes
+ * Author: Fortisthemes, afrothemes
  * Author URI: https://denis.swishfolio.com
  * License: GPL-2.0+
  * License URI: http://www.gnu.org/licenses/gpl-2.0.txt
@@ -61,13 +61,6 @@ if (file_exists(SWISH_BACKUP_PLUGIN_DIR . 'vendor/autoload.php')) {
 add_action(
     'plugins_loaded',
     function (): void {
-        // Load text domain for translations.
-        load_plugin_textdomain(
-            'swish-migrate-and-backup',
-            false,
-            dirname(SWISH_BACKUP_PLUGIN_BASENAME) . '/languages'
-        );
-
         // Boot the plugin.
         $container = Core\Container::get_instance();
         $plugin    = new Core\Plugin($container);
