@@ -655,7 +655,7 @@ final class RestController extends WP_REST_Controller {
 
 		// Get storage adapters status.
 		$adapters = array();
-		foreach ( $this->storage_manager->get_adapters() as $id => $adapter ) {
+		foreach ( $this->storage_manager->get_all_adapters() as $id => $adapter ) {
 			$adapters[ $id ] = array(
 				'name'       => $adapter->get_name(),
 				'configured' => $adapter->is_configured(),
