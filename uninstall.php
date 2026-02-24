@@ -37,8 +37,8 @@ foreach ( $options_to_delete as $option ) {
 }
 
 // Delete transients.
-$wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_swish_backup_%'" );
-$wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_timeout_swish_backup_%'" );
+$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s", '_transient_swish_backup_%' ) );
+$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s", '_transient_timeout_swish_backup_%' ) );
 
 // Drop custom tables.
 $tables_to_drop = array(
@@ -48,8 +48,8 @@ $tables_to_drop = array(
 );
 
 foreach ( $tables_to_drop as $table ) {
-	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-	$wpdb->query( "DROP TABLE IF EXISTS {$table}" );
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	$wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', $table ) );
 }
 
 // Clear scheduled cron events.

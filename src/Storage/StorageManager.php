@@ -9,6 +9,11 @@ declare(strict_types=1);
 
 namespace SwishMigrateAndBackup\Storage;
 
+// Prevent direct access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 use SwishMigrateAndBackup\Core\Container;
 use SwishMigrateAndBackup\Storage\Contracts\StorageAdapterInterface;
 use InvalidArgumentException;

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:learn.wordpress.org)",
+      "WebSearch",
+      "WebFetch(domain:developer.wordpress.org)"
+    ]
+  }
+}

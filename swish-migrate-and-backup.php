@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: Swish Migrate and Backup
- * Plugin URI: https://example.com/swish-migrate-and-backup
+ * Plugin URI: https://denis.swishfolio.com/swish-migrate-and-backup
  * Description: A WordPress backup and migration plugin with cloud storage support & no limits.
  * Version: 1.0.1
  * Author: Fortisthemes
@@ -26,7 +26,7 @@ if (! defined('ABSPATH')) {
 }
 
 // Plugin constants.
-define('SWISH_BACKUP_VERSION', '1.0.0');
+define('SWISH_BACKUP_VERSION', '1.0.1');
 define('SWISH_BACKUP_PLUGIN_FILE', __FILE__);
 define('SWISH_BACKUP_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('SWISH_BACKUP_PLUGIN_URL', plugin_dir_url(__FILE__));
