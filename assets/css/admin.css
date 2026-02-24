@@ -4,7 +4,8 @@
 
 /* Layout */
 .swish-backup-wrap {
-	max-width: 1200px;
+	max-width: 1920px;
+	width: 100%;
 }
 
 .swish-backup-dashboard {

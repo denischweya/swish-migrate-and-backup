@@ -317,24 +317,54 @@ final class Plugin {
 		// Check if this is the main dashboard page.
 		$is_dashboard = strpos( $hook_suffix, 'toplevel_page_swish-backup' ) !== false;
 
+		// Always use the consolidated built CSS for all pages.
+		$this->enqueue_built_styles();
+
 		if ( $is_dashboard ) {
-			// Enqueue React dashboard for the main page.
-			$this->enqueue_react_dashboard();
+			// Enqueue React dashboard JS for the main page.
+			$this->enqueue_react_dashboard_js();
 		} else {
-			// Enqueue legacy admin styles and scripts for other pages.
-			$this->enqueue_legacy_assets();
+			// Enqueue legacy admin JS for other pages.
+			$this->enqueue_legacy_js();
 		}
 	}
 
 	/**
-	 * Enqueue React dashboard assets.
+	 * Enqueue built styles (consolidated CSS).
 	 *
 	 * @return void
 	 */
-	private function enqueue_react_dashboard(): void {
+	private function enqueue_built_styles(): void {
 		$asset_file = SWISH_BACKUP_PLUGIN_DIR . 'build/index.asset.php';
 
-		// Check if React build exists.
+		if ( file_exists( $asset_file ) ) {
+			$assets = include $asset_file;
+
+			wp_enqueue_style(
+				'swish-backup-admin',
+				SWISH_BACKUP_PLUGIN_URL . 'build/style-index.css',
+				array( 'wp-components' ),
+				$assets['version'] ?? SWISH_BACKUP_VERSION
+			);
+		} else {
+			// Fallback to legacy CSS if build doesn't exist.
+			wp_enqueue_style(
+				'swish-backup-admin',
+				SWISH_BACKUP_PLUGIN_URL . 'assets/css/admin.css',
+				array(),
+				SWISH_BACKUP_VERSION
+			);
+		}
+	}
+
+	/**
+	 * Enqueue React dashboard JS.
+	 *
+	 * @return void
+	 */
+	private function enqueue_react_dashboard_js(): void {
+		$asset_file = SWISH_BACKUP_PLUGIN_DIR . 'build/index.asset.php';
+
 		if ( file_exists( $asset_file ) ) {
 			$assets = include $asset_file;
 
@@ -345,32 +375,18 @@ final class Plugin {
 				$assets['version'] ?? SWISH_BACKUP_VERSION,
 				true
 			);
-
-			wp_enqueue_style(
-				'swish-backup-dashboard',
-				SWISH_BACKUP_PLUGIN_URL . 'build/style-index.css',
-				array( 'wp-components' ),
-				$assets['version'] ?? SWISH_BACKUP_VERSION
-			);
 		} else {
-			// Fallback to legacy assets if React build doesn't exist.
-			$this->enqueue_legacy_assets();
+			// Fallback to legacy JS if React build doesn't exist.
+			$this->enqueue_legacy_js();
 		}
 	}
 
 	/**
-	 * Enqueue legacy admin assets.
+	 * Enqueue legacy admin JS.
 	 *
 	 * @return void
 	 */
-	private function enqueue_legacy_assets(): void {
-		wp_enqueue_style(
-			'swish-backup-admin',
-			SWISH_BACKUP_PLUGIN_URL . 'assets/css/admin.css',
-			array(),
-			SWISH_BACKUP_VERSION
-		);
-
+	private function enqueue_legacy_js(): void {
 		wp_enqueue_script(
 			'swish-backup-admin',
 			SWISH_BACKUP_PLUGIN_URL . 'assets/js/admin.js',
