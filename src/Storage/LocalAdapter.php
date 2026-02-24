@@ -9,6 +9,11 @@ declare(strict_types=1);
 
 namespace SwishMigrateAndBackup\Storage;
 
+// Prevent direct access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 use SwishMigrateAndBackup\Storage\Contracts\AbstractStorageAdapter;
 use SwishMigrateAndBackup\Logger\Logger;
 

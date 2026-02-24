@@ -9,6 +9,11 @@ declare(strict_types=1);
 
 namespace SwishMigrateAndBackup\Core;
 
+// Prevent direct access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 use Closure;
 use InvalidArgumentException;
 

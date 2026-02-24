@@ -9,6 +9,11 @@ declare(strict_types=1);
 
 namespace SwishMigrateAndBackup\Admin;
 
+// Prevent direct access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 use SwishMigrateAndBackup\Storage\StorageManager;
 use SwishMigrateAndBackup\Security\Encryption;
 

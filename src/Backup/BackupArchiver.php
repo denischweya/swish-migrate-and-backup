@@ -9,6 +9,11 @@ declare(strict_types=1);
 
 namespace SwishMigrateAndBackup\Backup;
 
+// Prevent direct access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 use SwishMigrateAndBackup\Logger\Logger;
 use ZipArchive;
 

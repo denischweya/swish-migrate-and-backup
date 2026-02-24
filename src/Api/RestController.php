@@ -9,6 +9,11 @@ declare(strict_types=1);
 
 namespace SwishMigrateAndBackup\Api;
 
+// Prevent direct access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 use SwishMigrateAndBackup\Backup\BackupManager;
 use SwishMigrateAndBackup\Migration\Migrator;
 use SwishMigrateAndBackup\Queue\JobQueue;
