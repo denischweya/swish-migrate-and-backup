@@ -1,8 +1,8 @@
 === Swish Migrate and Backup ===
-Contributors: afrothemes
+Contributors: afrothemes, fortisthemes
 Tags: backup, migration, restore, database, cloud storage
 Requires at least: 6.0
-Tested up to: 6.7
+Tested up to: 6.9
 Requires PHP: 8.1
 Stable tag: 1.0.1
 License: GPLv2 or later
