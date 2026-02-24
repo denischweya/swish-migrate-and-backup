@@ -176,14 +176,20 @@ const SettingsPanel = ( { settings, onSave, onClose } ) => {
 								/>
 								{ __( 'Uploads', 'swish-migrate-and-backup' ) }
 							</label>
+						</div>
+
+						<div className="swish-checkbox-group swish-core-files-option">
 							<label>
 								<input
 									type="checkbox"
-									checked={ localSettings.backup_core_files !== false }
+									checked={ localSettings.backup_core_files === true }
 									onChange={ ( e ) => handleChange( 'backup_core_files', e.target.checked ) }
 								/>
-								{ __( 'Core Files', 'swish-migrate-and-backup' ) }
+								{ __( 'WordPress Core Files', 'swish-migrate-and-backup' ) }
 							</label>
+							<p className="description swish-core-files-hint">
+								{ __( 'Excludes wp-admin, wp-includes, and core root files by default. The target site already has WordPress installed.', 'swish-migrate-and-backup' ) }
+							</p>
 						</div>
 					</div>
 
