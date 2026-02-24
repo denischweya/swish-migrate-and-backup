@@ -45,6 +45,13 @@ final class FileBackup {
 	private const DEFAULT_FILES_PER_BATCH = 100;
 
 	/**
+	 * Whether to include WordPress core files.
+	 *
+	 * @var bool
+	 */
+	private bool $include_core = false;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param Logger $logger Logger instance.
@@ -66,6 +73,56 @@ final class FileBackup {
 			'wp-content/debug.log',
 			'error_log',
 		);
+	}
+
+	/**
+	 * WordPress core files and directories to exclude.
+	 *
+	 * @return array
+	 */
+	private function get_wp_core_patterns(): array {
+		return array(
+			// Core directories.
+			'wp-admin',
+			'wp-includes',
+			// Core root files.
+			'index.php',
+			'license.txt',
+			'readme.html',
+			'wp-activate.php',
+			'wp-blog-header.php',
+			'wp-comments-post.php',
+			'wp-config-sample.php',
+			'wp-cron.php',
+			'wp-links-opml.php',
+			'wp-load.php',
+			'wp-login.php',
+			'wp-mail.php',
+			'wp-settings.php',
+			'wp-signup.php',
+			'wp-trackback.php',
+			'xmlrpc.php',
+		);
+	}
+
+	/**
+	 * Set whether to include WordPress core files.
+	 *
+	 * @param bool $include Whether to include core files.
+	 * @return self
+	 */
+	public function set_include_core( bool $include ): self {
+		$this->include_core = $include;
+		return $this;
+	}
+
+	/**
+	 * Get whether WordPress core files are included.
+	 *
+	 * @return bool
+	 */
+	public function get_include_core(): bool {
+		return $this->include_core;
 	}
 
 	/**
@@ -151,8 +208,11 @@ final class FileBackup {
 	public function get_backup_directories( array $options = array() ): array {
 		$directories = array();
 
-		// WordPress root files.
-		if ( $options['backup_core_files'] ?? true ) {
+		// WordPress core files - excluded by default.
+		// Target sites already have WordPress installed.
+		$this->include_core = $options['backup_core_files'] ?? false;
+
+		if ( $this->include_core ) {
 			$directories[] = ABSPATH;
 		}
 
@@ -340,6 +400,19 @@ final class FileBackup {
 	 */
 	private function should_exclude( string $path ): bool {
 		$normalized_path = str_replace( '\\', '/', $path );
+		$abspath = str_replace( '\\', '/', ABSPATH );
+
+		// Exclude WordPress core files/directories unless explicitly included.
+		if ( ! $this->include_core ) {
+			foreach ( $this->get_wp_core_patterns() as $core_pattern ) {
+				$core_path = $abspath . $core_pattern;
+
+				// Check if path is the core file/directory or inside a core directory.
+				if ( strpos( $normalized_path, $core_path ) === 0 ) {
+					return true;
+				}
+			}
+		}
 
 		foreach ( $this->exclude_patterns as $pattern ) {
 			// Check if it's a glob pattern.
