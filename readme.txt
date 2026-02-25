@@ -4,7 +4,7 @@ Tags: backup, migration, restore, database, cloud storage
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.0.5
+Stable tag: 1.0.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -91,6 +91,14 @@ Yes, you can download a backup and upload it to any WordPress site with this plu
 
 == Changelog ==
 
+= 1.0.7 =
+* Compatibility update for Pro plugin import fixes
+* Minor stability improvements
+
+= 1.0.6 =
+* Compatibility update for Pro plugin URL auto-detection fixes
+* Minor stability improvements
+
 = 1.0.5 =
 * Compatibility update for Pro plugin size estimation fixes
 * Minor stability improvements
@@ -134,6 +142,12 @@ Yes, you can download a backup and upload it to any WordPress site with this plu
 * REST API endpoints
 
 == Upgrade Notice ==
+
+= 1.0.7 =
+Compatibility update for Pro plugin. Recommended update for all users.
+
+= 1.0.6 =
+Compatibility update for Pro plugin. Recommended update for all users.
 
 = 1.0.5 =
 Compatibility update for Pro plugin. Recommended update for all users.
