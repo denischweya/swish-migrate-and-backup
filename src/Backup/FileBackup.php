@@ -439,8 +439,9 @@ final class FileBackup {
 			}
 		}
 
-		// Exclude files larger than 500MB by default.
-		if ( is_file( $path ) && filesize( $path ) > 500 * 1024 * 1024 ) {
+		// Exclude files larger than 500MB by default (Pro version can override).
+		$max_file_size = apply_filters( 'swish_backup_max_file_size', 500 * 1024 * 1024 );
+		if ( is_file( $path ) && $max_file_size > 0 && filesize( $path ) > $max_file_size ) {
 			$this->logger->warning( 'Skipping large file', array( 'path' => $path, 'size' => filesize( $path ) ) );
 			return true;
 		}

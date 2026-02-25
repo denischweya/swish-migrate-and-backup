@@ -4,7 +4,7 @@ Tags: backup, migration, restore, database, cloud storage
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.0.1
+Stable tag: 1.0.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -91,6 +91,13 @@ Yes, you can download a backup and upload it to any WordPress site with this plu
 
 == Changelog ==
 
+= 1.0.2 =
+* Enhanced backup progress modal with detailed stage tracking
+* Added visual progress log showing each backup stage as it completes
+* Green checkmarks for completed stages, red indicators for failures
+* Improved progress feedback with animated status indicators
+* Better error handling and messaging during backup process
+
 = 1.0.1 =
 * Added option to include/exclude WordPress core files in backups
 * Enhanced CSS for admin layout with responsive design
@@ -110,6 +117,9 @@ Yes, you can download a backup and upload it to any WordPress site with this plu
 * REST API endpoints
 
 == Upgrade Notice ==
+
+= 1.0.2 =
+This update enhances the backup progress modal with detailed stage tracking. See exactly what's being backed up with visual indicators for completed and failed stages.
 
 = 1.0.1 =
 This update adds the option to include or exclude WordPress core files from backups and includes various UI improvements.

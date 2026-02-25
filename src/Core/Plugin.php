@@ -380,6 +380,18 @@ final class Plugin {
 				$assets['version'] ?? SWISH_BACKUP_VERSION,
 				true
 			);
+
+			// Localize script with data.
+			wp_localize_script(
+				'swish-backup-dashboard',
+				'swishBackupData',
+				array(
+					'apiUrl'      => rest_url( 'swish-backup/v1' ),
+					'nonce'       => wp_create_nonce( 'wp_rest' ),
+					'proUrl'      => SWISH_BACKUP_PRO_URL,
+					'isProActive' => apply_filters( 'swish_backup_is_pro', false ),
+				)
+			);
 		} else {
 			// Fallback to legacy JS if React build doesn't exist.
 			$this->enqueue_legacy_js();
@@ -404,9 +416,11 @@ final class Plugin {
 			'swish-backup-admin',
 			'swishBackup',
 			array(
-				'apiUrl'   => rest_url( 'swish-backup/v1' ),
-				'nonce'    => wp_create_nonce( 'wp_rest' ),
-				'i18n'     => array(
+				'apiUrl'      => rest_url( 'swish-backup/v1' ),
+				'nonce'       => wp_create_nonce( 'wp_rest' ),
+				'proUrl'      => SWISH_BACKUP_PRO_URL,
+				'isProActive' => apply_filters( 'swish_backup_is_pro', false ),
+				'i18n'        => array(
 					'backupStarted'   => __( 'Backup started...', 'swish-migrate-and-backup' ),
 					'backupComplete'  => __( 'Backup completed successfully!', 'swish-migrate-and-backup' ),
 					'backupFailed'    => __( 'Backup failed. Check the logs.', 'swish-migrate-and-backup' ),

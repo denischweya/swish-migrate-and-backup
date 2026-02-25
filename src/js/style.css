@@ -1052,3 +1052,171 @@
 		flex-direction: column;
 	}
 }
+
+/* ==========================================================================
+   Upgrade Notice
+   ========================================================================== */
+
+.swish-upgrade-button {
+	background: linear-gradient(90deg, #f97316, #ea580c) !important;
+	border-color: #ea580c !important;
+	color: #fff !important;
+	font-weight: 600 !important;
+	box-shadow: 0 2px 8px rgba(249, 115, 22, 0.3) !important;
+	transition: all 0.2s ease !important;
+}
+
+.swish-upgrade-button:hover,
+.swish-upgrade-button:focus {
+	background: linear-gradient(90deg, #ea580c, #c2410c) !important;
+	border-color: #c2410c !important;
+	box-shadow: 0 4px 12px rgba(249, 115, 22, 0.4) !important;
+	transform: translateY(-1px);
+}
+
+.swish-modal-footer .swish-upgrade-button {
+	margin-left: 8px;
+}
+
+.swish-status-message.status-failed {
+	font-weight: 500;
+}
+
+/* ==========================================================================
+   Backup Progress Log
+   ========================================================================== */
+
+.swish-modal-with-log {
+	max-width: 550px;
+}
+
+.swish-backup-log-container {
+	margin-top: 20px;
+}
+
+.swish-backup-log-title {
+	margin: 0 0 12px 0;
+	font-size: 13px;
+	font-weight: 600;
+	color: #1d2327;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+.swish-backup-log {
+	max-height: 180px;
+	overflow-y: auto;
+	background: #f6f7f7;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	padding: 8px 12px;
+}
+
+.swish-log-entry {
+	display: flex;
+	align-items: flex-start;
+	padding: 8px 0;
+	border-bottom: 1px solid #e6e6e6;
+	animation: swishFadeIn 0.3s ease;
+}
+
+.swish-log-entry:last-child {
+	border-bottom: none;
+}
+
+@keyframes swishFadeIn {
+	from {
+		opacity: 0;
+		transform: translateY(-5px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.swish-log-icon {
+	flex-shrink: 0;
+	width: 20px;
+	height: 20px;
+	margin-right: 12px;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 11px;
+	font-weight: bold;
+}
+
+.swish-log-pending .swish-log-icon {
+	background: #dcdcde;
+	color: #646970;
+}
+
+.swish-log-in-progress .swish-log-icon {
+	background: #2271b1;
+	color: #fff;
+	animation: swishPulse 1s infinite;
+}
+
+@keyframes swishPulse {
+	0%, 100% {
+		opacity: 1;
+		transform: scale(1);
+	}
+	50% {
+		opacity: 0.7;
+		transform: scale(0.95);
+	}
+}
+
+.swish-log-completed .swish-log-icon {
+	background: #00a32a;
+	color: #fff;
+}
+
+.swish-log-failed .swish-log-icon {
+	background: #d63638;
+	color: #fff;
+}
+
+.swish-log-content {
+	flex: 1;
+	min-width: 0;
+}
+
+.swish-log-title {
+	font-size: 13px;
+	font-weight: 500;
+	color: #1d2327;
+	line-height: 1.4;
+}
+
+.swish-log-in-progress .swish-log-title {
+	color: #2271b1;
+	font-weight: 600;
+}
+
+.swish-log-completed .swish-log-title {
+	color: #00a32a;
+}
+
+.swish-log-failed .swish-log-title {
+	color: #d63638;
+}
+
+.swish-log-detail {
+	font-size: 11px;
+	color: #646970;
+	margin-top: 2px;
+	line-height: 1.4;
+	word-break: break-word;
+}
+
+.swish-log-completed .swish-log-detail {
+	color: #388e3c;
+}
+
+.swish-log-failed .swish-log-detail {
+	color: #c62828;
+}

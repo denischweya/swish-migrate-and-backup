@@ -81,6 +81,72 @@ final class BackupManager {
 	}
 
 	/**
+	 * Check if backup size exceeds the free version limit.
+	 *
+	 * @param string $backup_path Backup file path.
+	 * @param string $job_id      Job ID.
+	 * @return bool True if size is within limit.
+	 * @throws \Exception If size limit exceeded.
+	 */
+	private function check_backup_size_limit( string $backup_path, string $job_id ): bool {
+		// Apply filter to allow Pro version to bypass size limit.
+		$size_limit = apply_filters( 'swish_backup_size_limit', SWISH_BACKUP_FREE_SIZE_LIMIT );
+
+		// If size limit is null (Pro version), skip check.
+		if ( null === $size_limit ) {
+			return true;
+		}
+
+		// Get backup file size.
+		if ( ! file_exists( $backup_path ) ) {
+			return true;
+		}
+
+		$backup_size = filesize( $backup_path );
+
+		// Check if size exceeds limit.
+		if ( $backup_size > $size_limit ) {
+			// Delete the backup file.
+			@unlink( $backup_path );
+
+			// Mark job as size limit exceeded.
+			global $wpdb;
+			$table = $wpdb->prefix . 'swish_backup_jobs';
+
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->update(
+				$table,
+				array(
+					'size_limit_exceeded' => 1,
+					'status'              => 'failed',
+					'error_message'       => 'Backup exceeds 1GB limit for free version',
+				),
+				array( 'job_id' => $job_id )
+			);
+
+			$this->logger->warning(
+				'Backup exceeds 1GB limit',
+				array(
+					'job_id'      => $job_id,
+					'backup_size' => size_format( $backup_size ),
+					'size_limit'  => size_format( $size_limit ),
+				)
+			);
+
+			// Throw exception with upgrade URL.
+			throw new \Exception(
+				sprintf(
+					'Your backup is %s which exceeds the 1GB limit for the free version. Upgrade to Pro to remove all limits: %s',
+					size_format( $backup_size ),
+					SWISH_BACKUP_PRO_URL
+				)
+			);
+		}
+
+		return true;
+	}
+
+	/**
 	 * Configure batch sizes from options.
 	 *
 	 * @param array $options Backup options.
@@ -184,6 +250,9 @@ final class BackupManager {
 				throw new \RuntimeException( 'Archive creation failed' );
 			}
 
+			// Check backup size limit.
+			$this->check_backup_size_limit( $backup_path, $job_id );
+
 			// Upload to storage destinations.
 			$this->update_job_status( $job_id, 'processing', 90, 'Uploading to storage...' );
 			$destinations = $options['storage_destinations'] ?? array( 'local' );
@@ -231,7 +300,7 @@ final class BackupManager {
 				$this->cleanup_temp_directory( $temp_dir );
 			}
 
-			return null;
+			return array( 'error' => $e->getMessage() );
 		}
 	}
 
@@ -279,6 +348,9 @@ final class BackupManager {
 				throw new \RuntimeException( 'Archive creation failed' );
 			}
 
+			// Check backup size limit.
+			$this->check_backup_size_limit( $backup_path, $job_id );
+
 			// Upload to storage.
 			$this->update_job_status( $job_id, 'processing', 90, 'Uploading to storage...' );
 			$destinations = $options['storage_destinations'] ?? array( 'local' );
@@ -307,7 +379,7 @@ final class BackupManager {
 		} catch ( \Exception $e ) {
 			$this->fail_job( $job_id, $e->getMessage() );
 			$this->logger->error( 'Database backup failed: ' . $e->getMessage() );
-			return null;
+			return array( 'error' => $e->getMessage() );
 		}
 	}
 
@@ -340,6 +412,9 @@ final class BackupManager {
 				throw new \RuntimeException( 'File backup failed' );
 			}
 
+			// Check backup size limit.
+			$this->check_backup_size_limit( $backup_path, $job_id );
+
 			// Upload to storage.
 			$this->update_job_status( $job_id, 'processing', 90, 'Uploading to storage...' );
 			$destinations = $options['storage_destinations'] ?? array( 'local' );
@@ -366,7 +441,7 @@ final class BackupManager {
 		} catch ( \Exception $e ) {
 			$this->fail_job( $job_id, $e->getMessage() );
 			$this->logger->error( 'Files backup failed: ' . $e->getMessage() );
-			return null;
+			return array( 'error' => $e->getMessage() );
 		}
 	}
 

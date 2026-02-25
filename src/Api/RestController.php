@@ -342,10 +342,24 @@ final class RestController extends WP_REST_Controller {
 			default    => $this->backup_manager->create_full_backup( $options ),
 		};
 
-		if ( null === $result ) {
+		// Check if backup failed.
+		if ( isset( $result['error'] ) ) {
+			// Check if it's a size limit error.
+			if ( strpos( $result['error'], '1GB limit' ) !== false ) {
+				return new WP_Error(
+					'backup_size_limit_exceeded',
+					$result['error'],
+					array(
+						'status'      => 402,
+						'upgrade_url' => SWISH_BACKUP_PRO_URL,
+					)
+				);
+			}
+
+			// Generic backup failure.
 			return new WP_Error(
 				'backup_failed',
-				__( 'Backup creation failed.', 'swish-migrate-and-backup' ),
+				$result['error'],
 				array( 'status' => 500 )
 			);
 		}
