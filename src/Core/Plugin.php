@@ -354,24 +354,29 @@ final class Plugin {
 	 * @return void
 	 */
 	private function enqueue_built_styles(): void {
+		$css_file   = SWISH_BACKUP_PLUGIN_DIR . 'build/style-index.css';
 		$asset_file = SWISH_BACKUP_PLUGIN_DIR . 'build/index.asset.php';
 
-		if ( file_exists( $asset_file ) ) {
-			$assets = include $asset_file;
+		if ( file_exists( $css_file ) ) {
+			// Use file modification time for reliable cache busting.
+			$version = SWISH_BACKUP_VERSION . '.' . filemtime( $css_file );
 
 			wp_enqueue_style(
 				'swish-backup-admin',
 				SWISH_BACKUP_PLUGIN_URL . 'build/style-index.css',
 				array( 'wp-components' ),
-				$assets['version'] ?? SWISH_BACKUP_VERSION
+				$version
 			);
-		} else {
+		} elseif ( file_exists( SWISH_BACKUP_PLUGIN_DIR . 'assets/css/admin.css' ) ) {
 			// Fallback to legacy CSS if build doesn't exist.
+			$legacy_css = SWISH_BACKUP_PLUGIN_DIR . 'assets/css/admin.css';
+			$version    = SWISH_BACKUP_VERSION . '.' . filemtime( $legacy_css );
+
 			wp_enqueue_style(
 				'swish-backup-admin',
 				SWISH_BACKUP_PLUGIN_URL . 'assets/css/admin.css',
 				array(),
-				SWISH_BACKUP_VERSION
+				$version
 			);
 		}
 	}
@@ -382,16 +387,20 @@ final class Plugin {
 	 * @return void
 	 */
 	private function enqueue_react_dashboard_js(): void {
+		$js_file    = SWISH_BACKUP_PLUGIN_DIR . 'build/index.js';
 		$asset_file = SWISH_BACKUP_PLUGIN_DIR . 'build/index.asset.php';
 
-		if ( file_exists( $asset_file ) ) {
+		if ( file_exists( $js_file ) && file_exists( $asset_file ) ) {
 			$assets = include $asset_file;
+
+			// Use file modification time for reliable cache busting.
+			$version = SWISH_BACKUP_VERSION . '.' . filemtime( $js_file );
 
 			wp_enqueue_script(
 				'swish-backup-dashboard',
 				SWISH_BACKUP_PLUGIN_URL . 'build/index.js',
 				$assets['dependencies'] ?? array( 'wp-element', 'wp-components', 'wp-api-fetch', 'wp-i18n' ),
-				$assets['version'] ?? SWISH_BACKUP_VERSION,
+				$version,
 				true
 			);
 
@@ -418,11 +427,18 @@ final class Plugin {
 	 * @return void
 	 */
 	private function enqueue_legacy_js(): void {
+		$js_file = SWISH_BACKUP_PLUGIN_DIR . 'assets/js/admin.js';
+		$version = SWISH_BACKUP_VERSION;
+
+		if ( file_exists( $js_file ) ) {
+			$version = SWISH_BACKUP_VERSION . '.' . filemtime( $js_file );
+		}
+
 		wp_enqueue_script(
 			'swish-backup-admin',
 			SWISH_BACKUP_PLUGIN_URL . 'assets/js/admin.js',
 			array( 'jquery', 'wp-api-fetch' ),
-			SWISH_BACKUP_VERSION,
+			$version,
 			true
 		);
 
