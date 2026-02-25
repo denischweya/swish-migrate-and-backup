@@ -64,6 +64,15 @@ final class Dashboard {
 					<p><?php esc_html_e( 'Loading dashboard...', 'swish-migrate-and-backup' ); ?></p>
 				</div>
 			</div>
+
+			<?php
+			/**
+			 * Hook to add content after dashboard.
+			 *
+			 * @since 1.0.0
+			 */
+			do_action( 'swish_backup_admin_page_after_content' );
+			?>
 		</div>
 		<?php
 	}

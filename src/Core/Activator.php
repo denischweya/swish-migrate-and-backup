@@ -151,12 +151,14 @@ final class Activator {
 			checksum varchar(64) DEFAULT NULL,
 			manifest longtext DEFAULT NULL,
 			error_message text DEFAULT NULL,
+			size_limit_exceeded tinyint(1) DEFAULT 0,
 			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (id),
 			UNIQUE KEY job_id (job_id),
 			KEY status (status),
 			KEY type (type),
-			KEY created_at (created_at)
+			KEY created_at (created_at),
+			KEY size_limit_exceeded (size_limit_exceeded)
 		) {$charset_collate};";
 
 		// Backup logs table.
@@ -200,7 +202,7 @@ final class Activator {
 		dbDelta( $schedules_sql );
 
 		// Store database version for future migrations.
-		update_option( 'swish_backup_db_version', '1.0.0' );
+		update_option( 'swish_backup_db_version', '1.0.1' );
 	}
 
 	/**
