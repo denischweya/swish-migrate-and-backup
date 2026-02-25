@@ -439,7 +439,7 @@
 	left: 0;
 	right: 0;
 	bottom: 0;
-	background: rgba(0, 0, 0, 0.7);
+	background: #000;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -448,10 +448,10 @@
 
 .swish-modal,
 .swish-backup-modal-content {
-	background: #fff;
+	background:rgba(0, 0, 0, 0.7);
 	border-radius: 8px;
-	max-width: 500px;
-	width: 90%;
+	max-width: 100%;
+	width: 100%;
 	max-height: 90vh;
 	overflow: auto;
 	box-shadow: 0 10px 50px rgba(0, 0, 0, 0.3);
