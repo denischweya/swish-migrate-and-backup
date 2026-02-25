@@ -74,7 +74,7 @@ final class FileBackup {
 			'node_modules',
 			'vendor',
 			'wp-content/cache',
-			'wp-content/uploads/swish-backups',
+			'swish-backups',
 			'wp-content/debug.log',
 			'error_log',
 		);
@@ -434,6 +434,10 @@ final class FileBackup {
 					return true;
 				}
 				if ( str_ends_with( $normalized_path, '/' . $pattern ) ) {
+					return true;
+				}
+				// Check if basename matches (for directory names like 'swish-backups').
+				if ( basename( $normalized_path ) === $pattern ) {
 					return true;
 				}
 			}

@@ -409,8 +409,7 @@ final class Logger {
 	 * @return string
 	 */
 	private function get_log_directory(): string {
-		$upload_dir = wp_upload_dir();
-		return $upload_dir['basedir'] . '/swish-backups/logs';
+		return WP_CONTENT_DIR . '/swish-backups/logs';
 	}
 
 	/**

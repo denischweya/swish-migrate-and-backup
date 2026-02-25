@@ -5,6 +5,35 @@ All notable changes to Swish Migrate and Backup will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.5] - 2026-02-25
+
+### Changed
+- Compatibility update for Pro plugin size estimation fixes
+- Minor stability improvements
+
+## [1.0.4] - 2026-02-25
+
+### Changed
+- Compatibility update for Pro plugin import/migration fixes
+- Minor stability improvements
+
+## [1.0.3] - 2026-02-25
+
+### Added
+- Auto-detection of old site URL during migration (pre-filled from backup manifest)
+- Detailed migration progress with stage tracking similar to backup process
+- Smooth scrolling and active state highlighting for documentation navigation
+- REST endpoint for importing backup files (`/swish-backup/v1/import`)
+
+### Changed
+- Moved backup storage location from `wp-content/uploads/swish-backups/` to `wp-content/swish-backups/`
+- Improved documentation page with better anchor link navigation
+
+### Fixed
+- Import feature Continue button now properly uploads and analyzes backup files
+- Backup exclusion now always excludes swish-backups folder from backups
+- Prevents backups from including previous backup archives
+
 ## [1.0.2] - 2025-02-25
 
 ### Added

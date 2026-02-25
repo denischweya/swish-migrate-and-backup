@@ -4,7 +4,7 @@ Tags: backup, migration, restore, database, cloud storage
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.0.2
+Stable tag: 1.0.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -60,7 +60,7 @@ The plugin uses chunked processing for both database and file operations, allowi
 
 = Where are backups stored by default? =
 
-By default, backups are stored locally in `wp-content/uploads/swish-backups/`. You can configure additional cloud storage destinations in the settings.
+By default, backups are stored locally in `wp-content/swish-backups/`. You can configure additional cloud storage destinations in the settings.
 
 = Can I schedule automatic backups? =
 
@@ -91,6 +91,23 @@ Yes, you can download a backup and upload it to any WordPress site with this plu
 
 == Changelog ==
 
+= 1.0.5 =
+* Compatibility update for Pro plugin size estimation fixes
+* Minor stability improvements
+
+= 1.0.4 =
+* Compatibility update for Pro plugin import/migration fixes
+* Minor stability improvements
+
+= 1.0.3 =
+* Fixed import feature - Continue button now properly uploads and analyzes backup files
+* Added auto-detection of old site URL during migration (pre-filled from backup manifest)
+* Added detailed migration progress with stage tracking similar to backup process
+* Fixed backup exclusion to always exclude swish-backups folder from backups
+* Moved backup storage location from wp-content/uploads/swish-backups to wp-content/swish-backups
+* Added smooth scrolling and active state highlighting to documentation navigation
+* Improved documentation page with better anchor link navigation
+
 = 1.0.2 =
 * Enhanced backup progress modal with detailed stage tracking
 * Added visual progress log showing each backup stage as it completes
@@ -117,6 +134,15 @@ Yes, you can download a backup and upload it to any WordPress site with this plu
 * REST API endpoints
 
 == Upgrade Notice ==
+
+= 1.0.5 =
+Compatibility update for Pro plugin. Recommended update for all users.
+
+= 1.0.4 =
+Compatibility update for Pro plugin. Recommended update for all users.
+
+= 1.0.3 =
+This update fixes the import feature, adds auto-detection of old URLs during migration, and moves the backup storage location. Note: Existing backups in wp-content/uploads/swish-backups will need to be moved manually.
 
 = 1.0.2 =
 This update enhances the backup progress modal with detailed stage tracking. See exactly what's being backed up with visual indicators for completed and failed stages.

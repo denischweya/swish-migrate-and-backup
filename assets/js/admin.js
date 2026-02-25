@@ -52,6 +52,7 @@
 				$('#backup_file').click();
 			});
 			$(document).on('change', '#backup_file', this.handleFileSelect);
+			$(document).on('click', '#swish-backup-continue-import', this.uploadAndAnalyzeBackup);
 			$(document).on('click', '#swish-backup-preview-url', this.previewUrlReplacement);
 			$(document).on('click', '#swish-backup-start-migration', this.startMigration);
 			$(document).on('click', '#swish-backup-start-export', this.startExport);
@@ -303,7 +304,110 @@
 				$('#selected-file-name').text(file.name);
 				$('#swish-backup-file-info').show();
 				$('#swish-backup-continue-import').prop('disabled', false);
+				// Hide any previous analysis.
+				$('#swish-backup-import-analysis').hide();
 			}
+		},
+
+		/**
+		 * Upload and analyze backup file.
+		 */
+		uploadAndAnalyzeBackup: function() {
+			const file = $('#backup_file')[0].files[0];
+			if (!file) {
+				alert('Please select a backup file first.');
+				return;
+			}
+
+			const $button = $('#swish-backup-continue-import');
+			const originalText = $button.text();
+
+			// Disable button and show uploading state.
+			$button.prop('disabled', true).text('Uploading...');
+			$('#swish-backup-import-analysis').hide();
+
+			// Create FormData for file upload.
+			const formData = new FormData();
+			formData.append('backup_file', file);
+
+			// Upload via REST API.
+			$.ajax({
+				url: swishBackup.apiUrl + '/import',
+				method: 'POST',
+				data: formData,
+				processData: false,
+				contentType: false,
+				beforeSend: function(xhr) {
+					xhr.setRequestHeader('X-WP-Nonce', swishBackup.nonce);
+				},
+				success: function(response) {
+					if (response.success) {
+						// Store backup path for migration.
+						SwishBackup.importedBackupPath = response.backup_path;
+
+						// Show analysis.
+						let analysisHtml = '<div class="swish-backup-analysis-results">';
+
+						if (response.analysis && response.analysis.backup) {
+							const backup = response.analysis.backup;
+							analysisHtml += '<p><strong>Backup Type:</strong> ' + (backup.type || 'Full') + '</p>';
+							analysisHtml += '<p><strong>Created:</strong> ' + (backup.created_at || 'Unknown') + '</p>';
+							if (backup.wordpress_version) {
+								analysisHtml += '<p><strong>WordPress Version:</strong> ' + backup.wordpress_version + '</p>';
+							}
+						}
+
+						if (response.analysis && response.analysis.backup_url) {
+							analysisHtml += '<p><strong>Original Site URL:</strong> ' + response.analysis.backup_url + '</p>';
+							// Pre-fill the old URL field.
+							$('#old_url').val(response.analysis.backup_url);
+							// Add visual indicator that URL was auto-detected.
+							$('#old_url').closest('td').find('.swish-auto-detected').remove();
+							$('#old_url').after('<span class="swish-auto-detected"><span class="dashicons dashicons-yes-alt"></span> Auto-detected from backup</span>');
+						}
+
+						// Show warnings.
+						if (response.analysis && response.analysis.warnings && response.analysis.warnings.length) {
+							analysisHtml += '<div class="swish-backup-warning"><span class="dashicons dashicons-warning"></span>';
+							analysisHtml += '<ul>';
+							response.analysis.warnings.forEach(function(warning) {
+								analysisHtml += '<li>' + warning + '</li>';
+							});
+							analysisHtml += '</ul></div>';
+						}
+
+						// Show recommendations.
+						if (response.analysis && response.analysis.recommendations && response.analysis.recommendations.length) {
+							analysisHtml += '<div class="swish-docs-tip"><span class="dashicons dashicons-lightbulb"></span>';
+							analysisHtml += '<ul>';
+							response.analysis.recommendations.forEach(function(rec) {
+								analysisHtml += '<li>' + rec + '</li>';
+							});
+							analysisHtml += '</ul></div>';
+						}
+
+						analysisHtml += '</div>';
+
+						$('#swish-backup-analysis-content').html(analysisHtml);
+						$('#swish-backup-import-analysis').show();
+
+						// Navigate to URL step.
+						$('.swish-backup-migration-step').hide();
+						$('#migration-step-url').show();
+					} else {
+						alert('Upload failed: ' + (response.message || 'Unknown error'));
+						$button.prop('disabled', false).text(originalText);
+					}
+				},
+				error: function(xhr) {
+					let errorMessage = 'Upload failed';
+					if (xhr.responseJSON && xhr.responseJSON.message) {
+						errorMessage = xhr.responseJSON.message;
+					}
+					alert(errorMessage);
+					$button.prop('disabled', false).text(originalText);
+				}
+			});
 		},
 
 		/**
@@ -341,27 +445,163 @@
 		},
 
 		/**
+		 * Migration stages configuration.
+		 */
+		migrationStages: {
+			init: { title: 'Initializing', detail: 'Preparing migration environment' },
+			extract: { title: 'Extracting Backup', detail: 'Unpacking backup archive' },
+			database: { title: 'Restoring Database', detail: 'Importing database tables' },
+			files: { title: 'Restoring Files', detail: 'Copying files to destination' },
+			urls: { title: 'Updating URLs', detail: 'Replacing old URLs with new URLs' },
+			cleanup: { title: 'Finalizing', detail: 'Cleaning up temporary files' }
+		},
+
+		/**
+		 * Add migration log entry.
+		 */
+		addMigrationLog: function(stage, status, detail) {
+			const stageConfig = this.migrationStages[stage] || { title: stage, detail: '' };
+			const $log = $('#migration-log');
+			const statusClass = status === 'in-progress' ? 'in-progress' : status;
+
+			// Check if entry already exists.
+			let $entry = $log.find('[data-stage="' + stage + '"]');
+
+			if ($entry.length === 0) {
+				// Create new entry.
+				const html = '<div class="swish-log-entry swish-log-' + statusClass + '" data-stage="' + stage + '">' +
+					'<div class="swish-log-icon">' + this.getLogIcon(status) + '</div>' +
+					'<div class="swish-log-content">' +
+						'<div class="swish-log-title">' + stageConfig.title + '</div>' +
+						'<div class="swish-log-detail">' + (detail || stageConfig.detail) + '</div>' +
+					'</div>' +
+				'</div>';
+				$log.append(html);
+				$entry = $log.find('[data-stage="' + stage + '"]');
+			} else {
+				// Update existing entry.
+				$entry.removeClass('swish-log-pending swish-log-in-progress swish-log-completed swish-log-failed')
+					.addClass('swish-log-' + statusClass);
+				$entry.find('.swish-log-icon').html(this.getLogIcon(status));
+				if (detail) {
+					$entry.find('.swish-log-detail').text(detail);
+				}
+			}
+
+			// Scroll to bottom.
+			$log.scrollTop($log[0].scrollHeight);
+		},
+
+		/**
+		 * Get log icon HTML.
+		 */
+		getLogIcon: function(status) {
+			switch (status) {
+				case 'completed':
+					return '✓';
+				case 'failed':
+					return '✕';
+				case 'in-progress':
+					return '●';
+				default:
+					return '○';
+			}
+		},
+
+		/**
 		 * Start migration.
 		 */
 		startMigration: function() {
 			const oldUrl = $('#old_url').val();
 			const newUrl = $('#new_url').val();
 
+			if (!oldUrl) {
+				alert('Please enter the old site URL.');
+				return;
+			}
+
+			if (!newUrl) {
+				alert('Please enter the new site URL.');
+				return;
+			}
+
 			$('.swish-backup-migration-step').hide();
 			$('#migration-step-progress').show();
+			$('#migration-progress-title').text('Migration in Progress');
+			$('.swish-backup-progress-bar-inner').css('width', '0%');
+			$('.swish-backup-progress-status').text('Starting migration...');
+
+			// Clear and initialize log.
+			$('#migration-log').empty();
+			$('#migration-log-container').show();
+
+			const data = {
+				old_url: oldUrl,
+				new_url: newUrl
+			};
+
+			// Include backup path if we imported a file.
+			const hasBackup = !!SwishBackup.importedBackupPath;
+			if (hasBackup) {
+				data.backup_path = SwishBackup.importedBackupPath;
+			}
+
+			// Add initial stages.
+			SwishBackup.addMigrationLog('init', 'in-progress');
+
+			// Simulate stage progression.
+			let currentStageIndex = 0;
+			const stages = hasBackup
+				? ['init', 'extract', 'database', 'files', 'urls', 'cleanup']
+				: ['init', 'urls', 'cleanup'];
+
+			const stageProgress = {
+				init: 10,
+				extract: 25,
+				database: 50,
+				files: 70,
+				urls: 85,
+				cleanup: 95
+			};
+
+			// Progress through stages.
+			SwishBackup.progressInterval = setInterval(function() {
+				if (currentStageIndex < stages.length - 1) {
+					// Complete current stage.
+					SwishBackup.addMigrationLog(stages[currentStageIndex], 'completed');
+					currentStageIndex++;
+					// Start next stage.
+					SwishBackup.addMigrationLog(stages[currentStageIndex], 'in-progress');
+					SwishBackup.updateProgress(stageProgress[stages[currentStageIndex]]);
+					$('.swish-backup-progress-status').text(SwishBackup.migrationStages[stages[currentStageIndex]].detail);
+				}
+			}, 1500);
 
 			wp.apiFetch({
 				path: '/swish-backup/v1/migrate',
 				method: 'POST',
-				data: {
-					old_url: oldUrl,
-					new_url: newUrl
-				}
+				data: data
 			}).then(function(response) {
+				clearInterval(SwishBackup.progressInterval);
+
+				// Mark all stages as completed.
+				stages.forEach(function(stage) {
+					SwishBackup.addMigrationLog(stage, 'completed');
+				});
+
 				SwishBackup.updateProgress(100, 'Migration complete!');
 				$('#migration-result').show();
+				// Clear the stored path.
+				SwishBackup.importedBackupPath = null;
 			}).catch(function(error) {
-				SwishBackup.showError('Migration failed: ' + error.message);
+				clearInterval(SwishBackup.progressInterval);
+
+				// Mark current stage as failed.
+				if (currentStageIndex < stages.length) {
+					SwishBackup.addMigrationLog(stages[currentStageIndex], 'failed', error.message || 'An error occurred');
+				}
+
+				SwishBackup.showError('Migration failed: ' + (error.message || 'Unknown error'));
 			});
 		},
 

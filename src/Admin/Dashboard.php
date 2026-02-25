@@ -56,7 +56,9 @@ final class Dashboard {
 	 */
 	public function render(): void {
 		?>
-		<div class="wrap">
+		<div class="wrap swish-backup-wrap">
+			<?php AdminNav::render(); ?>
+
 			<div id="swish-backup-dashboard">
 				<!-- React app will mount here -->
 				<div class="swish-loading">

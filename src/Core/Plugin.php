@@ -20,6 +20,8 @@ use SwishMigrateAndBackup\Admin\BackupsPage;
 use SwishMigrateAndBackup\Admin\SettingsPage;
 use SwishMigrateAndBackup\Admin\SchedulesPage;
 use SwishMigrateAndBackup\Admin\MigrationPage;
+use SwishMigrateAndBackup\Admin\ProPage;
+use SwishMigrateAndBackup\Admin\DocumentationPage;
 use SwishMigrateAndBackup\Api\RestController;
 use SwishMigrateAndBackup\Backup\BackupManager;
 use SwishMigrateAndBackup\Backup\DatabaseBackup;
@@ -231,13 +233,25 @@ final class Plugin {
 		);
 
 		$this->container->singleton(
+			ProPage::class,
+			fn() => new ProPage()
+		);
+
+		$this->container->singleton(
+			DocumentationPage::class,
+			fn() => new DocumentationPage()
+		);
+
+		$this->container->singleton(
 			AdminMenu::class,
 			fn( Container $c ) => new AdminMenu(
 				$c->get( Dashboard::class ),
 				$c->get( BackupsPage::class ),
 				$c->get( SettingsPage::class ),
 				$c->get( SchedulesPage::class ),
-				$c->get( MigrationPage::class )
+				$c->get( MigrationPage::class ),
+				$c->get( ProPage::class ),
+				$c->get( DocumentationPage::class )
 			)
 		);
 

@@ -92,8 +92,7 @@ final class Activator {
 	 * @return void
 	 */
 	private function create_backup_directory(): void {
-		$upload_dir  = wp_upload_dir();
-		$backup_dir  = $upload_dir['basedir'] . '/swish-backups';
+		$backup_dir  = WP_CONTENT_DIR . '/swish-backups';
 		$temp_dir    = $backup_dir . '/temp';
 		$logs_dir    = $backup_dir . '/logs';
 
@@ -222,7 +221,7 @@ final class Activator {
 					'*.tmp',
 					'cache/*',
 					'wp-content/cache/*',
-					'wp-content/uploads/swish-backups/*',
+					'wp-content/swish-backups/*',
 				),
 				'exclude_tables'        => array(),
 				'email_notifications'   => false,
