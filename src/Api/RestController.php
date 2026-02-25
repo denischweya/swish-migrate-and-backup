@@ -198,6 +198,18 @@ final class RestController extends WP_REST_Controller {
 		// Migration routes.
 		register_rest_route(
 			$this->namespace,
+			'/import',
+			array(
+				array(
+					'methods'             => WP_REST_Server::CREATABLE,
+					'callback'            => array( $this, 'import_backup' ),
+					'permission_callback' => array( $this, 'check_admin_permission' ),
+				),
+			)
+		);
+
+		register_rest_route(
+			$this->namespace,
 			'/migrate',
 			array(
 				array(
@@ -474,6 +486,101 @@ final class RestController extends WP_REST_Controller {
 		}
 
 		return rest_ensure_response( array( 'success' => true ) );
+	}
+
+	/**
+	 * Import a backup file for migration.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function import_backup( WP_REST_Request $request ) {
+		$files = $request->get_file_params();
+
+		if ( empty( $files['backup_file'] ) ) {
+			return new WP_Error(
+				'no_file',
+				__( 'No backup file provided.', 'swish-migrate-and-backup' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		$file = $files['backup_file'];
+
+		// Check for upload errors.
+		if ( $file['error'] !== UPLOAD_ERR_OK ) {
+			$error_messages = array(
+				UPLOAD_ERR_INI_SIZE   => __( 'File exceeds upload_max_filesize directive.', 'swish-migrate-and-backup' ),
+				UPLOAD_ERR_FORM_SIZE  => __( 'File exceeds MAX_FILE_SIZE directive.', 'swish-migrate-and-backup' ),
+				UPLOAD_ERR_PARTIAL    => __( 'File was only partially uploaded.', 'swish-migrate-and-backup' ),
+				UPLOAD_ERR_NO_FILE    => __( 'No file was uploaded.', 'swish-migrate-and-backup' ),
+				UPLOAD_ERR_NO_TMP_DIR => __( 'Missing temporary folder.', 'swish-migrate-and-backup' ),
+				UPLOAD_ERR_CANT_WRITE => __( 'Failed to write file to disk.', 'swish-migrate-and-backup' ),
+			);
+
+			$message = $error_messages[ $file['error'] ] ?? __( 'Unknown upload error.', 'swish-migrate-and-backup' );
+
+			return new WP_Error(
+				'upload_error',
+				$message,
+				array( 'status' => 400 )
+			);
+		}
+
+		// Validate file type.
+		$file_type = wp_check_filetype( $file['name'], array( 'zip' => 'application/zip' ) );
+		if ( ! $file_type['ext'] ) {
+			return new WP_Error(
+				'invalid_file_type',
+				__( 'Invalid file type. Only ZIP files are allowed.', 'swish-migrate-and-backup' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		// Move file to backups directory.
+		$backup_dir = WP_CONTENT_DIR . '/swish-backups/imports';
+
+		if ( ! file_exists( $backup_dir ) ) {
+			wp_mkdir_p( $backup_dir );
+		}
+
+		$filename = sanitize_file_name( $file['name'] );
+		$destination = $backup_dir . '/' . $filename;
+
+		// If file exists, add a unique suffix.
+		if ( file_exists( $destination ) ) {
+			$filename = wp_unique_filename( $backup_dir, $filename );
+			$destination = $backup_dir . '/' . $filename;
+		}
+
+		if ( ! move_uploaded_file( $file['tmp_name'], $destination ) ) {
+			return new WP_Error(
+				'move_failed',
+				__( 'Failed to move uploaded file.', 'swish-migrate-and-backup' ),
+				array( 'status' => 500 )
+			);
+		}
+
+		// Analyze the backup.
+		$analysis = $this->migrator->analyze_backup( $destination );
+
+		if ( null === $analysis ) {
+			// Clean up the uploaded file.
+			wp_delete_file( $destination );
+			return new WP_Error(
+				'analysis_failed',
+				__( 'Failed to analyze backup. The file may be corrupted or not a valid Swish backup.', 'swish-migrate-and-backup' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		return rest_ensure_response( array(
+			'success'      => true,
+			'backup_path'  => $destination,
+			'filename'     => $filename,
+			'size'         => filesize( $destination ),
+			'analysis'     => $analysis,
+		) );
 	}
 
 	/**

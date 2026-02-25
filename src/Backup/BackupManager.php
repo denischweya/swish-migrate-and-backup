@@ -626,8 +626,7 @@ final class BackupManager {
 	 * @return string
 	 */
 	private function get_backup_directory(): string {
-		$upload_dir = wp_upload_dir();
-		$backup_dir = $upload_dir['basedir'] . '/swish-backups';
+		$backup_dir = WP_CONTENT_DIR . '/swish-backups';
 
 		if ( ! is_dir( $backup_dir ) ) {
 			wp_mkdir_p( $backup_dir );

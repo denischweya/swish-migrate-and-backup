@@ -46,6 +46,8 @@ final class MigrationPage {
 		$current_url = get_site_url();
 		?>
 		<div class="wrap swish-backup-wrap">
+			<?php AdminNav::render(); ?>
+
 			<h1><?php esc_html_e( 'Site Migration', 'swish-migrate-and-backup' ); ?></h1>
 
 			<div class="swish-backup-migration-wizard">
@@ -213,6 +215,13 @@ final class MigrationPage {
 						<div class="swish-backup-progress-bar-inner" style="width: 0%;"></div>
 					</div>
 					<p class="swish-backup-progress-status"><?php esc_html_e( 'Initializing...', 'swish-migrate-and-backup' ); ?></p>
+
+					<!-- Migration Log -->
+					<div class="swish-backup-log-container" id="migration-log-container">
+						<h4 class="swish-backup-log-title"><?php esc_html_e( 'Migration Progress', 'swish-migrate-and-backup' ); ?></h4>
+						<div class="swish-backup-log" id="migration-log"></div>
+					</div>
+
 					<div id="migration-result" style="display:none;">
 						<div class="swish-backup-success-message">
 							<span class="dashicons dashicons-yes-alt"></span>

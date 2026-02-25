@@ -364,8 +364,7 @@ final class LocalAdapter extends AbstractStorageAdapter {
 			return rtrim( $custom_path, '/\\' );
 		}
 
-		$upload_dir = wp_upload_dir();
-		return $upload_dir['basedir'] . '/swish-backups';
+		return WP_CONTENT_DIR . '/swish-backups';
 	}
 
 	/**

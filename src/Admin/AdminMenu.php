@@ -55,26 +55,46 @@ final class AdminMenu {
 	private MigrationPage $migration_page;
 
 	/**
+	 * Pro page.
+	 *
+	 * @var ProPage
+	 */
+	private ProPage $pro_page;
+
+	/**
+	 * Documentation page.
+	 *
+	 * @var DocumentationPage
+	 */
+	private DocumentationPage $docs_page;
+
+	/**
 	 * Constructor.
 	 *
-	 * @param Dashboard     $dashboard      Dashboard page.
-	 * @param BackupsPage   $backups_page   Backups page.
-	 * @param SettingsPage  $settings_page  Settings page.
-	 * @param SchedulesPage $schedules_page Schedules page.
-	 * @param MigrationPage $migration_page Migration page.
+	 * @param Dashboard         $dashboard      Dashboard page.
+	 * @param BackupsPage       $backups_page   Backups page.
+	 * @param SettingsPage      $settings_page  Settings page.
+	 * @param SchedulesPage     $schedules_page Schedules page.
+	 * @param MigrationPage     $migration_page Migration page.
+	 * @param ProPage           $pro_page       Pro page.
+	 * @param DocumentationPage $docs_page      Documentation page.
 	 */
 	public function __construct(
 		Dashboard $dashboard,
 		BackupsPage $backups_page,
 		SettingsPage $settings_page,
 		SchedulesPage $schedules_page,
-		MigrationPage $migration_page
+		MigrationPage $migration_page,
+		ProPage $pro_page,
+		DocumentationPage $docs_page
 	) {
 		$this->dashboard      = $dashboard;
 		$this->backups_page   = $backups_page;
 		$this->settings_page  = $settings_page;
 		$this->schedules_page = $schedules_page;
 		$this->migration_page = $migration_page;
+		$this->pro_page       = $pro_page;
+		$this->docs_page      = $docs_page;
 	}
 
 	/**
@@ -143,5 +163,27 @@ final class AdminMenu {
 			'swish-backup-settings',
 			array( $this->settings_page, 'render' )
 		);
+
+		// Documentation.
+		add_submenu_page(
+			'swish-backup',
+			__( 'Documentation', 'swish-migrate-and-backup' ),
+			__( 'Documentation', 'swish-migrate-and-backup' ),
+			'manage_options',
+			'swish-backup-docs',
+			array( $this->docs_page, 'render' )
+		);
+
+		// Pro page (only if Pro is not installed).
+		if ( ! AdminNav::is_pro_installed() ) {
+			add_submenu_page(
+				'swish-backup',
+				__( 'Go Pro', 'swish-migrate-and-backup' ),
+				'<span style="color: #f59e0b;">' . __( 'Go Pro', 'swish-migrate-and-backup' ) . '</span>',
+				'manage_options',
+				'swish-backup-pro',
+				array( $this->pro_page, 'render' )
+			);
+		}
 	}
 }

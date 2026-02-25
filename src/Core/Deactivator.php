@@ -60,8 +60,7 @@ final class Deactivator {
 	 * @return void
 	 */
 	private function cleanup_temp_files(): void {
-		$upload_dir = wp_upload_dir();
-		$temp_dir   = $upload_dir['basedir'] . '/swish-backups/temp';
+		$temp_dir = WP_CONTENT_DIR . '/swish-backups/temp';
 
 		if ( is_dir( $temp_dir ) ) {
 			$this->delete_directory_contents( $temp_dir );

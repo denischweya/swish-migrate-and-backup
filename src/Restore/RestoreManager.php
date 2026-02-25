@@ -433,8 +433,7 @@ final class RestoreManager {
 	 * @return string
 	 */
 	private function get_extract_directory(): string {
-		$upload_dir = wp_upload_dir();
-		$extract_dir = $upload_dir['basedir'] . '/swish-backups/temp/restore-' . time();
+		$extract_dir = WP_CONTENT_DIR . '/swish-backups/temp/restore-' . time();
 
 		if ( ! is_dir( $extract_dir ) ) {
 			wp_mkdir_p( $extract_dir );
