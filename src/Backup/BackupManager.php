@@ -107,7 +107,7 @@ final class BackupManager {
 		// Check if size exceeds limit.
 		if ( $backup_size > $size_limit ) {
 			// Delete the backup file.
-			@unlink( $backup_path );
+			wp_delete_file( $backup_path );
 
 			// Mark job as size limit exceeded.
 			global $wpdb;
@@ -137,8 +137,8 @@ final class BackupManager {
 			throw new \Exception(
 				sprintf(
 					'Your backup is %s which exceeds the 1GB limit for the free version. Upgrade to Pro to remove all limits: %s',
-					size_format( $backup_size ),
-					SWISH_BACKUP_PRO_URL
+					esc_html( size_format( $backup_size ) ),
+					esc_url( SWISH_BACKUP_PRO_URL )
 				)
 			);
 		}
@@ -456,7 +456,7 @@ final class BackupManager {
 
 		$table = $wpdb->prefix . 'swish_backup_jobs';
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Table name from $wpdb->prefix is safe.
 		$jobs = $wpdb->get_results(
 			$wpdb->prepare(
 				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
@@ -495,7 +495,7 @@ final class BackupManager {
 
 		$table = $wpdb->prefix . 'swish_backup_jobs';
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Table name from $wpdb->prefix is safe.
 		$job = $wpdb->get_row(
 			$wpdb->prepare(
 				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
@@ -576,7 +576,7 @@ final class BackupManager {
 
 		$table = $wpdb->prefix . 'swish_backup_jobs';
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Table name from $wpdb->prefix is safe.
 		$job = $wpdb->get_row(
 			$wpdb->prepare(
 				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared

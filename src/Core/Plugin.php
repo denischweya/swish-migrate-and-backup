@@ -285,6 +285,7 @@ final class Plugin {
 		if ( is_admin() ) {
 			add_action( 'admin_menu', array( $this->container->get( AdminMenu::class ), 'register' ) );
 			add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
+			add_filter( 'plugin_action_links_' . SWISH_BACKUP_PLUGIN_BASENAME, array( $this, 'add_plugin_action_links' ) );
 		}
 
 		// REST API.
@@ -295,6 +296,21 @@ final class Plugin {
 
 		// Register storage adapters.
 		add_action( 'init', array( $this, 'register_storage_adapters' ) );
+	}
+
+	/**
+	 * Add action links to the plugins listing page.
+	 *
+	 * @param array<string> $links Existing plugin action links.
+	 * @return array<string> Modified plugin action links.
+	 */
+	public function add_plugin_action_links( array $links ): array {
+		$plugin_links = array(
+			'dashboard' => '<a href="' . esc_url( admin_url( 'admin.php?page=swish-backup' ) ) . '">' . esc_html__( 'Dashboard', 'swish-migrate-and-backup' ) . '</a>',
+			'settings'  => '<a href="' . esc_url( admin_url( 'admin.php?page=swish-backup-settings' ) ) . '">' . esc_html__( 'Settings', 'swish-migrate-and-backup' ) . '</a>',
+		);
+
+		return array_merge( $plugin_links, $links );
 	}
 
 	/**

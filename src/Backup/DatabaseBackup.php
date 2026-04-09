@@ -178,7 +178,7 @@ final class DatabaseBackup {
 	public function get_table_row_count( string $table ): int {
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Table name from $wpdb->get_col() is safe.
 		$count = $wpdb->get_var( "SELECT COUNT(*) FROM `{$table}`" );
 
 		return (int) $count;
@@ -250,7 +250,7 @@ final class DatabaseBackup {
 		fwrite( $handle, $sql );
 
 		// Get CREATE TABLE statement.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.SchemaChange, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Table name from $wpdb->get_col() is safe.
 		$create_table = $wpdb->get_row( "SHOW CREATE TABLE `{$table}`", ARRAY_N );
 
 		if ( $create_table && isset( $create_table[1] ) ) {
@@ -275,7 +275,7 @@ final class DatabaseBackup {
 		fwrite( $handle, "/*!40000 ALTER TABLE `{$table}` DISABLE KEYS */;\n" );
 
 		// Get columns.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Table name from $wpdb->get_col() is safe.
 		$columns = $wpdb->get_results( "SHOW COLUMNS FROM `{$table}`", ARRAY_A );
 		$column_names = array_map( fn( $col ) => $col['Field'], $columns );
 		$column_list = '`' . implode( '`, `', $column_names ) . '`';
@@ -283,7 +283,7 @@ final class DatabaseBackup {
 		// Dump data in batches.
 		$offset = 0;
 		while ( $offset < $row_count ) {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Table name from $wpdb->get_col() is safe.
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
 					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared

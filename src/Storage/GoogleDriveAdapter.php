@@ -643,7 +643,7 @@ final class GoogleDriveAdapter extends AbstractStorageAdapter {
 		);
 
 		if ( is_wp_error( $response ) ) {
-			throw new \RuntimeException( 'Token refresh failed: ' . $response->get_error_message() );
+			throw new \RuntimeException( 'Token refresh failed: ' . esc_html( $response->get_error_message() ) );
 		}
 
 		$body = json_decode( wp_remote_retrieve_body( $response ), true );
@@ -705,7 +705,7 @@ final class GoogleDriveAdapter extends AbstractStorageAdapter {
 		);
 
 		if ( is_wp_error( $create_response ) ) {
-			throw new \RuntimeException( 'Failed to create folder: ' . $create_response->get_error_message() );
+			throw new \RuntimeException( 'Failed to create folder: ' . esc_html( $create_response->get_error_message() ) );
 		}
 
 		$body = json_decode( wp_remote_retrieve_body( $create_response ), true );
@@ -767,7 +767,7 @@ final class GoogleDriveAdapter extends AbstractStorageAdapter {
 		$response = wp_remote_request( $url, $args );
 
 		if ( is_wp_error( $response ) ) {
-			throw new \RuntimeException( $response->get_error_message() );
+			throw new \RuntimeException( esc_html( $response->get_error_message() ) );
 		}
 
 		$code = wp_remote_retrieve_response_code( $response );
@@ -775,7 +775,7 @@ final class GoogleDriveAdapter extends AbstractStorageAdapter {
 
 		if ( $code >= 400 ) {
 			$error = $body['error']['message'] ?? 'Unknown error';
-			throw new \RuntimeException( "Google Drive API error: {$error}" );
+			throw new \RuntimeException( 'Google Drive API error: ' . esc_html( $error ) );
 		}
 
 		return $body ?? array();
@@ -807,7 +807,7 @@ final class GoogleDriveAdapter extends AbstractStorageAdapter {
 		);
 
 		if ( is_wp_error( $response ) ) {
-			throw new \RuntimeException( $response->get_error_message() );
+			throw new \RuntimeException( esc_html( $response->get_error_message() ) );
 		}
 
 		$code = wp_remote_retrieve_response_code( $response );
@@ -815,7 +815,7 @@ final class GoogleDriveAdapter extends AbstractStorageAdapter {
 
 		if ( $code >= 400 ) {
 			$error = $response_body['error']['message'] ?? 'Unknown error';
-			throw new \RuntimeException( "Google Drive upload error: {$error}" );
+			throw new \RuntimeException( 'Google Drive upload error: ' . esc_html( $error ) );
 		}
 
 		return $response_body ?? array();

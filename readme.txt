@@ -28,15 +28,45 @@ Swish Migrate and Backup is a powerful WordPress plugin that allows you to creat
 * **Encrypted Credentials** - Cloud storage credentials are encrypted using AES-256-CBC
 * **REST API** - Full REST API for integration with other tools
 
-= Cloud Storage =
+= External Services =
 
-This plugin connects to the following external services when configured:
+This plugin connects to the following external services when configured by the user. No data is sent to any external service unless you explicitly configure and enable cloud storage in the plugin settings.
 
-* **Amazon S3** - For storing backups on AWS S3. Requires AWS access credentials. [AWS Privacy Policy](https://aws.amazon.com/privacy/)
-* **Dropbox** - For storing backups on Dropbox. Requires Dropbox API credentials. [Dropbox Privacy Policy](https://www.dropbox.com/privacy)
-* **Google Drive** - For storing backups on Google Drive. Requires Google API credentials. [Google Privacy Policy](https://policies.google.com/privacy)
+**Amazon S3**
 
-No data is sent to external services unless you explicitly configure and enable cloud storage.
+When you configure Amazon S3 storage, your backup files are uploaded to and stored on Amazon Web Services (AWS) S3 servers. The following data is sent:
+
+* Your backup files (which may contain your WordPress database, themes, plugins, and uploads)
+* AWS access credentials are used for authentication (stored encrypted in your WordPress database)
+
+Data is transmitted whenever you create a backup with S3 storage enabled, or when you download/restore a backup from S3.
+
+* [AWS Service Terms](https://aws.amazon.com/service-terms/)
+* [AWS Privacy Policy](https://aws.amazon.com/privacy/)
+
+**Dropbox**
+
+When you configure Dropbox storage, your backup files are uploaded to and stored on Dropbox servers. The following data is sent:
+
+* Your backup files (which may contain your WordPress database, themes, plugins, and uploads)
+* Dropbox API credentials are used for authentication (stored encrypted in your WordPress database)
+
+Data is transmitted whenever you create a backup with Dropbox storage enabled, or when you download/restore a backup from Dropbox.
+
+* [Dropbox Terms of Service](https://www.dropbox.com/terms)
+* [Dropbox Privacy Policy](https://www.dropbox.com/privacy)
+
+**Google Drive**
+
+When you configure Google Drive storage, your backup files are uploaded to and stored on Google servers. The following data is sent:
+
+* Your backup files (which may contain your WordPress database, themes, plugins, and uploads)
+* Google API credentials are used for authentication (stored encrypted in your WordPress database)
+
+Data is transmitted whenever you create a backup with Google Drive storage enabled, or when you download/restore a backup from Google Drive.
+
+* [Google Terms of Service](https://policies.google.com/terms)
+* [Google Privacy Policy](https://policies.google.com/privacy)
 
 = Requirements =
 
