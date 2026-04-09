@@ -206,9 +206,12 @@ final class SchedulesPage {
 	/**
 	 * Save schedule from form submission.
 	 *
+	 * Nonce verification is performed in render() before this method is called.
+	 *
 	 * @return void
 	 */
 	private function save_schedule(): void {
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- Nonce verified in render() method.
 		$schedule_data = array(
 			'name'                 => isset( $_POST['schedule_name'] ) ? sanitize_text_field( wp_unslash( $_POST['schedule_name'] ) ) : '',
 			'frequency'            => isset( $_POST['schedule_frequency'] ) ? sanitize_text_field( wp_unslash( $_POST['schedule_frequency'] ) ) : 'daily',
@@ -218,6 +221,7 @@ final class SchedulesPage {
 		);
 
 		$schedule_id = isset( $_POST['schedule_id'] ) ? absint( $_POST['schedule_id'] ) : 0;
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
 
 		if ( $schedule_id ) {
 			$this->scheduler->update_schedule( $schedule_id, $schedule_data );

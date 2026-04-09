@@ -675,7 +675,7 @@ final class S3Adapter extends AbstractStorageAdapter {
 		);
 
 		if ( is_wp_error( $response ) ) {
-			throw new \RuntimeException( $response->get_error_message() );
+			throw new \RuntimeException( esc_html( $response->get_error_message() ) );
 		}
 
 		return array(

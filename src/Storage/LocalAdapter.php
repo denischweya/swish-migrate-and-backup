@@ -57,6 +57,7 @@ final class LocalAdapter extends AbstractStorageAdapter {
 	 * {@inheritdoc}
 	 */
 	public function is_configured(): bool {
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_is_writable -- Simple directory check.
 		return is_dir( $this->backup_dir ) && is_writable( $this->backup_dir );
 	}
 
@@ -71,6 +72,7 @@ final class LocalAdapter extends AbstractStorageAdapter {
 			}
 		}
 
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_is_writable -- Simple directory check.
 		return is_writable( $this->backup_dir );
 	}
 

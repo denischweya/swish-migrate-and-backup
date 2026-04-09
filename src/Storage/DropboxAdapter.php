@@ -543,7 +543,7 @@ final class DropboxAdapter extends AbstractStorageAdapter {
 		);
 
 		if ( is_wp_error( $response ) ) {
-			throw new \RuntimeException( $response->get_error_message() );
+			throw new \RuntimeException( esc_html( $response->get_error_message() ) );
 		}
 
 		$body = json_decode( wp_remote_retrieve_body( $response ), true );
@@ -551,7 +551,7 @@ final class DropboxAdapter extends AbstractStorageAdapter {
 
 		if ( $code >= 400 ) {
 			$error = $body['error_summary'] ?? 'Unknown error';
-			throw new \RuntimeException( "Dropbox API error: {$error}" );
+			throw new \RuntimeException( 'Dropbox API error: ' . esc_html( $error ) );
 		}
 
 		return $body ?? array();
@@ -581,7 +581,7 @@ final class DropboxAdapter extends AbstractStorageAdapter {
 		);
 
 		if ( is_wp_error( $response ) ) {
-			throw new \RuntimeException( $response->get_error_message() );
+			throw new \RuntimeException( esc_html( $response->get_error_message() ) );
 		}
 
 		$body = json_decode( wp_remote_retrieve_body( $response ), true );
@@ -589,7 +589,7 @@ final class DropboxAdapter extends AbstractStorageAdapter {
 
 		if ( $code >= 400 ) {
 			$error = $body['error_summary'] ?? 'Unknown error';
-			throw new \RuntimeException( "Dropbox API error: {$error}" );
+			throw new \RuntimeException( 'Dropbox API error: ' . esc_html( $error ) );
 		}
 
 		return $body ?? array();

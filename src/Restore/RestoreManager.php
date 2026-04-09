@@ -103,8 +103,14 @@ final class RestoreManager {
 			// Restore wp-config if present and requested.
 			if ( ( $options['restore_wp_config'] ?? false ) && file_exists( $extract_dir . '/wp-config.php' ) ) {
 				$this->logger->warning( 'Restoring wp-config.php - database credentials will need to be updated' );
+				// Store in wp-content/swish-backups/ instead of ABSPATH for security.
+				$config_restore_dir = WP_CONTENT_DIR . '/swish-backups/restored-configs';
+				if ( ! is_dir( $config_restore_dir ) ) {
+					wp_mkdir_p( $config_restore_dir );
+				}
 				// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_copy
-				copy( $extract_dir . '/wp-config.php', ABSPATH . 'wp-config.php.restored' );
+				copy( $extract_dir . '/wp-config.php', $config_restore_dir . '/wp-config.php.restored-' . time() );
+				$this->logger->info( 'wp-config.php saved to ' . $config_restore_dir );
 			}
 
 			// Restore .htaccess if present.
@@ -199,7 +205,7 @@ final class RestoreManager {
 					$query = trim( $query );
 
 					if ( ! empty( $query ) && $query !== $delimiter ) {
-						// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+						// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- SQL from backup file is validated.
 						$result = $wpdb->query( $query );
 
 						if ( false === $result && ! empty( $wpdb->last_error ) ) {
@@ -257,8 +263,8 @@ final class RestoreManager {
 				$this->create_pre_restore_backup();
 			}
 
-			// Extract files.
-			$extracted = $zip->extractTo( $destination );
+			// Extract files safely (with path validation to prevent Zip Slip).
+			$extracted = $this->safe_extract_zip( $zip, $destination );
 			$zip->close();
 
 			if ( ! $extracted ) {
@@ -273,6 +279,75 @@ final class RestoreManager {
 			$this->logger->error( 'File restore failed: ' . $e->getMessage() );
 			return false;
 		}
+	}
+
+	/**
+	 * Safely extract a ZIP archive with path traversal validation.
+	 *
+	 * Prevents Zip Slip attacks by ensuring all extracted files stay within the destination directory.
+	 *
+	 * @param ZipArchive $zip         The ZipArchive object.
+	 * @param string     $destination The destination directory.
+	 * @return bool True if successful.
+	 */
+	private function safe_extract_zip( ZipArchive $zip, string $destination ): bool {
+		$destination = rtrim( $destination, '/' ) . '/';
+		$real_destination = realpath( $destination );
+
+		if ( false === $real_destination ) {
+			return false;
+		}
+
+		$real_destination = rtrim( $real_destination, '/' ) . '/';
+
+		for ( $i = 0; $i < $zip->numFiles; $i++ ) {
+			$entry_name = $zip->getNameIndex( $i );
+
+			if ( false === $entry_name ) {
+				continue;
+			}
+
+			// Build target path.
+			$target_path = $destination . $entry_name;
+
+			// Resolve the real path (handles ../ and symlinks).
+			// For directories, we need to check parent since dir doesn't exist yet.
+			if ( str_ends_with( $entry_name, '/' ) ) {
+				// It's a directory entry.
+				$parent_dir = dirname( $target_path );
+				if ( ! is_dir( $parent_dir ) ) {
+					wp_mkdir_p( $parent_dir );
+				}
+				if ( ! is_dir( $target_path ) ) {
+					wp_mkdir_p( $target_path );
+				}
+				continue;
+			}
+
+			// For files, ensure parent directory exists.
+			$parent_dir = dirname( $target_path );
+			if ( ! is_dir( $parent_dir ) ) {
+				wp_mkdir_p( $parent_dir );
+			}
+
+			// Now check if the resolved path is within our destination.
+			$real_target = realpath( $parent_dir );
+			if ( false === $real_target || ! str_starts_with( $real_target . '/', $real_destination ) ) {
+				$this->logger->warning( 'Skipping unsafe ZIP entry (path traversal attempt)', array( 'entry' => $entry_name ) );
+				continue;
+			}
+
+			// Extract the single file.
+			$content = $zip->getFromIndex( $i );
+			if ( false === $content ) {
+				continue;
+			}
+
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+			file_put_contents( $target_path, $content );
+		}
+
+		return true;
 	}
 
 	/**
@@ -400,7 +475,8 @@ final class RestoreManager {
 				return false;
 			}
 
-			$extracted = $zip->extractTo( $output_dir );
+			// Use safe extraction to prevent Zip Slip attacks.
+			$extracted = $this->safe_extract_zip( $zip, $output_dir );
 			$zip->close();
 
 			return $extracted;

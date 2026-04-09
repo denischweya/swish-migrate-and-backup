@@ -553,6 +553,7 @@ final class RestController extends WP_REST_Controller {
 			$destination = $backup_dir . '/' . $filename;
 		}
 
+		// phpcs:ignore Generic.PHP.ForbiddenFunctions.Found -- Required for handling PHP uploaded files.
 		if ( ! move_uploaded_file( $file['tmp_name'], $destination ) ) {
 			return new WP_Error(
 				'move_failed',

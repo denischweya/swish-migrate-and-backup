@@ -257,17 +257,21 @@ final class SettingsPage {
 	/**
 	 * Save settings from form submission.
 	 *
+	 * Nonce verification is performed in render() before this method is called.
+	 *
 	 * @return void
 	 */
 	private function save_settings(): void {
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in render() method.
 		$active_tab = isset( $_POST['active_tab'] ) ? sanitize_text_field( wp_unslash( $_POST['active_tab'] ) ) : 'general';
 
 		if ( 'general' === $active_tab ) {
 			// Save general settings.
 			$settings = array();
 
+			// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in render() method.
 			if ( isset( $_POST['swish_backup_settings'] ) && is_array( $_POST['swish_backup_settings'] ) ) {
-				// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+				// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.NonceVerification.Missing
 				$input = wp_unslash( $_POST['swish_backup_settings'] );
 
 				$settings['default_storage'] = sanitize_text_field( $input['default_storage'] ?? 'local' );
@@ -281,7 +285,7 @@ final class SettingsPage {
 				$settings['notification_email'] = sanitize_email( $input['notification_email'] ?? '' );
 
 				$exclude_files = $input['exclude_files'] ?? '';
-				$settings['exclude_files'] = array_filter( array_map( 'trim', explode( "\n", $exclude_files ) ) );
+				$settings['exclude_files'] = array_filter( array_map( 'sanitize_text_field', array_map( 'trim', explode( "\n", $exclude_files ) ) ) );
 			}
 
 			update_option( 'swish_backup_settings', $settings );
@@ -294,10 +298,11 @@ final class SettingsPage {
 			);
 		} else {
 			// Save storage adapter settings.
+			// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in render() method.
 			if ( isset( $_POST['swish_backup_storage'][ $active_tab ] ) && is_array( $_POST['swish_backup_storage'][ $active_tab ] ) ) {
 				$adapter = $this->storage_manager->get_adapter( $active_tab );
 
-				// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+				// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.NonceVerification.Missing
 				$input = wp_unslash( $_POST['swish_backup_storage'][ $active_tab ] );
 
 				// Sanitize input.
