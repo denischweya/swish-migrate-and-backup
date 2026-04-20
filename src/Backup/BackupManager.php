@@ -147,19 +147,115 @@ final class BackupManager {
 	}
 
 	/**
-	 * Configure batch sizes from options.
+	 * Configure batch sizes from options with memory-aware adjustments.
 	 *
 	 * @param array $options Backup options.
 	 * @return void
 	 */
 	private function configure_batch_sizes( array $options ): void {
-		if ( isset( $options['db_batch_size'] ) ) {
-			$this->database_backup->set_rows_per_batch( (int) $options['db_batch_size'] );
+		$db_batch_size = $options['db_batch_size'] ?? 200;
+		$file_batch_size = $options['file_batch_size'] ?? 50;
+
+		// Get memory-aware multiplier based on available memory.
+		$memory_multiplier = $this->get_memory_multiplier();
+
+		if ( $memory_multiplier < 1.0 ) {
+			$this->logger->info( 'Reducing batch sizes due to memory constraints', array(
+				'multiplier' => $memory_multiplier,
+				'memory_available' => size_format( $this->get_available_memory() ),
+			) );
+
+			$db_batch_size = max( 50, (int) ( $db_batch_size * $memory_multiplier ) );
+			$file_batch_size = max( 25, (int) ( $file_batch_size * $memory_multiplier ) );
 		}
 
-		if ( isset( $options['file_batch_size'] ) ) {
-			$this->file_backup->set_files_per_batch( (int) $options['file_batch_size'] );
+		$this->database_backup->set_rows_per_batch( $db_batch_size );
+		$this->file_backup->set_files_per_batch( $file_batch_size );
+
+		$this->logger->debug( 'Batch sizes configured', array(
+			'db_batch_size' => $db_batch_size,
+			'file_batch_size' => $file_batch_size,
+		) );
+	}
+
+	/**
+	 * Get memory multiplier based on available memory.
+	 *
+	 * Returns a value between 0.25 and 1.0 to scale batch sizes.
+	 *
+	 * @return float Memory multiplier.
+	 */
+	private function get_memory_multiplier(): float {
+		$available = $this->get_available_memory();
+
+		// Ideal memory thresholds for batch processing.
+		$ideal_memory = 256 * 1024 * 1024; // 256MB.
+		$minimum_memory = 64 * 1024 * 1024; // 64MB.
+
+		if ( $available >= $ideal_memory ) {
+			return 1.0;
 		}
+
+		if ( $available <= $minimum_memory ) {
+			return 0.25;
+		}
+
+		// Linear interpolation between minimum and ideal.
+		return 0.25 + ( 0.75 * ( ( $available - $minimum_memory ) / ( $ideal_memory - $minimum_memory ) ) );
+	}
+
+	/**
+	 * Get available memory in bytes.
+	 *
+	 * @return int Available memory.
+	 */
+	private function get_available_memory(): int {
+		$memory_limit = $this->get_memory_limit();
+		$memory_used = memory_get_usage( true );
+
+		return max( 0, $memory_limit - $memory_used );
+	}
+
+	/**
+	 * Get PHP memory limit in bytes.
+	 *
+	 * @return int Memory limit.
+	 */
+	private function get_memory_limit(): int {
+		$limit = ini_get( 'memory_limit' );
+
+		if ( '-1' === $limit ) {
+			// No limit set, assume 512MB.
+			return 512 * 1024 * 1024;
+		}
+
+		$value = (int) $limit;
+		$unit = strtoupper( substr( $limit, -1 ) );
+
+		switch ( $unit ) {
+			case 'G':
+				$value *= 1024;
+				// Fall through.
+			case 'M':
+				$value *= 1024;
+				// Fall through.
+			case 'K':
+				$value *= 1024;
+		}
+
+		return $value;
+	}
+
+	/**
+	 * Check if memory is running low and should reduce operations.
+	 *
+	 * @return bool True if memory is low.
+	 */
+	private function is_memory_low(): bool {
+		$available = $this->get_available_memory();
+		$threshold = 32 * 1024 * 1024; // 32MB.
+
+		return $available < $threshold;
 	}
 
 	/**
@@ -202,10 +298,10 @@ final class BackupManager {
 			$job_progress = 40 + (int) ( $progress * 0.4 );
 
 			$message = sprintf(
-				'Backing up files... %d/%d (%s)',
+				'Backing up files... %d/%d (%d%%)',
 				$processed,
 				$total,
-				$this->format_eta( $eta_seconds )
+				$progress
 			);
 
 			$this->update_job_status( $job_id, 'processing', $job_progress, $message );
@@ -528,10 +624,10 @@ final class BackupManager {
 			$progress_callback = function ( int $progress, string $file, int $processed, int $total, int $eta_seconds = 0 ) use ( $job_id ) {
 				$job_progress = 15 + (int) ( $progress * 0.7 );
 				$message = sprintf(
-					'Backing up files... %d/%d (%s)',
+					'Backing up files... %d/%d (%d%%)',
 					$processed,
 					$total,
-					$this->format_eta( $eta_seconds )
+					$progress
 				);
 				$this->update_job_status( $job_id, 'processing', $job_progress, $message );
 			};
@@ -832,10 +928,10 @@ final class BackupManager {
 			$progress_callback = function ( int $progress, string $file, int $processed, int $total, int $eta_seconds = 0 ) use ( $job_id ) {
 				$job_progress = 15 + (int) ( $progress * 0.7 );
 				$message = sprintf(
-					'Backing up files... %d/%d (%s)',
+					'Backing up files... %d/%d (%d%%)',
 					$processed,
 					$total,
-					$this->format_eta( $eta_seconds )
+					$progress
 				);
 				$this->update_job_status( $job_id, 'processing', $job_progress, $message );
 			};

@@ -285,6 +285,7 @@ final class RestoreManager {
 	 * Safely extract a ZIP archive with path traversal validation.
 	 *
 	 * Prevents Zip Slip attacks by ensuring all extracted files stay within the destination directory.
+	 * Uses stream-based extraction to handle large files without memory exhaustion.
 	 *
 	 * @param ZipArchive $zip         The ZipArchive object.
 	 * @param string     $destination The destination directory.
@@ -337,15 +338,58 @@ final class RestoreManager {
 				continue;
 			}
 
-			// Extract the single file.
-			$content = $zip->getFromIndex( $i );
-			if ( false === $content ) {
+			// Extract the file using streams to avoid memory exhaustion on large files.
+			if ( ! $this->extract_file_stream( $zip, $entry_name, $target_path ) ) {
+				$this->logger->warning( 'Failed to extract file', array( 'entry' => $entry_name ) );
 				continue;
 			}
-
-			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
-			file_put_contents( $target_path, $content );
 		}
+
+		return true;
+	}
+
+	/**
+	 * Extract a single file from ZIP using streams.
+	 *
+	 * This method reads and writes in chunks to avoid loading entire files into memory.
+	 *
+	 * @param ZipArchive $zip         The ZipArchive object.
+	 * @param string     $entry_name  The name of the entry in the ZIP.
+	 * @param string     $target_path The target path to write to.
+	 * @return bool True if successful.
+	 */
+	private function extract_file_stream( ZipArchive $zip, string $entry_name, string $target_path ): bool {
+		// Get a stream for the ZIP entry.
+		$stream = $zip->getStream( $entry_name );
+		if ( false === $stream ) {
+			return false;
+		}
+
+		// Open target file for writing.
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen
+		$output = fopen( $target_path, 'wb' );
+		if ( false === $output ) {
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+			fclose( $stream );
+			return false;
+		}
+
+		// Copy in chunks (8KB at a time).
+		$chunk_size = 8192;
+		while ( ! feof( $stream ) ) {
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fread
+			$chunk = fread( $stream, $chunk_size );
+			if ( false === $chunk ) {
+				break;
+			}
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite
+			fwrite( $output, $chunk );
+		}
+
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+		fclose( $stream );
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+		fclose( $output );
 
 		return true;
 	}
@@ -583,10 +627,25 @@ final class RestoreManager {
 		// Clear object cache.
 		wp_cache_flush();
 
-		// Clear any transients.
+		// Clear transients in batches to avoid memory issues on large sites.
 		global $wpdb;
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_%'" );
+		$batch_size = 1000;
+
+		do {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$deleted = $wpdb->query(
+				$wpdb->prepare(
+					"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s LIMIT %d",
+					'_transient_%',
+					$batch_size
+				)
+			);
+
+			// Free memory between batches.
+			if ( function_exists( 'gc_collect_cycles' ) ) {
+				gc_collect_cycles();
+			}
+		} while ( $deleted > 0 );
 
 		$this->logger->info( 'Caches flushed' );
 	}
