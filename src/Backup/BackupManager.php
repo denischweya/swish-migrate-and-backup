@@ -14,6 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+use SwishMigrateAndBackup\Core\ServerLimits;
 use SwishMigrateAndBackup\Logger\Logger;
 use SwishMigrateAndBackup\Storage\StorageManager;
 
@@ -147,143 +148,307 @@ final class BackupManager {
 	}
 
 	/**
-	 * Configure batch sizes from options with memory-aware adjustments.
+	 * Configure batch sizes from options with server-aware adjustments.
+	 *
+	 * Uses ServerLimits to adaptively set batch sizes based on
+	 * hosting environment, memory, and execution time limits.
 	 *
 	 * @param array $options Backup options.
 	 * @return void
 	 */
 	private function configure_batch_sizes( array $options ): void {
-		$db_batch_size = $options['db_batch_size'] ?? 200;
-		$file_batch_size = $options['file_batch_size'] ?? 50;
-
-		// Get memory-aware multiplier based on available memory.
-		$memory_multiplier = $this->get_memory_multiplier();
-
-		if ( $memory_multiplier < 1.0 ) {
-			$this->logger->info( 'Reducing batch sizes due to memory constraints', array(
-				'multiplier' => $memory_multiplier,
-				'memory_available' => size_format( $this->get_available_memory() ),
-			) );
-
-			$db_batch_size = max( 50, (int) ( $db_batch_size * $memory_multiplier ) );
-			$file_batch_size = max( 25, (int) ( $file_batch_size * $memory_multiplier ) );
-		}
+		// Get adaptive batch sizes from ServerLimits.
+		$db_batch_size = ServerLimits::get_adaptive_db_batch_size(
+			$options['db_batch_size'] ?? 500
+		);
+		$file_batch_size = ServerLimits::get_adaptive_file_batch_size(
+			$options['file_batch_size'] ?? 100
+		);
 
 		$this->database_backup->set_rows_per_batch( $db_batch_size );
 		$this->file_backup->set_files_per_batch( $file_batch_size );
 
-		$this->logger->debug( 'Batch sizes configured', array(
-			'db_batch_size' => $db_batch_size,
-			'file_batch_size' => $file_batch_size,
+		$this->logger->debug( 'Batch sizes configured using ServerLimits', array(
+			'db_batch_size'    => $db_batch_size,
+			'file_batch_size'  => $file_batch_size,
+			'server_limits'    => ServerLimits::get_debug_info(),
 		) );
 	}
 
 	/**
-	 * Get memory multiplier based on available memory.
+	 * Save backup checkpoint for resumption.
 	 *
-	 * Returns a value between 0.25 and 1.0 to scale batch sizes.
-	 *
-	 * @return float Memory multiplier.
+	 * @param string $job_id         Job ID.
+	 * @param array  $checkpoint     Checkpoint data.
+	 * @param int    $expiration     Expiration in seconds (default 1 hour).
+	 * @return void
 	 */
-	private function get_memory_multiplier(): float {
-		$available = $this->get_available_memory();
+	private function save_checkpoint( string $job_id, array $checkpoint, int $expiration = HOUR_IN_SECONDS ): void {
+		set_transient( 'swish_backup_checkpoint_' . $job_id, $checkpoint, $expiration );
 
-		// Ideal memory thresholds for batch processing.
-		$ideal_memory = 256 * 1024 * 1024; // 256MB.
-		$minimum_memory = 64 * 1024 * 1024; // 64MB.
-
-		if ( $available >= $ideal_memory ) {
-			return 1.0;
-		}
-
-		if ( $available <= $minimum_memory ) {
-			return 0.25;
-		}
-
-		// Linear interpolation between minimum and ideal.
-		return 0.25 + ( 0.75 * ( ( $available - $minimum_memory ) / ( $ideal_memory - $minimum_memory ) ) );
+		$this->logger->debug( 'Checkpoint saved', array(
+			'job_id'    => $job_id,
+			'processed' => $checkpoint['processed'] ?? 0,
+			'total'     => $checkpoint['total'] ?? 0,
+		) );
 	}
 
 	/**
-	 * Get available memory in bytes.
+	 * Get backup checkpoint.
 	 *
-	 * @return int Available memory.
+	 * @param string $job_id Job ID.
+	 * @return array|false Checkpoint data or false if not found.
 	 */
-	private function get_available_memory(): int {
-		$memory_limit = $this->get_memory_limit();
-		$memory_used = memory_get_usage( true );
-
-		return max( 0, $memory_limit - $memory_used );
+	private function get_checkpoint( string $job_id ) {
+		return get_transient( 'swish_backup_checkpoint_' . $job_id );
 	}
 
 	/**
-	 * Get PHP memory limit in bytes.
+	 * Delete backup checkpoint.
 	 *
-	 * @return int Memory limit.
+	 * @param string $job_id Job ID.
+	 * @return void
 	 */
-	private function get_memory_limit(): int {
-		$limit = ini_get( 'memory_limit' );
-
-		if ( '-1' === $limit ) {
-			// No limit set, assume 512MB.
-			return 512 * 1024 * 1024;
-		}
-
-		$value = (int) $limit;
-		$unit = strtoupper( substr( $limit, -1 ) );
-
-		switch ( $unit ) {
-			case 'G':
-				$value *= 1024;
-				// Fall through.
-			case 'M':
-				$value *= 1024;
-				// Fall through.
-			case 'K':
-				$value *= 1024;
-		}
-
-		return $value;
+	private function delete_checkpoint( string $job_id ): void {
+		delete_transient( 'swish_backup_checkpoint_' . $job_id );
 	}
 
 	/**
-	 * Check if memory is running low and should reduce operations.
+	 * Schedule backup continuation.
 	 *
-	 * @return bool True if memory is low.
+	 * @param string $job_id Job ID.
+	 * @return void
 	 */
-	private function is_memory_low(): bool {
-		$available = $this->get_available_memory();
-		$threshold = 32 * 1024 * 1024; // 32MB.
+	private function schedule_continuation( string $job_id ): void {
+		// Clear any existing scheduled event.
+		$timestamp = wp_next_scheduled( 'swish_backup_continue', array( $job_id ) );
+		if ( $timestamp ) {
+			wp_unschedule_event( $timestamp, 'swish_backup_continue', array( $job_id ) );
+		}
 
-		return $available < $threshold;
+		// Schedule immediate continuation.
+		wp_schedule_single_event( time(), 'swish_backup_continue', array( $job_id ) );
+
+		// Spawn cron to process immediately.
+		$this->spawn_cron();
+
+		$this->logger->debug( 'Scheduled backup continuation', array( 'job_id' => $job_id ) );
 	}
 
 	/**
-	 * Format seconds into human-readable time string.
+	 * Continue a backup from checkpoint.
 	 *
-	 * @param int $seconds Seconds remaining.
-	 * @return string Formatted time (e.g., "2m 30s", "1h 15m").
+	 * Called by cron to resume a backup that timed out.
+	 *
+	 * @param string $job_id Job ID.
+	 * @return void
 	 */
-	private function format_eta( int $seconds ): string {
-		if ( $seconds < 1 ) {
-			return 'almost done';
+	public function continue_backup( string $job_id ): void {
+		$checkpoint = $this->get_checkpoint( $job_id );
+
+		if ( ! $checkpoint ) {
+			$this->logger->error( 'No checkpoint found for backup continuation', array( 'job_id' => $job_id ) );
+			$this->fail_job( $job_id, 'Backup checkpoint expired or not found' );
+			return;
 		}
 
-		if ( $seconds < 60 ) {
-			return $seconds . 's remaining';
+		$this->logger->set_job_id( $job_id );
+		$this->logger->info( 'Resuming backup from checkpoint', array(
+			'processed' => $checkpoint['processed'] ?? 0,
+			'total'     => $checkpoint['total'] ?? 0,
+			'phase'     => $checkpoint['phase'] ?? 'unknown',
+		) );
+
+		// Increase time limit for continuation.
+		// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+		@set_time_limit( 300 );
+
+		// Initialize timing for this continuation request.
+		ServerLimits::init_timing();
+
+		$phase = $checkpoint['phase'] ?? 'files';
+		$options = $checkpoint['options'] ?? array();
+		$temp_dir = $checkpoint['temp_dir'] ?? '';
+
+		// Configure batch sizes.
+		$this->configure_batch_sizes( $options );
+
+		try {
+			if ( 'files' === $phase ) {
+				$this->continue_file_backup( $job_id, $checkpoint );
+			} else {
+				// For other phases, just run the full backup again.
+				$this->run_full_backup( $job_id, $options );
+			}
+		} catch ( \Exception $e ) {
+			$this->fail_job( $job_id, $e->getMessage() );
+			$this->delete_checkpoint( $job_id );
+		}
+	}
+
+	/**
+	 * Continue file backup from checkpoint.
+	 *
+	 * @param string $job_id     Job ID.
+	 * @param array  $checkpoint Checkpoint data.
+	 * @return void
+	 */
+	private function continue_file_backup( string $job_id, array $checkpoint ): void {
+		$remaining_files = $checkpoint['remaining_files'] ?? array();
+		$output_path = $checkpoint['output_path'] ?? '';
+		$processed = $checkpoint['processed'] ?? 0;
+		$total = $checkpoint['total'] ?? count( $remaining_files ) + $processed;
+		$options = $checkpoint['options'] ?? array();
+		$temp_dir = $checkpoint['temp_dir'] ?? '';
+		$files_to_archive = $checkpoint['files_to_archive'] ?? array();
+
+		if ( empty( $remaining_files ) ) {
+			// File backup complete, continue with archive creation.
+			$this->finalize_full_backup( $job_id, $options, $temp_dir, $files_to_archive, $output_path );
+			return;
 		}
 
-		$minutes = (int) floor( $seconds / 60 );
-		$secs = $seconds % 60;
+		// Progress callback for continuation.
+		$progress_callback = function ( int $progress, string $file, int $chunk_processed, int $chunk_total, int $eta_seconds = 0 ) use ( $job_id, $processed, $total ) {
+			$actual_processed = $processed + $chunk_processed;
+			$actual_progress = (int) ( ( $actual_processed / $total ) * 100 );
+			$job_progress = 40 + (int) ( $actual_progress * 0.4 );
 
-		if ( $minutes < 60 ) {
-			return $secs > 0 ? "{$minutes}m {$secs}s remaining" : "{$minutes}m remaining";
+			$message = sprintf(
+				'Backing up files... %d/%d (%d%%) [resumed]',
+				$actual_processed,
+				$total,
+				$actual_progress
+			);
+
+			$this->update_job_status( $job_id, 'processing', $job_progress, $message );
+		};
+
+		// Continue the file backup.
+		$result = $this->file_backup->backup( $remaining_files, $output_path, $progress_callback );
+
+		// Check if we timed out again.
+		if ( is_array( $result ) && ! empty( $result['timeout'] ) ) {
+			// Update checkpoint with new state.
+			$new_checkpoint = array(
+				'phase'           => 'files',
+				'processed'       => $processed + $result['processed'],
+				'total'           => $total,
+				'output_path'     => $output_path,
+				'remaining_files' => $result['remaining_files'],
+				'options'         => $options,
+				'temp_dir'        => $temp_dir,
+				'files_to_archive' => $files_to_archive,
+			);
+
+			$this->save_checkpoint( $job_id, $new_checkpoint );
+			$this->schedule_continuation( $job_id );
+
+			$this->logger->info( 'Backup paused again, scheduling next chunk', array(
+				'processed' => $new_checkpoint['processed'],
+				'remaining' => count( $result['remaining_files'] ),
+			) );
+
+			return;
 		}
 
-		$hours = (int) floor( $minutes / 60 );
-		$mins = $minutes % 60;
+		// File backup complete.
+		if ( true !== $result ) {
+			throw new \RuntimeException( 'File backup failed during continuation' );
+		}
 
-		return $mins > 0 ? "{$hours}h {$mins}m remaining" : "{$hours}h remaining";
+		// Delete checkpoint and finalize.
+		$this->delete_checkpoint( $job_id );
+
+		// Add files archive to archive list.
+		$files_to_archive[] = array(
+			'path' => $output_path,
+			'name' => 'files.zip',
+		);
+
+		// Finalize the backup.
+		$this->finalize_full_backup( $job_id, $options, $temp_dir, $files_to_archive, $output_path );
+	}
+
+	/**
+	 * Finalize a full backup after all files are processed.
+	 *
+	 * @param string $job_id           Job ID.
+	 * @param array  $options          Backup options.
+	 * @param string $temp_dir         Temp directory path.
+	 * @param array  $files_to_archive Files to include in final archive.
+	 * @param string $files_archive    Path to files archive (for size calculation).
+	 * @return void
+	 * @throws \RuntimeException On failure.
+	 */
+	private function finalize_full_backup(
+		string $job_id,
+		array $options,
+		string $temp_dir,
+		array $files_to_archive,
+		string $files_archive
+	): void {
+		// Backup wp-config and special files.
+		$special_files = $this->file_backup->backup_wp_config( $temp_dir );
+		foreach ( $special_files as $file ) {
+			$files_to_archive[] = array(
+				'path' => $file,
+				'name' => basename( $file ),
+			);
+		}
+
+		// Create final archive.
+		$this->update_job_status( $job_id, 'processing', 80, 'Creating archive...' );
+		$backup_filename = $this->generate_backup_filename();
+		$backup_path = $this->get_backup_directory() . '/' . $backup_filename;
+
+		$metadata = array(
+			'job_id'     => $job_id,
+			'type'       => 'full',
+			'options'    => $options,
+			'file_count' => 0, // We don't have exact count after chunked processing.
+			'total_size' => file_exists( $files_archive ) ? filesize( $files_archive ) : 0,
+			'chunked'    => true,
+		);
+
+		if ( ! $this->archiver->create_archive( $files_to_archive, $backup_path, $metadata ) ) {
+			throw new \RuntimeException( 'Archive creation failed' );
+		}
+
+		// Check backup size limit.
+		$this->check_backup_size_limit( $backup_path, $job_id );
+
+		// Upload to storage destinations.
+		$this->update_job_status( $job_id, 'processing', 90, 'Uploading to storage...' );
+		$destinations = $options['storage_destinations'] ?? array( 'local' );
+		$upload_results = $this->storage_manager->upload_to_destinations(
+			$backup_path,
+			$backup_filename,
+			$destinations
+		);
+
+		// Calculate checksum.
+		$checksum = $this->archiver->calculate_checksum( $backup_path );
+
+		// Clean up temp files.
+		$this->cleanup_temp_directory( $temp_dir );
+
+		// Update job as completed.
+		$result = array(
+			'job_id'       => $job_id,
+			'filename'     => $backup_filename,
+			'path'         => $backup_path,
+			'size'         => filesize( $backup_path ),
+			'checksum'     => $checksum,
+			'destinations' => $upload_results,
+			'manifest'     => $metadata,
+		);
+
+		$this->complete_job( $job_id, $result );
+
+		do_action( 'swish_backup_after', $job_id, $result );
+
+		$this->logger->info( 'Full backup completed (chunked)', $result );
 	}
 
 	/**
@@ -409,6 +574,9 @@ final class BackupManager {
 		$this->logger->set_job_id( $job_id );
 		$this->configure_batch_sizes( $options );
 
+		// Initialize timing for this backup request.
+		ServerLimits::init_timing();
+
 		do_action( 'swish_backup_before', $job_id, $options );
 
 		try {
@@ -445,7 +613,41 @@ final class BackupManager {
 				$files_archive = $temp_dir . '/files.zip';
 
 				$progress_callback = $this->create_file_progress_callback( $job_id );
-				if ( ! $this->file_backup->backup( $file_list['files'], $files_archive, $progress_callback ) ) {
+				$backup_result = $this->file_backup->backup( $file_list['files'], $files_archive, $progress_callback );
+
+				// Check if we hit a timeout - need to checkpoint and continue later.
+				if ( is_array( $backup_result ) && ! empty( $backup_result['timeout'] ) ) {
+					$this->logger->info( 'File backup timed out, saving checkpoint', array(
+						'processed' => $backup_result['processed'],
+						'total'     => $backup_result['total'],
+						'remaining' => count( $backup_result['remaining_files'] ),
+					) );
+
+					// Save checkpoint for resumption.
+					$checkpoint = array(
+						'phase'            => 'files',
+						'processed'        => $backup_result['processed'],
+						'total'            => $backup_result['total'],
+						'output_path'      => $files_archive,
+						'remaining_files'  => $backup_result['remaining_files'],
+						'options'          => $options,
+						'temp_dir'         => $temp_dir,
+						'files_to_archive' => $files_to_archive,
+					);
+
+					$this->save_checkpoint( $job_id, $checkpoint );
+					$this->schedule_continuation( $job_id );
+
+					// Return - backup will continue via cron.
+					return array(
+						'job_id'  => $job_id,
+						'status'  => 'processing',
+						'message' => 'Backup in progress (chunked processing)...',
+						'chunked' => true,
+					);
+				}
+
+				if ( true !== $backup_result ) {
 					throw new \RuntimeException( 'File backup failed' );
 				}
 
@@ -679,6 +881,9 @@ final class BackupManager {
 		// Configure batch sizes for shared hosting compatibility.
 		$this->configure_batch_sizes( $options );
 
+		// Initialize timing for this backup request.
+		ServerLimits::init_timing();
+
 		/**
 		 * Fires before a backup starts.
 		 *
@@ -724,7 +929,41 @@ final class BackupManager {
 				$files_archive = $temp_dir . '/files.zip';
 
 				$progress_callback = $this->create_file_progress_callback( $job_id );
-				if ( ! $this->file_backup->backup( $file_list['files'], $files_archive, $progress_callback ) ) {
+				$backup_result = $this->file_backup->backup( $file_list['files'], $files_archive, $progress_callback );
+
+				// Check if we hit a timeout - need to checkpoint and continue later.
+				if ( is_array( $backup_result ) && ! empty( $backup_result['timeout'] ) ) {
+					$this->logger->info( 'File backup timed out, saving checkpoint', array(
+						'processed' => $backup_result['processed'],
+						'total'     => $backup_result['total'],
+						'remaining' => count( $backup_result['remaining_files'] ),
+					) );
+
+					// Save checkpoint for resumption.
+					$checkpoint = array(
+						'phase'            => 'files',
+						'processed'        => $backup_result['processed'],
+						'total'            => $backup_result['total'],
+						'output_path'      => $files_archive,
+						'remaining_files'  => $backup_result['remaining_files'],
+						'options'          => $options,
+						'temp_dir'         => $temp_dir,
+						'files_to_archive' => $files_to_archive,
+					);
+
+					$this->save_checkpoint( $job_id, $checkpoint );
+					$this->schedule_continuation( $job_id );
+
+					// Return - backup will continue via cron.
+					return array(
+						'job_id'  => $job_id,
+						'status'  => 'processing',
+						'message' => 'Backup in progress (chunked processing)...',
+						'chunked' => true,
+					);
+				}
+
+				if ( true !== $backup_result ) {
 					throw new \RuntimeException( 'File backup failed' );
 				}
 
