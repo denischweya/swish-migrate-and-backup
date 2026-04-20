@@ -42,12 +42,22 @@ final class FileBackup {
 	 *
 	 * @var int
 	 */
-	private int $files_per_batch = 100;
+	private int $files_per_batch = 50;
 
 	/**
 	 * Default files per batch.
 	 */
 	private const DEFAULT_FILES_PER_BATCH = 100;
+
+	/**
+	 * Minimum files per batch (for memory-constrained environments).
+	 */
+	private const MIN_FILES_PER_BATCH = 25;
+
+	/**
+	 * Memory threshold for reducing batch size (32MB).
+	 */
+	private const MEMORY_THRESHOLD = 33554432;
 
 	/**
 	 * Whether to include WordPress core files.
@@ -72,7 +82,6 @@ final class FileBackup {
 			'.git',
 			'.svn',
 			'node_modules',
-			'vendor',
 			'wp-content/cache',
 			'swish-backups',
 			'wp-content/debug.log',
@@ -169,6 +178,7 @@ final class FileBackup {
 	 */
 	public function get_file_list( array $directories ): array {
 		$files = array();
+		$file_count = 0;
 
 		foreach ( $directories as $directory ) {
 			if ( ! is_dir( $directory ) ) {
@@ -197,6 +207,21 @@ final class FileBackup {
 						'size'     => $file->getSize(),
 						'modified' => $file->getMTime(),
 					);
+
+					++$file_count;
+
+					// Periodic memory cleanup for large sites.
+					if ( 0 === $file_count % 5000 ) {
+						if ( function_exists( 'gc_collect_cycles' ) ) {
+							gc_collect_cycles();
+						}
+
+						// Log progress for debugging on large sites.
+						$this->logger->debug( 'File scan progress', array(
+							'files_found' => $file_count,
+							'memory_used' => size_format( memory_get_usage( true ) ),
+						) );
+					}
 				}
 			}
 		}
@@ -290,10 +315,16 @@ final class FileBackup {
 					$progress_callback( $progress, $file['relative'], $processed, $total_files, $eta_seconds );
 				}
 
-				// Prevent memory exhaustion.
-				if ( 0 === $processed % 500 ) {
+				// Prevent memory exhaustion - close/reopen more frequently when memory is low.
+				$flush_interval = $this->is_memory_low() ? 100 : 500;
+				if ( 0 === $processed % $flush_interval ) {
 					$zip->close();
 					$zip->open( $output_path );
+
+					// Trigger garbage collection if available.
+					if ( function_exists( 'gc_collect_cycles' ) ) {
+						gc_collect_cycles();
+					}
 				}
 			}
 
@@ -618,5 +649,57 @@ final class FileBackup {
 		$content = preg_replace( '/^<\?php\s*/i', '', $content );
 
 		return $warning . $content;
+	}
+
+	/**
+	 * Check if available memory is below threshold.
+	 *
+	 * @return bool True if memory is low.
+	 */
+	private function is_memory_low(): bool {
+		$available = $this->get_available_memory();
+		return $available < self::MEMORY_THRESHOLD;
+	}
+
+	/**
+	 * Get available memory in bytes.
+	 *
+	 * @return int Available memory.
+	 */
+	private function get_available_memory(): int {
+		$memory_limit = $this->get_memory_limit();
+		$memory_used = memory_get_usage( true );
+
+		return max( 0, $memory_limit - $memory_used );
+	}
+
+	/**
+	 * Get PHP memory limit in bytes.
+	 *
+	 * @return int Memory limit.
+	 */
+	private function get_memory_limit(): int {
+		$limit = ini_get( 'memory_limit' );
+
+		if ( '-1' === $limit ) {
+			// No limit set, assume 512MB.
+			return 512 * 1024 * 1024;
+		}
+
+		$value = (int) $limit;
+		$unit = strtoupper( substr( $limit, -1 ) );
+
+		switch ( $unit ) {
+			case 'G':
+				$value *= 1024;
+				// Fall through.
+			case 'M':
+				$value *= 1024;
+				// Fall through.
+			case 'K':
+				$value *= 1024;
+		}
+
+		return $value;
 	}
 }

@@ -122,14 +122,14 @@ final class RestController extends WP_REST_Controller {
 						),
 						'db_batch_size'   => array(
 							'type'              => 'integer',
-							'default'           => 500,
+							'default'           => 200,
 							'minimum'           => 50,
 							'maximum'           => 2000,
 							'sanitize_callback' => 'absint',
 						),
 						'file_batch_size' => array(
 							'type'              => 'integer',
-							'default'           => 100,
+							'default'           => 50,
 							'minimum'           => 25,
 							'maximum'           => 500,
 							'sanitize_callback' => 'absint',
@@ -365,8 +365,8 @@ final class RestController extends WP_REST_Controller {
 			'backup_uploads'       => $settings['backup_uploads'] ?? true,
 			'backup_core_files'    => $settings['backup_core_files'] ?? true,
 			'storage_destinations' => $request->get_param( 'destinations' ) ?? array( 'local' ),
-			'db_batch_size'        => $request->get_param( 'db_batch_size' ) ?? 500,
-			'file_batch_size'      => $request->get_param( 'file_batch_size' ) ?? 100,
+			'db_batch_size'        => $request->get_param( 'db_batch_size' ) ?? 200,
+			'file_batch_size'      => $request->get_param( 'file_batch_size' ) ?? 50,
 		);
 
 		// Use async processing to avoid timeouts on shared/managed hosting.
@@ -531,6 +531,26 @@ final class RestController extends WP_REST_Controller {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function import_backup( WP_REST_Request $request ) {
+		// Check for previous fatal error stored in transient.
+		$last_error = get_transient( 'swish_import_fatal_error' );
+		if ( $last_error ) {
+			delete_transient( 'swish_import_fatal_error' );
+			return new WP_Error(
+				'previous_error',
+				$last_error,
+				array( 'status' => 500 )
+			);
+		}
+
+		// Register shutdown handler to catch fatal errors.
+		$this->register_import_shutdown_handler();
+
+		// Check available memory before proceeding.
+		$memory_check = $this->check_memory_for_import();
+		if ( is_wp_error( $memory_check ) ) {
+			return $memory_check;
+		}
+
 		$files = $request->get_file_params();
 
 		if ( empty( $files['backup_file'] ) ) {
@@ -599,8 +619,13 @@ final class RestController extends WP_REST_Controller {
 			'unique_filename_callback' => null,
 		);
 
+		// Include the file with wp_handle_upload function.
+		if ( ! function_exists( 'wp_handle_upload' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/file.php';
+		}
+
 		// Use WordPress file upload handler.
-		$upload_result = wp_handle_upload( $file, $upload_overrides );
+		$upload_result = \wp_handle_upload( $file, $upload_overrides );
 
 		// Remove the filter after upload.
 		remove_filter( 'upload_dir', $upload_dir_filter );
@@ -646,6 +671,26 @@ final class RestController extends WP_REST_Controller {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function run_migration( WP_REST_Request $request ) {
+		// Check for previous fatal error stored in transient.
+		$last_error = get_transient( 'swish_migration_fatal_error' );
+		if ( $last_error ) {
+			delete_transient( 'swish_migration_fatal_error' );
+			return new WP_Error(
+				'previous_error',
+				$last_error,
+				array( 'status' => 500 )
+			);
+		}
+
+		// Register shutdown handler to catch fatal errors.
+		$this->register_migration_shutdown_handler();
+
+		// Check available memory before proceeding.
+		$memory_check = $this->check_memory_for_import();
+		if ( is_wp_error( $memory_check ) ) {
+			return $memory_check;
+		}
+
 		$options = array(
 			'old_url'          => $request->get_param( 'old_url' ),
 			'new_url'          => $request->get_param( 'new_url' ),
@@ -792,8 +837,8 @@ final class RestController extends WP_REST_Controller {
 		$settings = get_option( 'swish_backup_settings', array() );
 
 		$defaults = array(
-			'db_batch_size'        => 500,
-			'file_batch_size'      => 100,
+			'db_batch_size'        => 200,
+			'file_batch_size'      => 50,
 			'backup_database'      => true,
 			'backup_plugins'       => true,
 			'backup_themes'        => true,
@@ -893,5 +938,169 @@ final class RestController extends WP_REST_Controller {
 			'storage'       => $adapters,
 			'site_url'      => get_site_url(),
 		) );
+	}
+
+	/**
+	 * Register shutdown handler to catch fatal errors during import.
+	 *
+	 * @return void
+	 */
+	private function register_import_shutdown_handler(): void {
+		register_shutdown_function( function () {
+			$error = error_get_last();
+
+			if ( null === $error ) {
+				return;
+			}
+
+			// Only handle fatal errors.
+			$fatal_errors = array( E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR );
+			if ( ! in_array( $error['type'], $fatal_errors, true ) ) {
+				return;
+			}
+
+			// Create user-friendly error message.
+			$message = $this->get_friendly_error_message( $error );
+
+			// Store error in transient for next request to display.
+			set_transient( 'swish_import_fatal_error', $message, 5 * MINUTE_IN_SECONDS );
+		} );
+	}
+
+	/**
+	 * Register shutdown handler to catch fatal errors during migration.
+	 *
+	 * @return void
+	 */
+	private function register_migration_shutdown_handler(): void {
+		register_shutdown_function( function () {
+			$error = error_get_last();
+
+			if ( null === $error ) {
+				return;
+			}
+
+			// Only handle fatal errors.
+			$fatal_errors = array( E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR );
+			if ( ! in_array( $error['type'], $fatal_errors, true ) ) {
+				return;
+			}
+
+			// Create user-friendly error message.
+			$message = $this->get_friendly_error_message( $error );
+
+			// Store error in transient for next request to display.
+			set_transient( 'swish_migration_fatal_error', $message, 5 * MINUTE_IN_SECONDS );
+		} );
+	}
+
+	/**
+	 * Get user-friendly error message from PHP error.
+	 *
+	 * @param array $error PHP error array from error_get_last().
+	 * @return string User-friendly error message.
+	 */
+	private function get_friendly_error_message( array $error ): string {
+		$raw_message = $error['message'] ?? '';
+
+		// Memory exhaustion.
+		if ( strpos( $raw_message, 'Allowed memory size' ) !== false ) {
+			// Extract memory limit from error message.
+			preg_match( '/Allowed memory size of (\d+) bytes/', $raw_message, $matches );
+			$memory_limit = isset( $matches[1] ) ? size_format( (int) $matches[1] ) : 'unknown';
+
+			return sprintf(
+				/* translators: %s: memory limit */
+				__( 'Import failed: Server memory limit (%s) exceeded. Please contact your hosting provider to increase the PHP memory_limit, or try importing a smaller backup.', 'swish-migrate-and-backup' ),
+				$memory_limit
+			);
+		}
+
+		// Maximum execution time.
+		if ( strpos( $raw_message, 'Maximum execution time' ) !== false ) {
+			return __( 'Import failed: Server timeout reached. Please contact your hosting provider to increase the max_execution_time limit, or try importing a smaller backup.', 'swish-migrate-and-backup' );
+		}
+
+		// Upload size limit.
+		if ( strpos( $raw_message, 'upload_max_filesize' ) !== false || strpos( $raw_message, 'post_max_size' ) !== false ) {
+			return __( 'Import failed: File size exceeds server upload limit. Please contact your hosting provider to increase upload_max_filesize and post_max_size limits.', 'swish-migrate-and-backup' );
+		}
+
+		// Generic fatal error.
+		return sprintf(
+			/* translators: %s: error message */
+			__( 'Import failed: A server error occurred. Error: %s', 'swish-migrate-and-backup' ),
+			$raw_message
+		);
+	}
+
+	/**
+	 * Check if there's enough memory available for import.
+	 *
+	 * @return true|WP_Error True if OK, WP_Error if not enough memory.
+	 */
+	private function check_memory_for_import() {
+		$memory_limit = $this->get_memory_limit();
+		$memory_used = memory_get_usage( true );
+		$memory_available = $memory_limit - $memory_used;
+
+		// We need at least 64MB available for safe import processing.
+		$minimum_required = 64 * 1024 * 1024;
+
+		if ( $memory_available < $minimum_required ) {
+			return new WP_Error(
+				'insufficient_memory',
+				sprintf(
+					/* translators: 1: available memory, 2: required memory, 3: current limit */
+					__( 'Insufficient memory for import. Available: %1$s, Required: %2$s. Your server\'s PHP memory_limit is set to %3$s. Please contact your hosting provider to increase this limit.', 'swish-migrate-and-backup' ),
+					size_format( $memory_available ),
+					size_format( $minimum_required ),
+					size_format( $memory_limit )
+				),
+				array( 'status' => 507 ) // 507 Insufficient Storage.
+			);
+		}
+
+		// Warn if memory is low but proceed.
+		if ( $memory_available < 128 * 1024 * 1024 ) {
+			// Log warning but continue.
+			error_log( sprintf(
+				'Swish Backup: Low memory warning during import. Available: %s, Limit: %s',
+				size_format( $memory_available ),
+				size_format( $memory_limit )
+			) );
+		}
+
+		return true;
+	}
+
+	/**
+	 * Get PHP memory limit in bytes.
+	 *
+	 * @return int Memory limit in bytes.
+	 */
+	private function get_memory_limit(): int {
+		$limit = ini_get( 'memory_limit' );
+
+		if ( '-1' === $limit ) {
+			// No limit set, assume 512MB.
+			return 512 * 1024 * 1024;
+		}
+
+		$value = (int) $limit;
+		$unit = strtoupper( substr( $limit, -1 ) );
+
+		switch ( $unit ) {
+			case 'G':
+				$value *= 1024;
+				// Fall through.
+			case 'M':
+				$value *= 1024;
+				// Fall through.
+			case 'K':
+				$value *= 1024;
+		}
+
+		return $value;
 	}
 }

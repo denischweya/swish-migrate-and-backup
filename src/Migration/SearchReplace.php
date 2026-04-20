@@ -45,9 +45,26 @@ final class SearchReplace {
 	private int $replacements_made = 0;
 
 	/**
-	 * Rows per batch for processing.
+	 * Default rows per batch for processing.
 	 */
-	private const ROWS_PER_BATCH = 500;
+	private const DEFAULT_ROWS_PER_BATCH = 100;
+
+	/**
+	 * Minimum rows per batch.
+	 */
+	private const MIN_ROWS_PER_BATCH = 25;
+
+	/**
+	 * Memory threshold for reducing batch size (32MB).
+	 */
+	private const MEMORY_THRESHOLD = 33554432;
+
+	/**
+	 * Current batch size (can be reduced under memory pressure).
+	 *
+	 * @var int
+	 */
+	private int $current_batch_size;
 
 	/**
 	 * Constructor.
@@ -56,6 +73,7 @@ final class SearchReplace {
 	 */
 	public function __construct( Logger $logger ) {
 		$this->logger = $logger;
+		$this->current_batch_size = self::DEFAULT_ROWS_PER_BATCH;
 	}
 
 	/**
@@ -245,12 +263,15 @@ final class SearchReplace {
 		$offset = 0;
 
 		while ( $offset < $row_count ) {
+			// Check memory and adjust batch size if needed.
+			$this->adjust_batch_size_for_memory();
+
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Table name from $wpdb->get_col() is safe.
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
 					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 					"SELECT * FROM `{$table}` LIMIT %d OFFSET %d",
-					self::ROWS_PER_BATCH,
+					$this->current_batch_size,
 					$offset
 				),
 				ARRAY_A
@@ -303,10 +324,15 @@ final class SearchReplace {
 				++$this->rows_processed;
 			}
 
-			$offset += self::ROWS_PER_BATCH;
+			$offset += $this->current_batch_size;
 
-			// Free memory.
+			// Free memory aggressively.
 			unset( $rows );
+
+			// Trigger garbage collection if memory is getting low.
+			if ( $this->is_memory_low() && function_exists( 'gc_collect_cycles' ) ) {
+				gc_collect_cycles();
+			}
 		}
 
 		return array(
@@ -514,6 +540,79 @@ final class SearchReplace {
 		}
 
 		return substr( $string, 0, $length - 3 ) . '...';
+	}
+
+	/**
+	 * Adjust batch size based on available memory.
+	 */
+	private function adjust_batch_size_for_memory(): void {
+		$available = $this->get_available_memory();
+
+		if ( $available < self::MEMORY_THRESHOLD ) {
+			// Reduce batch size by half, but not below minimum.
+			$new_size = max( self::MIN_ROWS_PER_BATCH, (int) ( $this->current_batch_size / 2 ) );
+
+			if ( $new_size < $this->current_batch_size ) {
+				$this->logger->debug( 'Reducing search/replace batch size due to memory pressure', array(
+					'old_size'  => $this->current_batch_size,
+					'new_size'  => $new_size,
+					'available' => $available,
+				) );
+				$this->current_batch_size = $new_size;
+			}
+		}
+	}
+
+	/**
+	 * Check if memory is getting low.
+	 *
+	 * @return bool True if memory is below threshold.
+	 */
+	private function is_memory_low(): bool {
+		return $this->get_available_memory() < self::MEMORY_THRESHOLD;
+	}
+
+	/**
+	 * Get available memory in bytes.
+	 *
+	 * @return int Available memory.
+	 */
+	private function get_available_memory(): int {
+		$limit = $this->get_memory_limit();
+		$used  = memory_get_usage( true );
+
+		return max( 0, $limit - $used );
+	}
+
+	/**
+	 * Get PHP memory limit in bytes.
+	 *
+	 * @return int Memory limit.
+	 */
+	private function get_memory_limit(): int {
+		$limit = ini_get( 'memory_limit' );
+
+		if ( '-1' === $limit ) {
+			// No limit, return a large value.
+			return PHP_INT_MAX;
+		}
+
+		$limit = trim( $limit );
+		$last  = strtolower( $limit[ strlen( $limit ) - 1 ] );
+		$value = (int) $limit;
+
+		switch ( $last ) {
+			case 'g':
+				$value *= 1024;
+				// Fall through.
+			case 'm':
+				$value *= 1024;
+				// Fall through.
+			case 'k':
+				$value *= 1024;
+		}
+
+		return $value;
 	}
 
 	/**

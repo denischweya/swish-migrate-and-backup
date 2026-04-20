@@ -559,11 +559,15 @@ final class Plugin {
 			'swish-backup-admin',
 			'swishBackup',
 			array(
-				'apiUrl'      => rest_url( 'swish-backup/v1' ),
-				'nonce'       => wp_create_nonce( 'wp_rest' ),
-				'proUrl'      => SWISH_BACKUP_PRO_URL,
-				'isProActive' => apply_filters( 'swish_backup_is_pro', false ),
-				'i18n'        => array(
+				'apiUrl'         => rest_url( 'swish-backup/v1' ),
+				'nonce'          => wp_create_nonce( 'wp_rest' ),
+				'proUrl'         => SWISH_BACKUP_PRO_URL,
+				'isProActive'    => apply_filters( 'swish_backup_is_pro', false ),
+				'maxUploadSize'  => wp_max_upload_size(),
+				'maxUploadSizeFormatted' => size_format( wp_max_upload_size() ),
+				'postMaxSize'    => $this->get_post_max_size(),
+				'postMaxSizeFormatted' => size_format( $this->get_post_max_size() ),
+				'i18n'           => array(
 					'backupStarted'   => __( 'Backup started...', 'swish-migrate-and-backup' ),
 					'backupComplete'  => __( 'Backup completed successfully!', 'swish-migrate-and-backup' ),
 					'backupFailed'    => __( 'Backup failed. Check the logs.', 'swish-migrate-and-backup' ),
@@ -572,8 +576,38 @@ final class Plugin {
 					'restoreFailed'   => __( 'Restore failed. Check the logs.', 'swish-migrate-and-backup' ),
 					'confirmDelete'   => __( 'Are you sure you want to delete this backup?', 'swish-migrate-and-backup' ),
 					'confirmRestore'  => __( 'Are you sure you want to restore this backup? This will overwrite your current site.', 'swish-migrate-and-backup' ),
+					'fileTooLarge'    => __( 'The selected file is too large for your server.', 'swish-migrate-and-backup' ),
 				),
 			)
 		);
+	}
+
+	/**
+	 * Get post_max_size in bytes.
+	 *
+	 * @return int Post max size in bytes.
+	 */
+	private function get_post_max_size(): int {
+		$post_max = ini_get( 'post_max_size' );
+
+		if ( empty( $post_max ) ) {
+			return 0;
+		}
+
+		$value = (int) $post_max;
+		$unit  = strtoupper( substr( $post_max, -1 ) );
+
+		switch ( $unit ) {
+			case 'G':
+				$value *= 1024;
+				// Fall through.
+			case 'M':
+				$value *= 1024;
+				// Fall through.
+			case 'K':
+				$value *= 1024;
+		}
+
+		return $value;
 	}
 }

@@ -129,7 +129,7 @@ const Dashboard = ( {
 				</div>
 
 				<div className="swish-action-card">
-					<h3>{ __( 'Migrate Site', 'swish-migrate-and-backup' ) }</h3>
+					<h3>{ __( 'Search & Replace', 'swish-migrate-and-backup' ) }</h3>
 					<p>
 						{ __( 'Search and replace URLs in the database.', 'swish-migrate-and-backup' ) }
 					</p>
@@ -137,11 +137,25 @@ const Dashboard = ( {
 						className="button button-hero"
 						onClick={ () => setShowMigration( ! showMigration ) }
 					>
-						<span className="dashicons dashicons-migrate"></span>
+						<span className="dashicons dashicons-search"></span>
 						{ showMigration
-							? __( 'Hide Migration', 'swish-migrate-and-backup' )
-							: __( 'Start Migration', 'swish-migrate-and-backup' ) }
+							? __( 'Hide Panel', 'swish-migrate-and-backup' )
+							: __( 'Open Panel', 'swish-migrate-and-backup' ) }
 					</button>
+				</div>
+
+				<div className="swish-action-card">
+					<h3>{ __( 'Migrate Site', 'swish-migrate-and-backup' ) }</h3>
+					<p>
+						{ __( 'Import a backup from another site.', 'swish-migrate-and-backup' ) }
+					</p>
+					<a
+						className="button button-hero"
+						href={ window.location.href.split( '?' )[ 0 ] + '?page=swish-backup-migration' }
+					>
+						<span className="dashicons dashicons-migrate"></span>
+						{ __( 'Start Migration', 'swish-migrate-and-backup' ) }
+					</a>
 				</div>
 			</div>
 
