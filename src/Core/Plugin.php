@@ -24,9 +24,12 @@ use SwishMigrateAndBackup\Admin\ProPage;
 use SwishMigrateAndBackup\Admin\DocumentationPage;
 use SwishMigrateAndBackup\Api\RestController;
 use SwishMigrateAndBackup\Backup\BackupManager;
+use SwishMigrateAndBackup\Backup\BackupState;
 use SwishMigrateAndBackup\Backup\DatabaseBackup;
 use SwishMigrateAndBackup\Backup\FileBackup;
 use SwishMigrateAndBackup\Backup\BackupArchiver;
+use SwishMigrateAndBackup\Export\ExportController;
+use SwishMigrateAndBackup\Export\ExportAjaxHandler;
 use SwishMigrateAndBackup\Logger\Logger;
 use SwishMigrateAndBackup\Migration\Migrator;
 use SwishMigrateAndBackup\Migration\SearchReplace;
@@ -67,6 +70,7 @@ final class Plugin {
 	 * @return void
 	 */
 	public function boot(): void {
+		$this->maybe_upgrade();
 		$this->register_services();
 		$this->init_hooks();
 
@@ -76,6 +80,21 @@ final class Plugin {
 		 * @param Container $container The service container.
 		 */
 		do_action( 'swish_backup_booted', $this->container );
+	}
+
+	/**
+	 * Check if database needs upgrading and run migrations.
+	 *
+	 * @return void
+	 */
+	private function maybe_upgrade(): void {
+		$current_version = get_option( 'swish_backup_db_version', '1.0.0' );
+
+		// Upgrade to 1.0.2: Add BackupState table for file-based checkpoints.
+		if ( version_compare( $current_version, '1.0.2', '<' ) ) {
+			BackupState::create_table();
+			update_option( 'swish_backup_db_version', '1.0.2' );
+		}
 	}
 
 	/**
@@ -267,6 +286,20 @@ final class Plugin {
 			)
 		);
 
+		// Export system (new streaming architecture).
+		$this->container->singleton(
+			ExportController::class,
+			fn( Container $c ) => new ExportController( $c->get( Logger::class ) )
+		);
+
+		$this->container->singleton(
+			ExportAjaxHandler::class,
+			fn( Container $c ) => new ExportAjaxHandler(
+				$c->get( ExportController::class ),
+				$c->get( Logger::class )
+			)
+		);
+
 		/**
 		 * Fires after all services have been registered.
 		 *
@@ -305,6 +338,9 @@ final class Plugin {
 
 		// Handle backup file downloads.
 		add_action( 'admin_init', array( $this, 'handle_backup_download' ) );
+
+		// Register export AJAX handlers (new streaming architecture).
+		add_action( 'init', array( $this->container->get( ExportAjaxHandler::class ), 'register' ) );
 	}
 
 	/**

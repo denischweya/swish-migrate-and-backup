@@ -261,6 +261,126 @@ final class ServerLimits {
 	}
 
 	/**
+	 * Check if running on WP Engine specifically.
+	 *
+	 * WP Engine has very strict limits and aggressive process killing.
+	 *
+	 * @return bool True if WP Engine detected.
+	 */
+	public static function is_wpengine(): bool {
+		return 'wpengine' === self::detect_hosting_environment();
+	}
+
+	/**
+	 * Check if running on a strict managed host.
+	 *
+	 * These hosts have aggressive timeouts and need extra care.
+	 *
+	 * @return bool True if strict hosting detected.
+	 */
+	public static function is_strict_hosting(): bool {
+		$environment = self::detect_hosting_environment();
+		return in_array( $environment, array( 'wpengine', 'flywheel', 'kinsta', 'pantheon' ), true );
+	}
+
+	/**
+	 * Get the safe timeout threshold for this environment.
+	 *
+	 * Returns how many seconds before max_execution_time we should stop.
+	 *
+	 * @return float Seconds before timeout to stop processing.
+	 */
+	public static function get_safe_timeout_threshold(): float {
+		$environment = self::detect_hosting_environment();
+
+		// WP Engine and Flywheel are very aggressive - stop much earlier.
+		if ( in_array( $environment, array( 'wpengine', 'flywheel' ), true ) ) {
+			return 20.0; // Stop 20 seconds before limit.
+		}
+
+		// Other managed hosts - still be careful.
+		if ( self::is_managed_hosting() ) {
+			return 15.0;
+		}
+
+		// Standard hosting.
+		return 10.0;
+	}
+
+	/**
+	 * Get the export phase timeout.
+	 *
+	 * This is the maximum time to spend in a single export phase
+	 * before chaining to a new HTTP request. Uses a short timeout
+	 * (10 seconds default) like All-in-One WP Migration for reliability.
+	 *
+	 * @return int Timeout in seconds.
+	 */
+	public static function get_export_timeout(): int {
+		$environment = self::detect_hosting_environment();
+
+		// WP Engine is very aggressive - use shorter timeout.
+		if ( 'wpengine' === $environment ) {
+			return 8;
+		}
+
+		// Other strict hosts.
+		if ( self::is_strict_hosting() ) {
+			return 10;
+		}
+
+		// Standard timeout - still keep it short for reliability.
+		return apply_filters( 'swish_export_timeout', 10 );
+	}
+
+	/**
+	 * Get the streaming chunk size for file operations.
+	 *
+	 * Uses 512KB chunks like All-in-One WP Migration for
+	 * minimal memory usage regardless of file size.
+	 *
+	 * @return int Chunk size in bytes.
+	 */
+	public static function get_streaming_chunk_size(): int {
+		$available_memory = self::get_available_memory();
+
+		// Very low memory - use smaller chunks.
+		if ( $available_memory < 32 * 1024 * 1024 ) { // < 32MB.
+			return 256 * 1024; // 256KB.
+		}
+
+		// Standard 512KB chunk (same as All-in-One WP Migration).
+		return 512 * 1024; // 512KB.
+	}
+
+	/**
+	 * Get how often to check for timeout (every N files).
+	 *
+	 * @return int Number of files between timeout checks.
+	 */
+	public static function get_timeout_check_interval(): int {
+		$environment = self::detect_hosting_environment();
+
+		// WP Engine - check very frequently.
+		if ( 'wpengine' === $environment ) {
+			return 10;
+		}
+
+		// Other strict hosts.
+		if ( self::is_strict_hosting() ) {
+			return 15;
+		}
+
+		// Managed hosting.
+		if ( self::is_managed_hosting() ) {
+			return 25;
+		}
+
+		// Standard.
+		return 50;
+	}
+
+	/**
 	 * Get adaptive batch size for file operations.
 	 *
 	 * @param int $default Default batch size.
@@ -269,26 +389,37 @@ final class ServerLimits {
 	public static function get_adaptive_file_batch_size( int $default = 100 ): int {
 		$limits = self::get_limits();
 		$batch_size = $default;
+		$environment = $limits['hosting_environment'];
+
+		// WP Engine - very strict limits.
+		if ( 'wpengine' === $environment ) {
+			return min( $batch_size, 15 ); // Max 15 files at a time.
+		}
+
+		// Other strict hosts.
+		if ( in_array( $environment, array( 'flywheel', 'kinsta', 'pantheon' ), true ) ) {
+			return min( $batch_size, 25 );
+		}
 
 		// Reduce batch size for short execution times.
 		$max_time = $limits['max_execution_time'];
 		if ( $max_time > 0 && $max_time <= 30 ) {
-			$batch_size = min( $batch_size, 25 );
+			$batch_size = min( $batch_size, 20 );
 		} elseif ( $max_time > 0 && $max_time <= 60 ) {
-			$batch_size = min( $batch_size, 50 );
+			$batch_size = min( $batch_size, 40 );
 		}
 
 		// Reduce batch size for low memory.
 		$available_memory = $limits['memory_available'];
 		if ( $available_memory < 64 * 1024 * 1024 ) { // < 64MB.
-			$batch_size = min( $batch_size, 25 );
+			$batch_size = min( $batch_size, 20 );
 		} elseif ( $available_memory < 128 * 1024 * 1024 ) { // < 128MB.
-			$batch_size = min( $batch_size, 50 );
+			$batch_size = min( $batch_size, 40 );
 		}
 
-		// Managed hosting often has stricter limits.
+		// Other managed hosting - still be careful.
 		if ( $limits['is_managed_hosting'] ) {
-			$batch_size = min( $batch_size, 50 );
+			$batch_size = min( $batch_size, 35 );
 		}
 
 		return max( 10, $batch_size ); // Never go below 10.
@@ -349,21 +480,39 @@ final class ServerLimits {
 	 * Get recommended ZIP flush interval.
 	 *
 	 * How often to close/reopen ZIP to prevent memory buildup.
+	 * On strict hosts, we flush much more frequently.
 	 *
 	 * @return int Files between flushes.
 	 */
 	public static function get_zip_flush_interval(): int {
+		$environment = self::detect_hosting_environment();
 		$available_memory = self::get_available_memory();
 
+		// WP Engine - flush very frequently to prevent memory issues.
+		if ( 'wpengine' === $environment ) {
+			return 15; // Flush every 15 files.
+		}
+
+		// Other strict hosts.
+		if ( in_array( $environment, array( 'flywheel', 'kinsta', 'pantheon' ), true ) ) {
+			return 25;
+		}
+
+		// Managed hosting.
+		if ( self::is_managed_hosting() ) {
+			return 50;
+		}
+
+		// Standard hosting - base on memory.
 		if ( $available_memory < 64 * 1024 * 1024 ) {
 			return 50;
 		} elseif ( $available_memory < 128 * 1024 * 1024 ) {
 			return 100;
 		} elseif ( $available_memory < 256 * 1024 * 1024 ) {
-			return 250;
+			return 200;
 		}
 
-		return 500;
+		return 300;
 	}
 
 	/**
@@ -446,15 +595,18 @@ final class ServerLimits {
 		$limits = self::get_limits();
 
 		return array(
-			'max_execution_time'   => $limits['max_execution_time'] . 's',
-			'memory_limit'         => self::format_bytes( $limits['memory_limit'] ),
-			'memory_available'     => self::format_bytes( $limits['memory_available'] ),
-			'hosting_environment'  => $limits['hosting_environment'],
-			'is_managed_hosting'   => $limits['is_managed_hosting'] ? 'yes' : 'no',
-			'adaptive_file_batch'  => self::get_adaptive_file_batch_size(),
-			'adaptive_db_batch'    => self::get_adaptive_db_batch_size(),
-			'zip_flush_interval'   => self::get_zip_flush_interval(),
-			'compression_level'    => self::get_recommended_compression(),
+			'max_execution_time'    => $limits['max_execution_time'] . 's',
+			'memory_limit'          => self::format_bytes( $limits['memory_limit'] ),
+			'memory_available'      => self::format_bytes( $limits['memory_available'] ),
+			'hosting_environment'   => $limits['hosting_environment'],
+			'is_managed_hosting'    => $limits['is_managed_hosting'] ? 'yes' : 'no',
+			'is_strict_hosting'     => self::is_strict_hosting() ? 'yes' : 'no',
+			'adaptive_file_batch'   => self::get_adaptive_file_batch_size(),
+			'adaptive_db_batch'     => self::get_adaptive_db_batch_size(),
+			'zip_flush_interval'    => self::get_zip_flush_interval(),
+			'timeout_check_interval' => self::get_timeout_check_interval(),
+			'safe_timeout_threshold' => self::get_safe_timeout_threshold() . 's',
+			'compression_level'     => self::get_recommended_compression(),
 		);
 	}
 }

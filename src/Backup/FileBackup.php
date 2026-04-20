@@ -18,9 +18,16 @@ use SwishMigrateAndBackup\Core\ServerLimits;
 use SwishMigrateAndBackup\Logger\Logger;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
+use Generator;
 
 /**
  * Handles file backup operations with chunked processing.
+ *
+ * Optimized for managed hosting environments like WP Engine with:
+ * - Generator-based file scanning (low memory)
+ * - Immediate file reading (no queuing)
+ * - Frequent checkpoint saves
+ * - Aggressive timeout detection
  */
 final class FileBackup {
 
@@ -30,6 +37,13 @@ final class FileBackup {
 	 * @var Logger
 	 */
 	private Logger $logger;
+
+	/**
+	 * Backup state manager.
+	 *
+	 * @var BackupState|null
+	 */
+	private ?BackupState $state = null;
 
 	/**
 	 * Files/patterns to exclude.
@@ -44,21 +58,6 @@ final class FileBackup {
 	 * @var int
 	 */
 	private int $files_per_batch = 50;
-
-	/**
-	 * Default files per batch.
-	 */
-	private const DEFAULT_FILES_PER_BATCH = 100;
-
-	/**
-	 * Minimum files per batch (for memory-constrained environments).
-	 */
-	private const MIN_FILES_PER_BATCH = 25;
-
-	/**
-	 * Memory threshold for reducing batch size (32MB).
-	 */
-	private const MEMORY_THRESHOLD = 33554432;
 
 	/**
 	 * Whether to include WordPress core files.
@@ -88,6 +87,18 @@ final class FileBackup {
 			'wp-content/debug.log',
 			'error_log',
 		);
+	}
+
+	/**
+	 * Get or create the backup state manager.
+	 *
+	 * @return BackupState
+	 */
+	private function get_state(): BackupState {
+		if ( null === $this->state ) {
+			$this->state = new BackupState();
+		}
+		return $this->state;
 	}
 
 	/**
@@ -154,11 +165,11 @@ final class FileBackup {
 	/**
 	 * Set the number of files per batch.
 	 *
-	 * @param int $files_per_batch Files per batch (25-500).
+	 * @param int $files_per_batch Files per batch (10-500).
 	 * @return self
 	 */
 	public function set_files_per_batch( int $files_per_batch ): self {
-		$this->files_per_batch = max( 25, min( 500, $files_per_batch ) );
+		$this->files_per_batch = max( 10, min( 500, $files_per_batch ) );
 		return $this;
 	}
 
@@ -172,7 +183,185 @@ final class FileBackup {
 	}
 
 	/**
-	 * Get list of files to backup.
+	 * Generator-based file scanning.
+	 *
+	 * Yields files one at a time instead of loading all into memory.
+	 * Checks for timeout during scanning.
+	 *
+	 * @param array $directories Directories to scan.
+	 * @return Generator Yields file data arrays.
+	 */
+	public function scan_files_generator( array $directories ): Generator {
+		$file_count = 0;
+		$check_interval = max( 500, ServerLimits::get_timeout_check_interval() * 10 );
+
+		foreach ( $directories as $directory ) {
+			if ( ! is_dir( $directory ) ) {
+				continue;
+			}
+
+			try {
+				$iterator = new RecursiveIteratorIterator(
+					new RecursiveDirectoryIterator(
+						$directory,
+						RecursiveDirectoryIterator::SKIP_DOTS
+					),
+					RecursiveIteratorIterator::SELF_FIRST
+				);
+
+				foreach ( $iterator as $file ) {
+					$path = $file->getPathname();
+
+					if ( $this->should_exclude( $path ) ) {
+						continue;
+					}
+
+					if ( $file->isFile() && $file->isReadable() ) {
+						yield array(
+							'path'     => $path,
+							'relative' => $this->get_relative_path( $path ),
+							'size'     => $file->getSize(),
+						);
+
+						++$file_count;
+
+						// Periodic timeout check during scanning.
+						if ( 0 === $file_count % $check_interval ) {
+							// Check timeout with a larger threshold during scanning.
+							if ( ServerLimits::is_approaching_time_limit( ServerLimits::get_safe_timeout_threshold() + 10 ) ) {
+								$this->logger->warning( 'Approaching timeout during file scan', array(
+									'files_found' => $file_count,
+								) );
+								return; // Stop scanning.
+							}
+
+							// Periodic memory cleanup.
+							if ( function_exists( 'gc_collect_cycles' ) ) {
+								gc_collect_cycles();
+							}
+						}
+					}
+				}
+			} catch ( \Exception $e ) {
+				$this->logger->warning( 'Error scanning directory: ' . $e->getMessage(), array(
+					'directory' => $directory,
+				) );
+			}
+		}
+	}
+
+	/**
+	 * Scan files and write directly to state file.
+	 *
+	 * This avoids loading the entire file list into memory.
+	 *
+	 * @param string $job_id      Job ID.
+	 * @param array  $directories Directories to scan.
+	 * @return array Result with count, timeout status.
+	 */
+	public function scan_files_to_state( string $job_id, array $directories ): array {
+		ServerLimits::init_timing();
+		$state = $this->get_state();
+
+		$this->logger->info( 'Starting file scan', array(
+			'directories'   => count( $directories ),
+			'server_limits' => ServerLimits::get_debug_info(),
+		) );
+
+		$file_count = 0;
+		$batch = array();
+		$batch_size = 500; // Write to disk every 500 files.
+		$timed_out = false;
+		$check_interval = max( 200, ServerLimits::get_timeout_check_interval() * 5 );
+
+		foreach ( $directories as $directory ) {
+			if ( ! is_dir( $directory ) ) {
+				continue;
+			}
+
+			try {
+				$iterator = new RecursiveIteratorIterator(
+					new RecursiveDirectoryIterator(
+						$directory,
+						RecursiveDirectoryIterator::SKIP_DOTS
+					),
+					RecursiveIteratorIterator::SELF_FIRST
+				);
+
+				foreach ( $iterator as $file ) {
+					$path = $file->getPathname();
+
+					if ( $this->should_exclude( $path ) ) {
+						continue;
+					}
+
+					if ( $file->isFile() && $file->isReadable() ) {
+						$batch[] = array(
+							'path'     => $path,
+							'relative' => $this->get_relative_path( $path ),
+							'size'     => $file->getSize(),
+						);
+
+						++$file_count;
+
+						// Write batch to disk periodically.
+						if ( count( $batch ) >= $batch_size ) {
+							if ( 0 === $file_count - count( $batch ) ) {
+								// First batch - create new file.
+								$state->save_file_list( $job_id, $batch );
+							} else {
+								// Append to existing file.
+								$state->append_to_file_list( $job_id, $batch );
+							}
+							$batch = array();
+
+							// Garbage collection.
+							if ( function_exists( 'gc_collect_cycles' ) ) {
+								gc_collect_cycles();
+							}
+						}
+
+						// Check timeout periodically.
+						if ( 0 === $file_count % $check_interval ) {
+							if ( ServerLimits::is_approaching_time_limit( ServerLimits::get_safe_timeout_threshold() + 5 ) ) {
+								$timed_out = true;
+								$this->logger->warning( 'Timeout during file scan', array(
+									'files_found' => $file_count,
+								) );
+								break 2; // Exit both loops.
+							}
+						}
+					}
+				}
+			} catch ( \Exception $e ) {
+				$this->logger->warning( 'Error scanning directory: ' . $e->getMessage(), array(
+					'directory' => $directory,
+				) );
+			}
+		}
+
+		// Write remaining batch.
+		if ( ! empty( $batch ) ) {
+			if ( 0 === $file_count - count( $batch ) ) {
+				$state->save_file_list( $job_id, $batch );
+			} else {
+				$state->append_to_file_list( $job_id, $batch );
+			}
+		}
+
+		$this->logger->info( 'File scan completed', array(
+			'file_count' => $file_count,
+			'timed_out'  => $timed_out,
+		) );
+
+		return array(
+			'count'     => $file_count,
+			'timed_out' => $timed_out,
+		);
+	}
+
+	/**
+	 * Get list of files to backup (legacy method for compatibility).
 	 *
 	 * @param array $directories Directories to scan.
 	 * @return array List of file paths.
@@ -181,49 +370,14 @@ final class FileBackup {
 		$files = array();
 		$file_count = 0;
 
-		foreach ( $directories as $directory ) {
-			if ( ! is_dir( $directory ) ) {
-				continue;
-			}
+		foreach ( $this->scan_files_generator( $directories ) as $file ) {
+			$files[] = $file;
+			++$file_count;
 
-			$iterator = new RecursiveIteratorIterator(
-				new RecursiveDirectoryIterator(
-					$directory,
-					RecursiveDirectoryIterator::SKIP_DOTS
-				),
-				RecursiveIteratorIterator::SELF_FIRST
-			);
-
-			foreach ( $iterator as $file ) {
-				$path = $file->getPathname();
-
-				if ( $this->should_exclude( $path ) ) {
-					continue;
-				}
-
-				if ( $file->isFile() && $file->isReadable() ) {
-					$files[] = array(
-						'path'     => $path,
-						'relative' => $this->get_relative_path( $path ),
-						'size'     => $file->getSize(),
-						'modified' => $file->getMTime(),
-					);
-
-					++$file_count;
-
-					// Periodic memory cleanup for large sites.
-					if ( 0 === $file_count % 5000 ) {
-						if ( function_exists( 'gc_collect_cycles' ) ) {
-							gc_collect_cycles();
-						}
-
-						// Log progress for debugging on large sites.
-						$this->logger->debug( 'File scan progress', array(
-							'files_found' => $file_count,
-							'memory_used' => size_format( memory_get_usage( true ) ),
-						) );
-					}
-				}
+			// Safety limit - don't load too many files into memory.
+			if ( $file_count >= 50000 ) {
+				$this->logger->warning( 'File list truncated at 50000 files - use scan_files_to_state for large sites' );
+				break;
 			}
 		}
 
@@ -240,7 +394,6 @@ final class FileBackup {
 		$directories = array();
 
 		// WordPress core files - excluded by default.
-		// Target sites already have WordPress installed.
 		$this->include_core = $options['backup_core_files'] ?? false;
 
 		if ( $this->include_core ) {
@@ -274,6 +427,9 @@ final class FileBackup {
 	/**
 	 * Create a backup of specified files.
 	 *
+	 * Optimized version that reads files immediately (no queuing)
+	 * and checks timeout very frequently on managed hosting.
+	 *
 	 * @param array         $files             Files to backup.
 	 * @param string        $output_path       Output zip file path.
 	 * @param callable|null $progress_callback Progress callback.
@@ -285,7 +441,7 @@ final class FileBackup {
 		$limits_debug = ServerLimits::get_debug_info();
 
 		$this->logger->info( 'Starting file backup', array(
-			'file_count' => count( $files ),
+			'file_count'    => count( $files ),
 			'server_limits' => $limits_debug,
 		) );
 
@@ -305,15 +461,20 @@ final class FileBackup {
 
 			// Get adaptive settings based on server limits.
 			$flush_interval = ServerLimits::get_zip_flush_interval();
-			$progress_interval = min( 50, max( 10, (int) ( $total_files / 100 ) ) );
+			$timeout_check_interval = ServerLimits::get_timeout_check_interval();
+			$timeout_threshold = ServerLimits::get_safe_timeout_threshold();
+			$progress_interval = min( 25, max( 5, (int) ( $total_files / 100 ) ) );
 
-			// Time limit check threshold (check every N files).
-			$time_check_interval = min( 100, max( 25, $flush_interval ) );
+			$this->logger->debug( 'Backup settings', array(
+				'flush_interval'   => $flush_interval,
+				'timeout_check'    => $timeout_check_interval,
+				'timeout_threshold' => $timeout_threshold,
+			) );
 
 			foreach ( $files as $file ) {
-				// Check for approaching time limit.
-				if ( 0 === $processed % $time_check_interval && $processed > 0 ) {
-					if ( ServerLimits::is_approaching_time_limit( 15 ) ) {
+				// Check for approaching time limit frequently.
+				if ( 0 === $processed % $timeout_check_interval && $processed > 0 ) {
+					if ( ServerLimits::is_approaching_time_limit( $timeout_threshold ) ) {
 						// Close the ZIP properly before timing out.
 						$zip->close();
 
@@ -326,21 +487,43 @@ final class FileBackup {
 
 						// Return timeout state for resumable processing.
 						return array(
-							'timeout'        => true,
-							'processed'      => $processed,
-							'total'          => $total_files,
-							'output_path'    => $output_path,
+							'timeout'         => true,
+							'processed'       => $processed,
+							'total'           => $total_files,
+							'output_path'     => $output_path,
 							'remaining_files' => array_slice( $files, $processed ),
 						);
 					}
 				}
 
-				// Try to add file to archive.
-				$add_result = $zip->addFile( $file['path'], $file['relative'] );
+				// Read file content immediately and add to ZIP.
+				// This is more predictable than addFile() which queues.
+				$file_path = $file['path'];
+				if ( file_exists( $file_path ) && is_readable( $file_path ) ) {
+					$file_size = filesize( $file_path );
 
-				if ( ! $add_result ) {
-					$this->logger->warning( 'Failed to add file to archive', array( 'file' => $file['path'] ) );
-					$skipped_files[] = $file['path'];
+					// For small files, read entire content.
+					// For large files (>10MB), use addFile with immediate close.
+					if ( $file_size < 10 * 1024 * 1024 ) {
+						// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+						$content = file_get_contents( $file_path );
+						if ( false !== $content ) {
+							$zip->addFromString( $file['relative'], $content );
+							unset( $content ); // Free memory immediately.
+						} else {
+							$skipped_files[] = $file_path;
+							$this->logger->warning( 'Failed to read file', array( 'file' => $file_path ) );
+						}
+					} else {
+						// Large file - use addFile but flush immediately after.
+						$zip->addFile( $file_path, $file['relative'] );
+
+						// Flush after large files.
+						$zip->close();
+						$zip->open( $output_path );
+					}
+				} else {
+					$skipped_files[] = $file_path;
 				}
 
 				++$processed;
@@ -363,7 +546,7 @@ final class FileBackup {
 
 					// Check memory and reduce flush interval if needed.
 					if ( ServerLimits::is_memory_low() ) {
-						$flush_interval = max( 25, (int) ( $flush_interval / 2 ) );
+						$flush_interval = max( 10, (int) ( $flush_interval / 2 ) );
 						$this->logger->debug( 'Reduced flush interval due to memory pressure', array(
 							'new_interval' => $flush_interval,
 						) );
@@ -388,6 +571,147 @@ final class FileBackup {
 			$this->logger->error( 'File backup failed: ' . $e->getMessage() );
 			return false;
 		}
+	}
+
+	/**
+	 * Backup files from state file (resumable).
+	 *
+	 * Reads files from the state file in chunks and backs them up.
+	 * Designed for very large sites with many files.
+	 *
+	 * @param string        $job_id            Job ID.
+	 * @param string        $output_path       Output zip file path.
+	 * @param int           $start_offset      Starting file offset.
+	 * @param callable|null $progress_callback Progress callback.
+	 * @return array Result with processed count, timeout status.
+	 */
+	public function backup_from_state(
+		string $job_id,
+		string $output_path,
+		int $start_offset = 0,
+		?callable $progress_callback = null
+	): array {
+		ServerLimits::init_timing();
+		$state = $this->get_state();
+
+		// Get total file count.
+		$total_files = $state->count_file_list( $job_id );
+
+		$this->logger->info( 'Starting backup from state', array(
+			'job_id'       => $job_id,
+			'total_files'  => $total_files,
+			'start_offset' => $start_offset,
+		) );
+
+		// Open or create ZIP archive.
+		$zip = new \ZipArchive();
+		$mode = 0 === $start_offset
+			? \ZipArchive::CREATE | \ZipArchive::OVERWRITE
+			: \ZipArchive::CREATE;
+
+		$result = $zip->open( $output_path, $mode );
+		if ( true !== $result ) {
+			return array(
+				'error'     => 'Failed to open zip archive',
+				'processed' => $start_offset,
+				'total'     => $total_files,
+			);
+		}
+
+		// Get adaptive settings.
+		$batch_size = ServerLimits::get_adaptive_file_batch_size();
+		$flush_interval = ServerLimits::get_zip_flush_interval();
+		$timeout_check_interval = ServerLimits::get_timeout_check_interval();
+		$timeout_threshold = ServerLimits::get_safe_timeout_threshold();
+
+		$processed = $start_offset;
+		$files_in_batch = 0;
+		$timed_out = false;
+
+		// Read and process files in batches.
+		while ( $processed < $total_files ) {
+			// Check timeout before reading next batch.
+			if ( ServerLimits::is_approaching_time_limit( $timeout_threshold ) ) {
+				$timed_out = true;
+				break;
+			}
+
+			// Read next batch of files from state.
+			$files = $state->read_file_list( $job_id, $processed, $batch_size );
+
+			if ( empty( $files ) ) {
+				break;
+			}
+
+			foreach ( $files as $file ) {
+				// Check timeout frequently.
+				if ( 0 === $files_in_batch % $timeout_check_interval && $files_in_batch > 0 ) {
+					if ( ServerLimits::is_approaching_time_limit( $timeout_threshold ) ) {
+						$timed_out = true;
+						break 2;
+					}
+				}
+
+				// Add file to ZIP.
+				$file_path = $file['path'];
+				if ( file_exists( $file_path ) && is_readable( $file_path ) ) {
+					$file_size = filesize( $file_path );
+
+					if ( $file_size < 10 * 1024 * 1024 ) {
+						// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+						$content = file_get_contents( $file_path );
+						if ( false !== $content ) {
+							$zip->addFromString( $file['relative'], $content );
+							unset( $content );
+						}
+					} else {
+						$zip->addFile( $file_path, $file['relative'] );
+						$zip->close();
+						$zip->open( $output_path );
+					}
+				}
+
+				++$processed;
+				++$files_in_batch;
+
+				// Progress callback.
+				if ( $progress_callback && 0 === $processed % 10 ) {
+					$progress = (int) ( ( $processed / $total_files ) * 100 );
+					$progress_callback( $progress, $file['relative'], $processed, $total_files, 0 );
+				}
+
+				// Flush ZIP periodically.
+				if ( 0 === $files_in_batch % $flush_interval ) {
+					$zip->close();
+					$zip->open( $output_path );
+
+					if ( function_exists( 'gc_collect_cycles' ) ) {
+						gc_collect_cycles();
+					}
+				}
+			}
+		}
+
+		$zip->close();
+
+		// Calculate files processed in this run.
+		$files_processed_this_run = $processed - $start_offset;
+
+		// Save progress.
+		$state->save_progress( $job_id, $processed, $total_files, 'backup', array(
+			'output_path' => $output_path,
+		) );
+
+		// Return result compatible with BackupManager.
+		// 'processed' is the number of files processed in THIS run (not cumulative).
+		// 'timeout' is used by BackupManager to check if we timed out.
+		return array(
+			'processed' => $files_processed_this_run,
+			'total'     => $total_files,
+			'timeout'   => $timed_out,
+			'remaining' => $total_files - $processed,
+			'completed' => $processed >= $total_files,
+		);
 	}
 
 	/**
@@ -434,7 +758,16 @@ final class FileBackup {
 			}
 
 			foreach ( $chunk_files as $file ) {
-				$zip->addFile( $file['path'], $file['relative'] );
+				// Use addFromString for predictable timing.
+				$file_path = $file['path'];
+				if ( file_exists( $file_path ) && is_readable( $file_path ) ) {
+					// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+					$content = file_get_contents( $file_path );
+					if ( false !== $content ) {
+						$zip->addFromString( $file['relative'], $content );
+						unset( $content );
+					}
+				}
 			}
 
 			$zip->close();
@@ -477,9 +810,9 @@ final class FileBackup {
 		$total_size = array_sum( array_column( $files, 'size' ) );
 
 		return array(
-			'files'      => $files,
-			'count'      => count( $files ),
-			'total_size' => $total_size,
+			'files'       => $files,
+			'count'       => count( $files ),
+			'total_size'  => $total_size,
 			'directories' => $directories,
 		);
 	}
@@ -697,57 +1030,5 @@ final class FileBackup {
 		$content = preg_replace( '/^<\?php\s*/i', '', $content );
 
 		return $warning . $content;
-	}
-
-	/**
-	 * Check if available memory is below threshold.
-	 *
-	 * @return bool True if memory is low.
-	 */
-	private function is_memory_low(): bool {
-		$available = $this->get_available_memory();
-		return $available < self::MEMORY_THRESHOLD;
-	}
-
-	/**
-	 * Get available memory in bytes.
-	 *
-	 * @return int Available memory.
-	 */
-	private function get_available_memory(): int {
-		$memory_limit = $this->get_memory_limit();
-		$memory_used = memory_get_usage( true );
-
-		return max( 0, $memory_limit - $memory_used );
-	}
-
-	/**
-	 * Get PHP memory limit in bytes.
-	 *
-	 * @return int Memory limit.
-	 */
-	private function get_memory_limit(): int {
-		$limit = ini_get( 'memory_limit' );
-
-		if ( '-1' === $limit ) {
-			// No limit set, assume 512MB.
-			return 512 * 1024 * 1024;
-		}
-
-		$value = (int) $limit;
-		$unit = strtoupper( substr( $limit, -1 ) );
-
-		switch ( $unit ) {
-			case 'G':
-				$value *= 1024;
-				// Fall through.
-			case 'M':
-				$value *= 1024;
-				// Fall through.
-			case 'K':
-				$value *= 1024;
-		}
-
-		return $value;
 	}
 }
