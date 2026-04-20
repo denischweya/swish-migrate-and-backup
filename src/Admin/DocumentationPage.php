@@ -457,7 +457,7 @@ final class DocumentationPage {
 									<?php esc_html_e( 'Unlimited Backup Size', 'swish-migrate-and-backup' ); ?>
 									<span class="swish-docs-pro-tag"><?php esc_html_e( 'Pro', 'swish-migrate-and-backup' ); ?></span>
 								</h3>
-								<p><?php esc_html_e( 'The free version has a 1GB backup size limit. With Pro, you can backup sites of any size without restrictions. This is essential for:', 'swish-migrate-and-backup' ); ?></p>
+								<p><?php esc_html_e( 'The free version has a 2GB backup size limit. With Pro, you can backup sites of any size without restrictions. This is essential for:', 'swish-migrate-and-backup' ); ?></p>
 								<ul>
 									<li><?php esc_html_e( 'E-commerce sites with large product catalogs', 'swish-migrate-and-backup' ); ?></li>
 									<li><?php esc_html_e( 'Media-heavy websites with lots of images and videos', 'swish-migrate-and-backup' ); ?></li>
@@ -567,7 +567,7 @@ final class DocumentationPage {
 									<li><?php esc_html_e( 'Disk space: Make sure you have enough free space', 'swish-migrate-and-backup' ); ?></li>
 									<li><?php esc_html_e( 'Permissions: The wp-content folder must be writable', 'swish-migrate-and-backup' ); ?></li>
 									<li><?php esc_html_e( 'Memory limit: Increase PHP memory if your host allows', 'swish-migrate-and-backup' ); ?></li>
-									<li><?php esc_html_e( 'File size: Free version has a 1GB limit - consider upgrading to Pro', 'swish-migrate-and-backup' ); ?></li>
+									<li><?php esc_html_e( 'File size: Free version has a 2GB limit - consider upgrading to Pro', 'swish-migrate-and-backup' ); ?></li>
 								</ul>
 							</div>
 
@@ -596,7 +596,7 @@ final class DocumentationPage {
 
 							<div class="swish-docs-card swish-docs-faq">
 								<h3><?php esc_html_e( 'How large can my backups be?', 'swish-migrate-and-backup' ); ?></h3>
-								<p><?php esc_html_e( 'The free version supports backups up to 1GB. For unlimited backup sizes, upgrade to Swish Backup Pro.', 'swish-migrate-and-backup' ); ?></p>
+								<p><?php esc_html_e( 'The free version supports backups up to 2GB. For unlimited backup sizes, upgrade to Swish Backup Pro.', 'swish-migrate-and-backup' ); ?></p>
 							</div>
 
 							<div class="swish-docs-card swish-docs-faq">
@@ -624,9 +624,9 @@ final class DocumentationPage {
 								<p>
 									<?php
 									printf(
-										/* translators: %s: Support URL */
-										esc_html__( 'Visit our support page at %s or email us directly. Pro users receive priority support.', 'swish-migrate-and-backup' ),
-										'<a href="https://swishbackup.swishfolio.com/support" target="_blank" rel="noopener noreferrer">swishbackup.swishfolio.com/support</a>'
+										/* translators: %s: Support email */
+										esc_html__( 'Email us at %s for assistance. Pro users receive priority support.', 'swish-migrate-and-backup' ),
+										'<a href="mailto:info@swishfolio.com">info@swishfolio.com</a>'
 									);
 									?>
 								</p>
@@ -637,13 +637,20 @@ final class DocumentationPage {
 				</div>
 			</div>
 		</div>
+		<?php
+	}
 
-		<script>
-		(function() {
+	/**
+	 * Get the inline JavaScript for documentation page navigation.
+	 *
+	 * @return string JavaScript code.
+	 */
+	public static function get_inline_script(): string {
+		return "(function() {
 			'use strict';
 
-			const navItems = document.querySelectorAll('.swish-docs-nav-item');
-			const sections = document.querySelectorAll('.swish-docs-section');
+			var navItems = document.querySelectorAll('.swish-docs-nav-item');
+			var sections = document.querySelectorAll('.swish-docs-section');
 
 			if (!navItems.length || !sections.length) return;
 
@@ -651,14 +658,14 @@ final class DocumentationPage {
 			navItems.forEach(function(item) {
 				item.addEventListener('click', function(e) {
 					e.preventDefault();
-					const targetId = this.getAttribute('href').substring(1);
-					const targetSection = document.getElementById(targetId);
+					var targetId = this.getAttribute('href').substring(1);
+					var targetSection = document.getElementById(targetId);
 
 					if (targetSection) {
-						const adminBarHeight = document.getElementById('wpadminbar') ?
+						var adminBarHeight = document.getElementById('wpadminbar') ?
 							document.getElementById('wpadminbar').offsetHeight : 0;
-						const offset = adminBarHeight + 20;
-						const targetPosition = targetSection.getBoundingClientRect().top + window.pageYOffset - offset;
+						var offset = adminBarHeight + 20;
+						var targetPosition = targetSection.getBoundingClientRect().top + window.pageYOffset - offset;
 
 						window.scrollTo({
 							top: targetPosition,
@@ -673,20 +680,19 @@ final class DocumentationPage {
 
 			// Scroll spy - highlight active section
 			function updateActiveNav() {
-				const adminBarHeight = document.getElementById('wpadminbar') ?
+				var adminBarHeight = document.getElementById('wpadminbar') ?
 					document.getElementById('wpadminbar').offsetHeight : 0;
-				const scrollPosition = window.pageYOffset + adminBarHeight + 100;
 
-				let currentSection = '';
+				var currentSection = '';
 
 				// If at top of page, always highlight first section
 				if (window.pageYOffset < 100) {
 					currentSection = sections[0].getAttribute('id');
 				} else {
 					// Find the current section based on scroll position
-					for (let i = sections.length - 1; i >= 0; i--) {
-						const section = sections[i];
-						const sectionTop = section.offsetTop - adminBarHeight - 120;
+					for (var i = sections.length - 1; i >= 0; i--) {
+						var section = sections[i];
+						var sectionTop = section.offsetTop - adminBarHeight - 120;
 
 						if (window.pageYOffset >= sectionTop) {
 							currentSection = section.getAttribute('id');
@@ -702,7 +708,7 @@ final class DocumentationPage {
 
 				// Update nav items
 				navItems.forEach(function(item) {
-					const href = item.getAttribute('href').substring(1);
+					var href = item.getAttribute('href').substring(1);
 					item.classList.remove('active');
 					if (href === currentSection) {
 						item.classList.add('active');
@@ -711,7 +717,7 @@ final class DocumentationPage {
 			}
 
 			// Throttle scroll events for better performance
-			let ticking = false;
+			var ticking = false;
 			window.addEventListener('scroll', function() {
 				if (!ticking) {
 					window.requestAnimationFrame(function() {
@@ -724,14 +730,14 @@ final class DocumentationPage {
 
 			// Initial check - always start with first section unless there's a hash
 			if (window.location.hash) {
-				const targetId = window.location.hash.substring(1);
-				const targetSection = document.getElementById(targetId);
+				var targetId = window.location.hash.substring(1);
+				var targetSection = document.getElementById(targetId);
 				if (targetSection) {
 					setTimeout(function() {
-						const adminBarHeight = document.getElementById('wpadminbar') ?
+						var adminBarHeight = document.getElementById('wpadminbar') ?
 							document.getElementById('wpadminbar').offsetHeight : 0;
-						const offset = adminBarHeight + 20;
-						const targetPosition = targetSection.getBoundingClientRect().top + window.pageYOffset - offset;
+						var offset = adminBarHeight + 20;
+						var targetPosition = targetSection.getBoundingClientRect().top + window.pageYOffset - offset;
 
 						window.scrollTo({
 							top: targetPosition,
@@ -744,8 +750,6 @@ final class DocumentationPage {
 				// No hash - highlight first section
 				navItems[0].classList.add('active');
 			}
-		})();
-		</script>
-		<?php
+		})();";
 	}
 }

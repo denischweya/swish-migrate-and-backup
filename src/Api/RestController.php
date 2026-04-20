@@ -116,6 +116,10 @@ final class RestController extends WP_REST_Controller {
 							'enum'    => array( 'full', 'database', 'files' ),
 							'default' => 'full',
 						),
+						'async'           => array(
+							'type'    => 'boolean',
+							'default' => true,
+						),
 						'db_batch_size'   => array(
 							'type'              => 'integer',
 							'default'           => 500,
@@ -278,6 +282,19 @@ final class RestController extends WP_REST_Controller {
 			)
 		);
 
+		// Process pending job (fallback for hosts where WP Cron doesn't trigger immediately).
+		register_rest_route(
+			$this->namespace,
+			'/job/(?P<id>[a-zA-Z0-9-]+)/process',
+			array(
+				array(
+					'methods'             => WP_REST_Server::CREATABLE,
+					'callback'            => array( $this, 'process_pending_job' ),
+					'permission_callback' => array( $this, 'check_admin_permission' ),
+				),
+			)
+		);
+
 		// Settings routes.
 		register_rest_route(
 			$this->namespace,
@@ -330,14 +347,18 @@ final class RestController extends WP_REST_Controller {
 	/**
 	 * Create a backup.
 	 *
+	 * Uses async processing by default to avoid timeout issues on shared hosting.
+	 *
 	 * @param WP_REST_Request $request Request object.
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function create_backup( WP_REST_Request $request ) {
 		$type = $request->get_param( 'type' );
+		$async = $request->get_param( 'async' ) ?? true; // Default to async.
 
 		$settings = get_option( 'swish_backup_settings', array() );
 		$options = array(
+			'type'                 => $type ?? 'full',
 			'backup_database'      => $settings['backup_database'] ?? true,
 			'backup_plugins'       => $settings['backup_plugins'] ?? true,
 			'backup_themes'        => $settings['backup_themes'] ?? true,
@@ -348,6 +369,13 @@ final class RestController extends WP_REST_Controller {
 			'file_batch_size'      => $request->get_param( 'file_batch_size' ) ?? 100,
 		);
 
+		// Use async processing to avoid timeouts on shared/managed hosting.
+		if ( $async ) {
+			$result = $this->backup_manager->start_async_backup( $options );
+			return rest_ensure_response( $result );
+		}
+
+		// Synchronous backup (legacy, not recommended for large sites).
 		$result = match ( $type ) {
 			'database' => $this->backup_manager->create_database_backup( $options ),
 			'files'    => $this->backup_manager->create_files_backup( $options ),
@@ -357,7 +385,7 @@ final class RestController extends WP_REST_Controller {
 		// Check if backup failed.
 		if ( isset( $result['error'] ) ) {
 			// Check if it's a size limit error.
-			if ( strpos( $result['error'], '1GB limit' ) !== false ) {
+			if ( strpos( $result['error'], '2GB limit' ) !== false ) {
 				return new WP_Error(
 					'backup_size_limit_exceeded',
 					$result['error'],
@@ -417,17 +445,25 @@ final class RestController extends WP_REST_Controller {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function delete_backup( WP_REST_Request $request ) {
-		$deleted = $this->backup_manager->delete_backup( $request->get_param( 'id' ) );
+		try {
+			$deleted = $this->backup_manager->delete_backup( $request->get_param( 'id' ) );
 
-		if ( ! $deleted ) {
+			if ( ! $deleted ) {
+				return new WP_Error(
+					'delete_failed',
+					__( 'Failed to delete backup.', 'swish-migrate-and-backup' ),
+					array( 'status' => 500 )
+				);
+			}
+
+			return rest_ensure_response( array( 'deleted' => true ) );
+		} catch ( \Exception $e ) {
 			return new WP_Error(
 				'delete_failed',
-				__( 'Failed to delete backup.', 'swish-migrate-and-backup' ),
+				$e->getMessage(),
 				array( 'status' => 500 )
 			);
 		}
-
-		return rest_ensure_response( array( 'deleted' => true ) );
 	}
 
 	/**
@@ -537,30 +573,49 @@ final class RestController extends WP_REST_Controller {
 			);
 		}
 
-		// Move file to backups directory.
+		// Set up custom upload directory for backup imports.
 		$backup_dir = WP_CONTENT_DIR . '/swish-backups/imports';
 
 		if ( ! file_exists( $backup_dir ) ) {
 			wp_mkdir_p( $backup_dir );
 		}
 
-		$filename = sanitize_file_name( $file['name'] );
-		$destination = $backup_dir . '/' . $filename;
+		// Custom upload directory filter.
+		$upload_dir_filter = function ( $uploads ) use ( $backup_dir ) {
+			$uploads['path']   = $backup_dir;
+			$uploads['url']    = content_url( 'swish-backups/imports' );
+			$uploads['subdir'] = '';
+			return $uploads;
+		};
 
-		// If file exists, add a unique suffix.
-		if ( file_exists( $destination ) ) {
-			$filename = wp_unique_filename( $backup_dir, $filename );
-			$destination = $backup_dir . '/' . $filename;
-		}
+		// Add filter temporarily to redirect upload to our backup imports directory.
+		add_filter( 'upload_dir', $upload_dir_filter );
 
-		// phpcs:ignore Generic.PHP.ForbiddenFunctions.Found -- Required for handling PHP uploaded files.
-		if ( ! move_uploaded_file( $file['tmp_name'], $destination ) ) {
+		// Allow ZIP files for this upload.
+		$upload_overrides = array(
+			'test_form'                => false,
+			'test_type'                => true,
+			'mimes'                    => array( 'zip' => 'application/zip' ),
+			'unique_filename_callback' => null,
+		);
+
+		// Use WordPress file upload handler.
+		$upload_result = wp_handle_upload( $file, $upload_overrides );
+
+		// Remove the filter after upload.
+		remove_filter( 'upload_dir', $upload_dir_filter );
+
+		// Check for upload errors.
+		if ( isset( $upload_result['error'] ) ) {
 			return new WP_Error(
-				'move_failed',
-				__( 'Failed to move uploaded file.', 'swish-migrate-and-backup' ),
+				'upload_failed',
+				$upload_result['error'],
 				array( 'status' => 500 )
 			);
 		}
+
+		$destination = $upload_result['file'];
+		$filename    = basename( $destination );
 
 		// Analyze the backup.
 		$analysis = $this->migrator->analyze_backup( $destination );
@@ -686,6 +741,45 @@ final class RestController extends WP_REST_Controller {
 		}
 
 		return rest_ensure_response( $job );
+	}
+
+	/**
+	 * Process a pending job directly.
+	 *
+	 * This is a fallback for hosts where WP Cron doesn't trigger immediately.
+	 * The frontend can call this if the job is still "pending" after a few seconds.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function process_pending_job( WP_REST_Request $request ) {
+		$job_id = $request->get_param( 'id' );
+		$job = $this->backup_manager->get_job_status( $job_id );
+
+		if ( ! $job ) {
+			return new WP_Error(
+				'job_not_found',
+				__( 'Job not found.', 'swish-migrate-and-backup' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		// Only process if the job is still pending.
+		if ( $job['status'] !== 'pending' ) {
+			return rest_ensure_response( array(
+				'status'  => $job['status'],
+				'message' => 'Job is already ' . $job['status'],
+			) );
+		}
+
+		// Process the backup synchronously in this request.
+		// This works because the frontend is already prepared to wait.
+		$this->backup_manager->process_async_backup( $job_id );
+
+		// Return the updated job status.
+		$updated_job = $this->backup_manager->get_job_status( $job_id );
+
+		return rest_ensure_response( $updated_job );
 	}
 
 	/**

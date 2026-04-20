@@ -4,7 +4,7 @@ Tags: backup, migration, restore, database, cloud storage
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.0.7
+Stable tag: 1.0.9
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -121,6 +121,18 @@ Yes, you can download a backup and upload it to any WordPress site with this plu
 
 == Changelog ==
 
+= 1.0.9 =
+* Added async backup processing to prevent timeouts on managed hosting (WP Engine, etc.)
+* Added background job processing via WP Cron with automatic fallback
+* Added job status polling endpoint for real-time progress updates
+* Added ETA (estimated time remaining) display during file backup
+* Fixed backup download returning "0" on admin-ajax.php - now uses admin.php
+* Improved compatibility with hosts that have strict execution time limits
+
+= 1.0.8 =
+* Fixed inline script to use wp_add_inline_script() for WordPress.org compliance
+* Replaced move_uploaded_file() with wp_handle_upload() for proper WordPress file handling
+
 = 1.0.7 =
 * Compatibility update for Pro plugin import fixes
 * Minor stability improvements
@@ -172,6 +184,9 @@ Yes, you can download a backup and upload it to any WordPress site with this plu
 * REST API endpoints
 
 == Upgrade Notice ==
+
+= 1.0.9 =
+Major update: Async backup processing prevents timeouts on managed hosting like WP Engine. Also fixes backup download issues. Recommended for all users.
 
 = 1.0.7 =
 Compatibility update for Pro plugin. Recommended update for all users.

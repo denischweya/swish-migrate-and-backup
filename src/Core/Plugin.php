@@ -294,8 +294,97 @@ final class Plugin {
 		// Cron scheduler.
 		add_action( 'swish_backup_scheduled_backup', array( $this->container->get( Scheduler::class ), 'run_scheduled_backup' ) );
 
+		// Async backup processor.
+		add_action( 'swish_backup_process_async', array( $this->container->get( BackupManager::class ), 'process_async_backup' ) );
+
 		// Register storage adapters.
 		add_action( 'init', array( $this, 'register_storage_adapters' ) );
+
+		// Handle backup file downloads.
+		add_action( 'admin_init', array( $this, 'handle_backup_download' ) );
+	}
+
+	/**
+	 * Handle backup file download requests.
+	 *
+	 * @return void
+	 */
+	public function handle_backup_download(): void {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Token validation is done via transient.
+		if ( ! isset( $_GET['swish_download'] ) || ! isset( $_GET['file'] ) ) {
+			return;
+		}
+
+		// Check user capabilities.
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to download backups.', 'swish-migrate-and-backup' ), 403 );
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+		$token = sanitize_text_field( wp_unslash( $_GET['swish_download'] ) );
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+		$file = sanitize_text_field( wp_unslash( $_GET['file'] ) );
+
+		// Get the stored download data.
+		$transient_key = 'swish_backup_download_' . md5( $file );
+		$download_data = get_transient( $transient_key );
+
+		if ( ! $download_data || ! is_array( $download_data ) ) {
+			wp_die( esc_html__( 'Download link has expired. Please generate a new one.', 'swish-migrate-and-backup' ), 403 );
+		}
+
+		// Validate the token.
+		if ( ! hash_equals( $download_data['token'], $token ) ) {
+			wp_die( esc_html__( 'Invalid download token.', 'swish-migrate-and-backup' ), 403 );
+		}
+
+		// Check expiry.
+		if ( isset( $download_data['expiry'] ) && time() > $download_data['expiry'] ) {
+			delete_transient( $transient_key );
+			wp_die( esc_html__( 'Download link has expired. Please generate a new one.', 'swish-migrate-and-backup' ), 403 );
+		}
+
+		// Get the file path.
+		$local_adapter = $this->container->get( LocalAdapter::class );
+		$backup_dir    = $local_adapter->get_base_directory();
+		$file_path     = $backup_dir . '/' . $file;
+
+		// Validate the file path to prevent directory traversal.
+		$real_backup_dir = realpath( $backup_dir );
+		$real_file_path  = realpath( $file_path );
+
+		if ( ! $real_file_path || strpos( $real_file_path, $real_backup_dir ) !== 0 ) {
+			wp_die( esc_html__( 'Invalid file path.', 'swish-migrate-and-backup' ), 403 );
+		}
+
+		if ( ! file_exists( $real_file_path ) ) {
+			wp_die( esc_html__( 'Backup file not found.', 'swish-migrate-and-backup' ), 404 );
+		}
+
+		// Delete the transient to prevent reuse.
+		delete_transient( $transient_key );
+
+		// Serve the file.
+		$filename = basename( $real_file_path );
+		$filesize = filesize( $real_file_path );
+
+		// Clear any output buffers.
+		while ( ob_get_level() ) {
+			ob_end_clean();
+		}
+
+		// Set headers for download.
+		nocache_headers();
+		header( 'Content-Type: application/zip' );
+		header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
+		header( 'Content-Length: ' . $filesize );
+		header( 'Content-Transfer-Encoding: binary' );
+		header( 'Pragma: public' );
+
+		// Output the file.
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_readfile
+		readfile( $real_file_path );
+		exit;
 	}
 
 	/**
@@ -362,6 +451,14 @@ final class Plugin {
 			// Enqueue legacy admin JS for other pages.
 			$this->enqueue_legacy_js();
 		}
+
+		// Enqueue documentation page inline script.
+		if ( strpos( $hook_suffix, 'swish-backup-docs' ) !== false ) {
+			wp_add_inline_script(
+				'swish-backup-admin',
+				DocumentationPage::get_inline_script()
+			);
+		}
 	}
 
 	/**
@@ -370,7 +467,7 @@ final class Plugin {
 	 * @return void
 	 */
 	private function enqueue_built_styles(): void {
-		$css_file   = SWISH_BACKUP_PLUGIN_DIR . 'build/style-index.css';
+		$css_file   = SWISH_BACKUP_PLUGIN_DIR . 'build/index.css';
 		$asset_file = SWISH_BACKUP_PLUGIN_DIR . 'build/index.asset.php';
 
 		if ( file_exists( $css_file ) ) {
@@ -379,7 +476,7 @@ final class Plugin {
 
 			wp_enqueue_style(
 				'swish-backup-admin',
-				SWISH_BACKUP_PLUGIN_URL . 'build/style-index.css',
+				SWISH_BACKUP_PLUGIN_URL . 'build/index.css',
 				array( 'wp-components' ),
 				$version
 			);

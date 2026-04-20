@@ -267,6 +267,7 @@ final class FileBackup {
 
 			$total_files = count( $files );
 			$processed = 0;
+			$start_time = microtime( true );
 
 			foreach ( $files as $file ) {
 				$result = $zip->addFile( $file['path'], $file['relative'] );
@@ -279,7 +280,14 @@ final class FileBackup {
 
 				if ( $progress_callback && 0 === $processed % 50 ) {
 					$progress = (int) ( ( $processed / $total_files ) * 100 );
-					$progress_callback( $progress, $file['relative'], $processed, $total_files );
+
+					// Calculate time estimation.
+					$elapsed = microtime( true ) - $start_time;
+					$files_per_second = $processed / max( $elapsed, 0.001 );
+					$remaining_files = $total_files - $processed;
+					$eta_seconds = $files_per_second > 0 ? (int) ( $remaining_files / $files_per_second ) : 0;
+
+					$progress_callback( $progress, $file['relative'], $processed, $total_files, $eta_seconds );
 				}
 
 				// Prevent memory exhaustion.
