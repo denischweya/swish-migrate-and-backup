@@ -14,6 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+use SwishMigrateAndBackup\Core\ServerLimits;
 use SwishMigrateAndBackup\Logger\Logger;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -276,10 +277,17 @@ final class FileBackup {
 	 * @param array         $files             Files to backup.
 	 * @param string        $output_path       Output zip file path.
 	 * @param callable|null $progress_callback Progress callback.
-	 * @return bool True if successful.
+	 * @return bool|array True if successful, array with 'timeout' key if timed out.
 	 */
-	public function backup( array $files, string $output_path, ?callable $progress_callback = null ): bool {
-		$this->logger->info( 'Starting file backup', array( 'file_count' => count( $files ) ) );
+	public function backup( array $files, string $output_path, ?callable $progress_callback = null ) {
+		// Initialize server limits tracking.
+		ServerLimits::init_timing();
+		$limits_debug = ServerLimits::get_debug_info();
+
+		$this->logger->info( 'Starting file backup', array(
+			'file_count' => count( $files ),
+			'server_limits' => $limits_debug,
+		) );
 
 		try {
 			$zip = new \ZipArchive();
@@ -293,46 +301,86 @@ final class FileBackup {
 			$total_files = count( $files );
 			$processed = 0;
 			$start_time = microtime( true );
+			$skipped_files = array();
+
+			// Get adaptive settings based on server limits.
+			$flush_interval = ServerLimits::get_zip_flush_interval();
+			$progress_interval = min( 50, max( 10, (int) ( $total_files / 100 ) ) );
+
+			// Time limit check threshold (check every N files).
+			$time_check_interval = min( 100, max( 25, $flush_interval ) );
 
 			foreach ( $files as $file ) {
-				$result = $zip->addFile( $file['path'], $file['relative'] );
+				// Check for approaching time limit.
+				if ( 0 === $processed % $time_check_interval && $processed > 0 ) {
+					if ( ServerLimits::is_approaching_time_limit( 15 ) ) {
+						// Close the ZIP properly before timing out.
+						$zip->close();
 
-				if ( ! $result ) {
+						$this->logger->warning( 'Backup approaching time limit, saving progress', array(
+							'processed'      => $processed,
+							'total'          => $total_files,
+							'elapsed'        => ServerLimits::get_elapsed_time(),
+							'remaining_time' => ServerLimits::get_remaining_time(),
+						) );
+
+						// Return timeout state for resumable processing.
+						return array(
+							'timeout'        => true,
+							'processed'      => $processed,
+							'total'          => $total_files,
+							'output_path'    => $output_path,
+							'remaining_files' => array_slice( $files, $processed ),
+						);
+					}
+				}
+
+				// Try to add file to archive.
+				$add_result = $zip->addFile( $file['path'], $file['relative'] );
+
+				if ( ! $add_result ) {
 					$this->logger->warning( 'Failed to add file to archive', array( 'file' => $file['path'] ) );
+					$skipped_files[] = $file['path'];
 				}
 
 				++$processed;
 
-				if ( $progress_callback && 0 === $processed % 50 ) {
+				// Progress callback.
+				if ( $progress_callback && 0 === $processed % $progress_interval ) {
 					$progress = (int) ( ( $processed / $total_files ) * 100 );
-
-					// Calculate time estimation.
-					$elapsed = microtime( true ) - $start_time;
-					$files_per_second = $processed / max( $elapsed, 0.001 );
-					$remaining_files = $total_files - $processed;
-					$eta_seconds = $files_per_second > 0 ? (int) ( $remaining_files / $files_per_second ) : 0;
-
-					$progress_callback( $progress, $file['relative'], $processed, $total_files, $eta_seconds );
+					$progress_callback( $progress, $file['relative'], $processed, $total_files, 0 );
 				}
 
-				// Prevent memory exhaustion - close/reopen more frequently when memory is low.
-				$flush_interval = $this->is_memory_low() ? 100 : 500;
+				// Adaptive flush based on server limits.
 				if ( 0 === $processed % $flush_interval ) {
 					$zip->close();
 					$zip->open( $output_path );
 
-					// Trigger garbage collection if available.
+					// Trigger garbage collection.
 					if ( function_exists( 'gc_collect_cycles' ) ) {
 						gc_collect_cycles();
+					}
+
+					// Check memory and reduce flush interval if needed.
+					if ( ServerLimits::is_memory_low() ) {
+						$flush_interval = max( 25, (int) ( $flush_interval / 2 ) );
+						$this->logger->debug( 'Reduced flush interval due to memory pressure', array(
+							'new_interval' => $flush_interval,
+						) );
 					}
 				}
 			}
 
 			$zip->close();
 
+			$elapsed = microtime( true ) - $start_time;
+
 			$this->logger->info( 'File backup completed', array(
-				'files' => $total_files,
-				'size'  => filesize( $output_path ),
+				'files'         => $total_files,
+				'skipped'       => count( $skipped_files ),
+				'size'          => filesize( $output_path ),
+				'elapsed_time'  => round( $elapsed, 2 ) . 's',
+				'files_per_sec' => round( $total_files / max( $elapsed, 0.001 ), 1 ),
 			) );
 
 			return true;

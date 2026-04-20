@@ -297,6 +297,9 @@ final class Plugin {
 		// Async backup processor.
 		add_action( 'swish_backup_process_async', array( $this->container->get( BackupManager::class ), 'process_async_backup' ) );
 
+		// Backup continuation for chunked/timeout processing.
+		add_action( 'swish_backup_continue', array( $this->container->get( BackupManager::class ), 'continue_backup' ) );
+
 		// Register storage adapters.
 		add_action( 'init', array( $this, 'register_storage_adapters' ) );
 
