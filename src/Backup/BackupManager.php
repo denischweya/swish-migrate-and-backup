@@ -59,6 +59,13 @@ final class BackupManager {
 	private Logger $logger;
 
 	/**
+	 * Backup state manager (for file-based checkpoints).
+	 *
+	 * @var BackupState|null
+	 */
+	private ?BackupState $backup_state = null;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param DatabaseBackup $database_backup Database backup handler.
@@ -79,6 +86,18 @@ final class BackupManager {
 		$this->archiver        = $archiver;
 		$this->storage_manager = $storage_manager;
 		$this->logger          = $logger;
+	}
+
+	/**
+	 * Get or create the backup state manager.
+	 *
+	 * @return BackupState
+	 */
+	private function get_backup_state(): BackupState {
+		if ( null === $this->backup_state ) {
+			$this->backup_state = new BackupState();
+		}
+		return $this->backup_state;
 	}
 
 	/**
@@ -178,15 +197,46 @@ final class BackupManager {
 	/**
 	 * Save backup checkpoint for resumption.
 	 *
+	 * Uses file-based storage instead of transients for reliable
+	 * checkpoint storage on managed hosts like WP Engine.
+	 *
 	 * @param string $job_id         Job ID.
 	 * @param array  $checkpoint     Checkpoint data.
-	 * @param int    $expiration     Expiration in seconds (default 1 hour).
+	 * @param int    $expiration     Expiration in seconds (default 1 hour, unused with BackupState).
 	 * @return void
 	 */
 	private function save_checkpoint( string $job_id, array $checkpoint, int $expiration = HOUR_IN_SECONDS ): void {
-		set_transient( 'swish_backup_checkpoint_' . $job_id, $checkpoint, $expiration );
+		$state = $this->get_backup_state();
 
-		$this->logger->debug( 'Checkpoint saved', array(
+		// If we have remaining_files, save them to a file-based list instead of in checkpoint data.
+		if ( ! empty( $checkpoint['remaining_files'] ) ) {
+			$state->save_file_list( $job_id, $checkpoint['remaining_files'] );
+			// Don't store remaining_files in the checkpoint metadata - it's in the file.
+			unset( $checkpoint['remaining_files'] );
+			$checkpoint['has_file_list'] = true;
+		}
+
+		// Save progress and options.
+		$state->save_progress(
+			$job_id,
+			$checkpoint['processed'] ?? 0,
+			$checkpoint['total'] ?? 0,
+			$checkpoint['phase'] ?? 'files',
+			array(
+				'output_path'      => $checkpoint['output_path'] ?? '',
+				'temp_dir'         => $checkpoint['temp_dir'] ?? '',
+				'files_to_archive' => $checkpoint['files_to_archive'] ?? array(),
+				'has_file_list'    => $checkpoint['has_file_list'] ?? false,
+				'file_offset'      => $checkpoint['file_offset'] ?? 0,
+			)
+		);
+
+		// Save backup options.
+		if ( ! empty( $checkpoint['options'] ) ) {
+			$state->save_options( $job_id, $checkpoint['options'] );
+		}
+
+		$this->logger->debug( 'Checkpoint saved to file-based state', array(
 			'job_id'    => $job_id,
 			'processed' => $checkpoint['processed'] ?? 0,
 			'total'     => $checkpoint['total'] ?? 0,
@@ -196,21 +246,47 @@ final class BackupManager {
 	/**
 	 * Get backup checkpoint.
 	 *
+	 * Retrieves checkpoint from file-based storage.
+	 *
 	 * @param string $job_id Job ID.
 	 * @return array|false Checkpoint data or false if not found.
 	 */
 	private function get_checkpoint( string $job_id ) {
-		return get_transient( 'swish_backup_checkpoint_' . $job_id );
+		$state = $this->get_backup_state();
+
+		$progress = $state->get_progress( $job_id );
+		if ( null === $progress ) {
+			return false;
+		}
+
+		$options = $state->get_options( $job_id );
+
+		// Build checkpoint array from stored state.
+		$checkpoint = array(
+			'phase'            => $progress['phase'] ?? 'files',
+			'processed'        => $progress['processed'] ?? 0,
+			'total'            => $progress['total'] ?? 0,
+			'output_path'      => $progress['output_path'] ?? '',
+			'temp_dir'         => $progress['temp_dir'] ?? '',
+			'file_offset'      => $progress['file_offset'] ?? 0,
+			'files_to_archive' => $progress['files_to_archive'] ?? array(),
+			'options'          => $options ?? array(),
+			'has_file_list'    => $progress['has_file_list'] ?? false,
+		);
+
+		return $checkpoint;
 	}
 
 	/**
 	 * Delete backup checkpoint.
 	 *
+	 * Cleans up all checkpoint data including file lists.
+	 *
 	 * @param string $job_id Job ID.
 	 * @return void
 	 */
 	private function delete_checkpoint( string $job_id ): void {
-		delete_transient( 'swish_backup_checkpoint_' . $job_id );
+		$this->get_backup_state()->cleanup( $job_id );
 	}
 
 	/**
@@ -289,72 +365,183 @@ final class BackupManager {
 	/**
 	 * Continue file backup from checkpoint.
 	 *
+	 * Uses file-based state to read remaining files, avoiding memory
+	 * issues with large file lists on WP Engine and other managed hosts.
+	 *
 	 * @param string $job_id     Job ID.
 	 * @param array  $checkpoint Checkpoint data.
 	 * @return void
 	 */
 	private function continue_file_backup( string $job_id, array $checkpoint ): void {
-		$remaining_files = $checkpoint['remaining_files'] ?? array();
 		$output_path = $checkpoint['output_path'] ?? '';
 		$processed = $checkpoint['processed'] ?? 0;
-		$total = $checkpoint['total'] ?? count( $remaining_files ) + $processed;
+		$total = $checkpoint['total'] ?? 0;
 		$options = $checkpoint['options'] ?? array();
 		$temp_dir = $checkpoint['temp_dir'] ?? '';
 		$files_to_archive = $checkpoint['files_to_archive'] ?? array();
+		$has_file_list = $checkpoint['has_file_list'] ?? false;
 
-		if ( empty( $remaining_files ) ) {
-			// File backup complete, continue with archive creation.
-			$this->finalize_full_backup( $job_id, $options, $temp_dir, $files_to_archive, $output_path );
-			return;
-		}
+		$state = $this->get_backup_state();
 
-		// Progress callback for continuation.
-		$progress_callback = function ( int $progress, string $file, int $chunk_processed, int $chunk_total, int $eta_seconds = 0 ) use ( $job_id, $processed, $total ) {
-			$actual_processed = $processed + $chunk_processed;
-			$actual_progress = (int) ( ( $actual_processed / $total ) * 100 );
-			$job_progress = 40 + (int) ( $actual_progress * 0.4 );
+		// Check if we should use file-based state or the old checkpoint format.
+		if ( $has_file_list ) {
+			// Read remaining file count.
+			$remaining_count = $state->count_file_list( $job_id );
 
-			$message = sprintf(
-				'Backing up files... %d/%d (%d%%) [resumed]',
-				$actual_processed,
-				$total,
-				$actual_progress
-			);
+			if ( 0 === $remaining_count ) {
+				// File backup complete, continue with archive creation.
+				$this->delete_checkpoint( $job_id );
+				$files_to_archive[] = array(
+					'path' => $output_path,
+					'name' => 'files.zip',
+				);
+				$this->finalize_full_backup( $job_id, $options, $temp_dir, $files_to_archive, $output_path );
+				return;
+			}
 
-			$this->update_job_status( $job_id, 'processing', $job_progress, $message );
-		};
+			// Update total if needed.
+			if ( 0 === $total ) {
+				$total = $remaining_count + $processed;
+			}
 
-		// Continue the file backup.
-		$result = $this->file_backup->backup( $remaining_files, $output_path, $progress_callback );
-
-		// Check if we timed out again.
-		if ( is_array( $result ) && ! empty( $result['timeout'] ) ) {
-			// Update checkpoint with new state.
-			$new_checkpoint = array(
-				'phase'           => 'files',
-				'processed'       => $processed + $result['processed'],
+			$this->logger->debug( 'Continuing file backup from state', array(
+				'processed'       => $processed,
+				'remaining_count' => $remaining_count,
 				'total'           => $total,
-				'output_path'     => $output_path,
-				'remaining_files' => $result['remaining_files'],
-				'options'         => $options,
-				'temp_dir'        => $temp_dir,
-				'files_to_archive' => $files_to_archive,
-			);
-
-			$this->save_checkpoint( $job_id, $new_checkpoint );
-			$this->schedule_continuation( $job_id );
-
-			$this->logger->info( 'Backup paused again, scheduling next chunk', array(
-				'processed' => $new_checkpoint['processed'],
-				'remaining' => count( $result['remaining_files'] ),
 			) );
 
-			return;
-		}
+			// Progress callback for continuation.
+			$progress_callback = function ( int $progress, string $file, int $chunk_processed, int $chunk_total, int $eta_seconds = 0 ) use ( $job_id, $processed, $total ) {
+				$actual_processed = $processed + $chunk_processed;
+				$actual_progress = $total > 0 ? (int) ( ( $actual_processed / $total ) * 100 ) : 0;
+				$job_progress = 40 + (int) ( $actual_progress * 0.4 );
 
-		// File backup complete.
-		if ( true !== $result ) {
-			throw new \RuntimeException( 'File backup failed during continuation' );
+				$message = sprintf(
+					'Backing up files... %d/%d (%d%%) [resumed]',
+					$actual_processed,
+					$total,
+					$actual_progress
+				);
+
+				$this->update_job_status( $job_id, 'processing', $job_progress, $message );
+			};
+
+			// Get current file offset from progress (default to 0 for first continuation).
+			$file_offset = $checkpoint['file_offset'] ?? 0;
+
+			// Use the state-based backup method.
+			$result = $this->file_backup->backup_from_state( $job_id, $output_path, $file_offset, $progress_callback );
+
+			// Check if we timed out again.
+			if ( is_array( $result ) && ! empty( $result['timeout'] ) ) {
+				// Calculate new offset: current offset + files processed in this run.
+				$new_file_offset = $file_offset + ( $result['processed'] ?? 0 );
+
+				// Update checkpoint with new offset.
+				$new_checkpoint = array(
+					'phase'            => 'files',
+					'processed'        => $processed + ( $result['processed'] ?? 0 ),
+					'total'            => $total,
+					'output_path'      => $output_path,
+					'options'          => $options,
+					'temp_dir'         => $temp_dir,
+					'files_to_archive' => $files_to_archive,
+					'has_file_list'    => true,
+					'file_offset'      => $new_file_offset,
+				);
+
+				// Save progress with new offset.
+				$state->save_progress(
+					$job_id,
+					$new_checkpoint['processed'],
+					$new_checkpoint['total'],
+					$new_checkpoint['phase'],
+					array(
+						'output_path'      => $new_checkpoint['output_path'],
+						'temp_dir'         => $new_checkpoint['temp_dir'],
+						'files_to_archive' => $new_checkpoint['files_to_archive'],
+						'has_file_list'    => true,
+						'file_offset'      => $new_file_offset,
+					)
+				);
+
+				$this->schedule_continuation( $job_id );
+
+				$this->logger->info( 'Backup paused again, scheduling next chunk', array(
+					'processed' => $new_checkpoint['processed'],
+					'remaining' => $result['remaining'] ?? 0,
+				) );
+
+				return;
+			}
+
+			// File backup complete.
+			if ( true !== $result ) {
+				throw new \RuntimeException( 'File backup failed during continuation' );
+			}
+		} else {
+			// Legacy checkpoint format with remaining_files array (shouldn't happen with new checkpoints).
+			$remaining_files = $checkpoint['remaining_files'] ?? array();
+
+			if ( empty( $remaining_files ) ) {
+				// File backup complete.
+				$this->delete_checkpoint( $job_id );
+				$files_to_archive[] = array(
+					'path' => $output_path,
+					'name' => 'files.zip',
+				);
+				$this->finalize_full_backup( $job_id, $options, $temp_dir, $files_to_archive, $output_path );
+				return;
+			}
+
+			// Progress callback for continuation.
+			$progress_callback = function ( int $progress, string $file, int $chunk_processed, int $chunk_total, int $eta_seconds = 0 ) use ( $job_id, $processed, $total ) {
+				$actual_processed = $processed + $chunk_processed;
+				$actual_progress = $total > 0 ? (int) ( ( $actual_processed / $total ) * 100 ) : 0;
+				$job_progress = 40 + (int) ( $actual_progress * 0.4 );
+
+				$message = sprintf(
+					'Backing up files... %d/%d (%d%%) [resumed/legacy]',
+					$actual_processed,
+					$total,
+					$actual_progress
+				);
+
+				$this->update_job_status( $job_id, 'processing', $job_progress, $message );
+			};
+
+			// Continue the file backup with array.
+			$result = $this->file_backup->backup( $remaining_files, $output_path, $progress_callback );
+
+			// Check if we timed out again.
+			if ( is_array( $result ) && ! empty( $result['timeout'] ) ) {
+				// Update checkpoint with new state (now use file-based storage).
+				$new_checkpoint = array(
+					'phase'            => 'files',
+					'processed'        => $processed + $result['processed'],
+					'total'            => $total,
+					'output_path'      => $output_path,
+					'remaining_files'  => $result['remaining_files'],
+					'options'          => $options,
+					'temp_dir'         => $temp_dir,
+					'files_to_archive' => $files_to_archive,
+				);
+
+				$this->save_checkpoint( $job_id, $new_checkpoint );
+				$this->schedule_continuation( $job_id );
+
+				$this->logger->info( 'Backup paused again, scheduling next chunk', array(
+					'processed' => $new_checkpoint['processed'],
+					'remaining' => count( $result['remaining_files'] ),
+				) );
+
+				return;
+			}
+
+			// File backup complete.
+			if ( true !== $result ) {
+				throw new \RuntimeException( 'File backup failed during continuation' );
+			}
 		}
 
 		// Delete checkpoint and finalize.
