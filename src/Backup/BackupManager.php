@@ -119,13 +119,13 @@ final class BackupManager {
 				array(
 					'size_limit_exceeded' => 1,
 					'status'              => 'failed',
-					'error_message'       => 'Backup exceeds 1GB limit for free version',
+					'error_message'       => 'Backup exceeds 2GB limit for free version',
 				),
 				array( 'job_id' => $job_id )
 			);
 
 			$this->logger->warning(
-				'Backup exceeds 1GB limit',
+				'Backup exceeds 2GB limit',
 				array(
 					'job_id'      => $job_id,
 					'backup_size' => size_format( $backup_size ),
@@ -136,7 +136,7 @@ final class BackupManager {
 			// Throw exception with upgrade URL.
 			throw new \Exception(
 				sprintf(
-					'Your backup is %s which exceeds the 1GB limit for the free version. Upgrade to Pro to remove all limits: %s',
+					'Your backup is %s which exceeds the 2GB limit for the free version. Upgrade to Pro to remove all limits: %s',
 					esc_html( size_format( $backup_size ) ),
 					esc_url( SWISH_BACKUP_PRO_URL )
 				)
@@ -159,6 +159,413 @@ final class BackupManager {
 
 		if ( isset( $options['file_batch_size'] ) ) {
 			$this->file_backup->set_files_per_batch( (int) $options['file_batch_size'] );
+		}
+	}
+
+	/**
+	 * Format seconds into human-readable time string.
+	 *
+	 * @param int $seconds Seconds remaining.
+	 * @return string Formatted time (e.g., "2m 30s", "1h 15m").
+	 */
+	private function format_eta( int $seconds ): string {
+		if ( $seconds < 1 ) {
+			return 'almost done';
+		}
+
+		if ( $seconds < 60 ) {
+			return $seconds . 's remaining';
+		}
+
+		$minutes = (int) floor( $seconds / 60 );
+		$secs = $seconds % 60;
+
+		if ( $minutes < 60 ) {
+			return $secs > 0 ? "{$minutes}m {$secs}s remaining" : "{$minutes}m remaining";
+		}
+
+		$hours = (int) floor( $minutes / 60 );
+		$mins = $minutes % 60;
+
+		return $mins > 0 ? "{$hours}h {$mins}m remaining" : "{$hours}h remaining";
+	}
+
+	/**
+	 * Create file backup progress callback.
+	 *
+	 * @param string $job_id Job ID.
+	 * @return callable Progress callback function.
+	 */
+	private function create_file_progress_callback( string $job_id ): callable {
+		return function ( int $progress, string $file, int $processed, int $total, int $eta_seconds = 0 ) use ( $job_id ) {
+			// Map file backup progress (0-100%) to job progress (40-80%).
+			$job_progress = 40 + (int) ( $progress * 0.4 );
+
+			$message = sprintf(
+				'Backing up files... %d/%d (%s)',
+				$processed,
+				$total,
+				$this->format_eta( $eta_seconds )
+			);
+
+			$this->update_job_status( $job_id, 'processing', $job_progress, $message );
+		};
+	}
+
+	/**
+	 * Start an async full backup.
+	 *
+	 * @param array $options Backup options.
+	 * @return array Job info with job_id for polling.
+	 */
+	public function start_async_backup( array $options = array() ): array {
+		$job_id = $this->generate_job_id();
+		$this->logger->set_job_id( $job_id );
+		$this->logger->info( 'Starting async backup', array( 'options' => $options ) );
+
+		// Create job record.
+		$this->create_job_record( $job_id, $options['type'] ?? 'full' );
+		$this->update_job_status( $job_id, 'pending', 0, 'Backup queued...' );
+
+		// Store backup options in transient for the background processor.
+		set_transient( 'swish_backup_job_' . $job_id, $options, HOUR_IN_SECONDS );
+
+		// Schedule immediate cron event to process the backup.
+		if ( ! wp_next_scheduled( 'swish_backup_process_async', array( $job_id ) ) ) {
+			wp_schedule_single_event( time(), 'swish_backup_process_async', array( $job_id ) );
+		}
+
+		// Spawn a loopback request to trigger cron immediately.
+		$this->spawn_cron();
+
+		return array(
+			'job_id'  => $job_id,
+			'status'  => 'pending',
+			'message' => 'Backup started. Please wait...',
+		);
+	}
+
+	/**
+	 * Process async backup (called by cron).
+	 *
+	 * @param string $job_id Job ID.
+	 * @return void
+	 */
+	public function process_async_backup( string $job_id ): void {
+		// Get stored options.
+		$options = get_transient( 'swish_backup_job_' . $job_id );
+
+		if ( false === $options ) {
+			$this->fail_job( $job_id, 'Backup options expired or not found' );
+			return;
+		}
+
+		// Delete transient to prevent re-processing.
+		delete_transient( 'swish_backup_job_' . $job_id );
+
+		// Increase time limit for the backup process.
+		// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+		@set_time_limit( 300 );
+
+		// Run the actual backup.
+		$type = $options['type'] ?? 'full';
+
+		$result = match ( $type ) {
+			'database' => $this->run_database_backup( $job_id, $options ),
+			'files'    => $this->run_files_backup( $job_id, $options ),
+			default    => $this->run_full_backup( $job_id, $options ),
+		};
+
+		// Log result.
+		if ( isset( $result['error'] ) ) {
+			$this->logger->error( 'Async backup failed', array( 'job_id' => $job_id, 'error' => $result['error'] ) );
+		} else {
+			$this->logger->info( 'Async backup completed', array( 'job_id' => $job_id ) );
+		}
+	}
+
+	/**
+	 * Spawn a loopback request to trigger cron.
+	 *
+	 * @return void
+	 */
+	private function spawn_cron(): void {
+		$cron_url = site_url( 'wp-cron.php?doing_wp_cron=' . sprintf( '%.22F', microtime( true ) ) );
+
+		wp_remote_post(
+			$cron_url,
+			array(
+				'timeout'   => 0.01,
+				'blocking'  => false,
+				'sslverify' => apply_filters( 'https_local_ssl_verify', false ),
+			)
+		);
+	}
+
+	/**
+	 * Run full backup (internal, for async processing).
+	 *
+	 * @param string $job_id  Job ID.
+	 * @param array  $options Backup options.
+	 * @return array Backup result.
+	 */
+	private function run_full_backup( string $job_id, array $options ): array {
+		$this->logger->set_job_id( $job_id );
+		$this->configure_batch_sizes( $options );
+
+		do_action( 'swish_backup_before', $job_id, $options );
+
+		try {
+			$temp_dir = $this->get_temp_directory( $job_id );
+			$files_to_archive = array();
+
+			// Backup database.
+			if ( $options['backup_database'] ?? true ) {
+				$this->update_job_status( $job_id, 'processing', 10, 'Backing up database...' );
+				$db_file = $temp_dir . '/database.sql';
+
+				if ( ! $this->database_backup->backup( $db_file ) ) {
+					throw new \RuntimeException( 'Database backup failed' );
+				}
+
+				$files_to_archive[] = array(
+					'path' => $db_file,
+					'name' => 'database.sql',
+				);
+			}
+
+			// Backup files.
+			$this->update_job_status( $job_id, 'processing', 30, 'Preparing file list...' );
+			$file_list = $this->file_backup->prepare_file_list( $options );
+
+			if ( ! empty( $file_list['files'] ) ) {
+				$file_count = count( $file_list['files'] );
+				$this->update_job_status(
+					$job_id,
+					'processing',
+					40,
+					sprintf( 'Backing up files... 0/%d (calculating...)', $file_count )
+				);
+				$files_archive = $temp_dir . '/files.zip';
+
+				$progress_callback = $this->create_file_progress_callback( $job_id );
+				if ( ! $this->file_backup->backup( $file_list['files'], $files_archive, $progress_callback ) ) {
+					throw new \RuntimeException( 'File backup failed' );
+				}
+
+				$files_to_archive[] = array(
+					'path' => $files_archive,
+					'name' => 'files.zip',
+				);
+			}
+
+			// Backup wp-config and special files.
+			$special_files = $this->file_backup->backup_wp_config( $temp_dir );
+			foreach ( $special_files as $file ) {
+				$files_to_archive[] = array(
+					'path' => $file,
+					'name' => basename( $file ),
+				);
+			}
+
+			// Create final archive.
+			$this->update_job_status( $job_id, 'processing', 80, 'Creating archive...' );
+			$backup_filename = $this->generate_backup_filename();
+			$backup_path = $this->get_backup_directory() . '/' . $backup_filename;
+
+			$metadata = array(
+				'job_id'      => $job_id,
+				'type'        => 'full',
+				'options'     => $options,
+				'file_count'  => $file_list['count'] ?? 0,
+				'total_size'  => $file_list['total_size'] ?? 0,
+			);
+
+			if ( ! $this->archiver->create_archive( $files_to_archive, $backup_path, $metadata ) ) {
+				throw new \RuntimeException( 'Archive creation failed' );
+			}
+
+			// Check backup size limit.
+			$this->check_backup_size_limit( $backup_path, $job_id );
+
+			// Upload to storage destinations.
+			$this->update_job_status( $job_id, 'processing', 90, 'Uploading to storage...' );
+			$destinations = $options['storage_destinations'] ?? array( 'local' );
+			$upload_results = $this->storage_manager->upload_to_destinations(
+				$backup_path,
+				$backup_filename,
+				$destinations
+			);
+
+			// Calculate checksum.
+			$checksum = $this->archiver->calculate_checksum( $backup_path );
+
+			// Clean up temp files.
+			$this->cleanup_temp_directory( $temp_dir );
+
+			// Update job as completed.
+			$result = array(
+				'job_id'      => $job_id,
+				'filename'    => $backup_filename,
+				'path'        => $backup_path,
+				'size'        => filesize( $backup_path ),
+				'checksum'    => $checksum,
+				'destinations' => $upload_results,
+				'manifest'    => $metadata,
+			);
+
+			$this->complete_job( $job_id, $result );
+
+			do_action( 'swish_backup_after', $job_id, $result );
+
+			return $result;
+		} catch ( \Exception $e ) {
+			$this->fail_job( $job_id, $e->getMessage() );
+
+			if ( isset( $temp_dir ) ) {
+				$this->cleanup_temp_directory( $temp_dir );
+			}
+
+			return array( 'error' => $e->getMessage() );
+		}
+	}
+
+	/**
+	 * Run database backup (internal, for async processing).
+	 *
+	 * @param string $job_id  Job ID.
+	 * @param array  $options Backup options.
+	 * @return array Backup result.
+	 */
+	private function run_database_backup( string $job_id, array $options ): array {
+		$this->logger->set_job_id( $job_id );
+		$this->configure_batch_sizes( $options );
+
+		try {
+			$backup_filename = $this->generate_backup_filename( 'db' );
+			$temp_file = $this->get_temp_directory( $job_id ) . '/database.sql';
+
+			$this->update_job_status( $job_id, 'processing', 20, 'Backing up database...' );
+
+			if ( ! $this->database_backup->backup( $temp_file ) ) {
+				throw new \RuntimeException( 'Database backup failed' );
+			}
+
+			$this->update_job_status( $job_id, 'processing', 70, 'Compressing...' );
+			$backup_path = $this->get_backup_directory() . '/' . $backup_filename;
+
+			$metadata = array(
+				'job_id' => $job_id,
+				'type'   => 'database',
+				'tables' => $this->database_backup->get_tables(),
+			);
+
+			if ( ! $this->archiver->create_archive(
+				array( array( 'path' => $temp_file, 'name' => 'database.sql' ) ),
+				$backup_path,
+				$metadata
+			) ) {
+				throw new \RuntimeException( 'Archive creation failed' );
+			}
+
+			$this->check_backup_size_limit( $backup_path, $job_id );
+
+			$this->update_job_status( $job_id, 'processing', 90, 'Uploading to storage...' );
+			$destinations = $options['storage_destinations'] ?? array( 'local' );
+			$upload_results = $this->storage_manager->upload_to_destinations(
+				$backup_path,
+				$backup_filename,
+				$destinations
+			);
+
+			$this->cleanup_temp_directory( dirname( $temp_file ) );
+
+			$result = array(
+				'job_id'      => $job_id,
+				'filename'    => $backup_filename,
+				'path'        => $backup_path,
+				'size'        => filesize( $backup_path ),
+				'checksum'    => $this->archiver->calculate_checksum( $backup_path ),
+				'destinations' => $upload_results,
+			);
+
+			$this->complete_job( $job_id, $result );
+
+			return $result;
+		} catch ( \Exception $e ) {
+			$this->fail_job( $job_id, $e->getMessage() );
+			return array( 'error' => $e->getMessage() );
+		}
+	}
+
+	/**
+	 * Run files backup (internal, for async processing).
+	 *
+	 * @param string $job_id  Job ID.
+	 * @param array  $options Backup options.
+	 * @return array Backup result.
+	 */
+	private function run_files_backup( string $job_id, array $options ): array {
+		$this->logger->set_job_id( $job_id );
+		$this->configure_batch_sizes( $options );
+
+		try {
+			$backup_filename = $this->generate_backup_filename( 'files' );
+			$backup_path = $this->get_backup_directory() . '/' . $backup_filename;
+
+			$this->update_job_status( $job_id, 'processing', 10, 'Preparing file list...' );
+			$file_list = $this->file_backup->prepare_file_list( $options );
+
+			$file_count = count( $file_list['files'] );
+			$this->update_job_status(
+				$job_id,
+				'processing',
+				15,
+				sprintf( 'Backing up files... 0/%d (calculating...)', $file_count )
+			);
+
+			// For files-only backup, map 0-100% to 15-85% of total progress.
+			$progress_callback = function ( int $progress, string $file, int $processed, int $total, int $eta_seconds = 0 ) use ( $job_id ) {
+				$job_progress = 15 + (int) ( $progress * 0.7 );
+				$message = sprintf(
+					'Backing up files... %d/%d (%s)',
+					$processed,
+					$total,
+					$this->format_eta( $eta_seconds )
+				);
+				$this->update_job_status( $job_id, 'processing', $job_progress, $message );
+			};
+
+			if ( ! $this->file_backup->backup( $file_list['files'], $backup_path, $progress_callback ) ) {
+				throw new \RuntimeException( 'File backup failed' );
+			}
+
+			$this->check_backup_size_limit( $backup_path, $job_id );
+
+			$this->update_job_status( $job_id, 'processing', 90, 'Uploading to storage...' );
+			$destinations = $options['storage_destinations'] ?? array( 'local' );
+			$upload_results = $this->storage_manager->upload_to_destinations(
+				$backup_path,
+				$backup_filename,
+				$destinations
+			);
+
+			$result = array(
+				'job_id'      => $job_id,
+				'filename'    => $backup_filename,
+				'path'        => $backup_path,
+				'size'        => filesize( $backup_path ),
+				'checksum'    => $this->archiver->calculate_checksum( $backup_path ),
+				'file_count'  => $file_list['count'],
+				'destinations' => $upload_results,
+			);
+
+			$this->complete_job( $job_id, $result );
+
+			return $result;
+		} catch ( \Exception $e ) {
+			$this->fail_job( $job_id, $e->getMessage() );
+			return array( 'error' => $e->getMessage() );
 		}
 	}
 
@@ -211,10 +618,17 @@ final class BackupManager {
 			$file_list = $this->file_backup->prepare_file_list( $options );
 
 			if ( ! empty( $file_list['files'] ) ) {
-				$this->update_job_status( $job_id, 'processing', 40, 'Backing up files...' );
+				$file_count = count( $file_list['files'] );
+				$this->update_job_status(
+					$job_id,
+					'processing',
+					40,
+					sprintf( 'Backing up files... 0/%d (calculating...)', $file_count )
+				);
 				$files_archive = $temp_dir . '/files.zip';
 
-				if ( ! $this->file_backup->backup( $file_list['files'], $files_archive ) ) {
+				$progress_callback = $this->create_file_progress_callback( $job_id );
+				if ( ! $this->file_backup->backup( $file_list['files'], $files_archive, $progress_callback ) ) {
 					throw new \RuntimeException( 'File backup failed' );
 				}
 
@@ -406,9 +820,27 @@ final class BackupManager {
 			$this->update_job_status( $job_id, 'processing', 10, 'Preparing file list...' );
 			$file_list = $this->file_backup->prepare_file_list( $options );
 
-			$this->update_job_status( $job_id, 'processing', 30, 'Backing up files...' );
+			$file_count = count( $file_list['files'] );
+			$this->update_job_status(
+				$job_id,
+				'processing',
+				15,
+				sprintf( 'Backing up files... 0/%d (calculating...)', $file_count )
+			);
 
-			if ( ! $this->file_backup->backup( $file_list['files'], $backup_path ) ) {
+			// For files-only backup, map 0-100% to 15-85% of total progress.
+			$progress_callback = function ( int $progress, string $file, int $processed, int $total, int $eta_seconds = 0 ) use ( $job_id ) {
+				$job_progress = 15 + (int) ( $progress * 0.7 );
+				$message = sprintf(
+					'Backing up files... %d/%d (%s)',
+					$processed,
+					$total,
+					$this->format_eta( $eta_seconds )
+				);
+				$this->update_job_status( $job_id, 'processing', $job_progress, $message );
+			};
+
+			if ( ! $this->file_backup->backup( $file_list['files'], $backup_path, $progress_callback ) ) {
 				throw new \RuntimeException( 'File backup failed' );
 			}
 
@@ -539,18 +971,37 @@ final class BackupManager {
 			return false;
 		}
 
-		// Delete from all storage destinations.
-		$manifest = $backup['manifest'] ?? array();
-		$destinations = array_keys( $manifest['options']['storage_destinations'] ?? array( 'local' => true ) );
+		try {
+			// Delete from all storage destinations.
+			$manifest = $backup['manifest'] ?? array();
+			$storage_destinations = $manifest['options']['storage_destinations'] ?? array( 'local' );
 
-		if ( ! empty( $backup['filename'] ) ) {
-			$this->storage_manager->delete_from_destinations( $backup['filename'], $destinations );
-		}
+			// Handle both array formats: ['local', 's3'] or ['local' => true, 's3' => true].
+			if ( is_array( $storage_destinations ) ) {
+				$destinations = array_values( array_filter(
+					array_keys( $storage_destinations ),
+					'is_string'
+				) );
+				// If it's a sequential array, use it directly.
+				if ( empty( $destinations ) ) {
+					$destinations = array_values( $storage_destinations );
+				}
+			} else {
+				$destinations = array( 'local' );
+			}
 
-		// Delete local file if exists.
-		if ( ! empty( $backup['path'] ) && file_exists( $backup['path'] ) ) {
-			// phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink
-			unlink( $backup['path'] );
+			if ( ! empty( $backup['filename'] ) ) {
+				$this->storage_manager->delete_from_destinations( $backup['filename'], $destinations );
+			}
+
+			// Delete local file if exists.
+			if ( ! empty( $backup['path'] ) && file_exists( $backup['path'] ) ) {
+				// phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink
+				@unlink( $backup['path'] );
+			}
+		} catch ( \Exception $e ) {
+			$this->logger->warning( 'Error deleting backup files: ' . $e->getMessage(), array( 'job_id' => $job_id ) );
+			// Continue to delete the database record even if file deletion fails.
 		}
 
 		// Delete job record.

@@ -156,7 +156,7 @@ final class ProPage {
 							<span class="dashicons dashicons-cloud-upload"></span>
 						</div>
 						<h3><?php esc_html_e( 'Unlimited Backups', 'swish-migrate-and-backup' ); ?></h3>
-						<p><?php esc_html_e( 'No more 1GB size limit. Backup sites of any size without restrictions.', 'swish-migrate-and-backup' ); ?></p>
+						<p><?php esc_html_e( 'No more 2GB size limit. Backup sites of any size without restrictions.', 'swish-migrate-and-backup' ); ?></p>
 					</div>
 					<div class="swish-pro-benefit">
 						<div class="swish-pro-benefit-icon">

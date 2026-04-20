@@ -5,6 +5,29 @@ All notable changes to Swish Migrate and Backup will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.9] - 2026-04-20
+
+### Added
+- Async backup processing to prevent timeouts on managed hosting (WP Engine, Flywheel, etc.)
+- Background job processing via WP Cron with automatic fallback for hosts with alternate cron
+- Job status polling endpoint (`/job/{id}/process`) for triggering pending backups directly
+- Real-time progress updates during backup process
+- ETA (estimated time remaining) display during file backup showing files processed and time remaining
+
+### Fixed
+- Backup download returning "0" - changed from admin-ajax.php to admin.php endpoint
+- Added proper download handler with token validation and security checks
+
+### Changed
+- Backup API now uses async processing by default
+- Frontend polling improved with automatic fallback when WP Cron doesn't trigger
+
+## [1.0.8] - 2026-04-15
+
+### Fixed
+- Replaced inline `<script>` tag with `wp_add_inline_script()` for WordPress.org compliance
+- Replaced `move_uploaded_file()` with `wp_handle_upload()` for proper WordPress file handling
+
 ## [1.0.7] - 2026-02-25
 
 ### Changed

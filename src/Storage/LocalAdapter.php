@@ -219,16 +219,26 @@ final class LocalAdapter extends AbstractStorageAdapter {
 			return true; // Already deleted.
 		}
 
-		// phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink
-		$result = unlink( $file_path );
+		try {
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink, WordPress.PHP.NoSilencedErrors.Discouraged
+			$result = @unlink( $file_path );
 
-		if ( ! $result ) {
-			return $this->log_error( 'Failed to delete file', array( 'path' => $file_path ) );
+			if ( ! $result ) {
+				// Try using wp_delete_file as fallback.
+				wp_delete_file( $file_path );
+				$result = ! file_exists( $file_path );
+			}
+
+			if ( ! $result ) {
+				return $this->log_error( 'Failed to delete file', array( 'path' => $file_path ) );
+			}
+
+			$this->logger->info( 'File deleted from local storage', array( 'path' => $file_path ) );
+
+			return true;
+		} catch ( \Exception $e ) {
+			return $this->log_error( 'Exception deleting file: ' . $e->getMessage(), array( 'path' => $file_path ) );
 		}
-
-		$this->logger->info( 'File deleted from local storage', array( 'path' => $file_path ) );
-
-		return true;
 	}
 
 	/**
@@ -315,7 +325,7 @@ final class LocalAdapter extends AbstractStorageAdapter {
 				'swish_download' => $token,
 				'file'           => urlencode( $remote_path ),
 			),
-			admin_url( 'admin-ajax.php' )
+			admin_url( 'admin.php' )
 		);
 	}
 

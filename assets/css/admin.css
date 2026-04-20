@@ -179,6 +179,15 @@
 	z-index: 100000;
 }
 
+/* Override for React modal overlay */
+.swish-modal-overlay {
+	background: rgba(0, 0, 0, 0.7) !important;
+}
+
+.swish-settings-modal {
+	background: #fff;
+}
+
 .swish-backup-modal-content {
 	background: #fff;
 	padding: 30px;
