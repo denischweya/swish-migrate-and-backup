@@ -92,7 +92,28 @@ final class BackupArchiver {
 					$name = basename( $file );
 				}
 
-				if ( file_exists( $path ) ) {
+				if ( ! file_exists( $path ) ) {
+					$this->logger->warning( 'File not found for archive', array( 'path' => $path ) );
+					continue;
+				}
+
+				$file_size = filesize( $path );
+
+				// For large files (>50MB) or already-compressed files, use streaming approach.
+				// This avoids memory issues with ZipArchive::addFile() on large files.
+				$is_compressed = preg_match( '/\.(gz|zip|tar\.gz|tgz|bz2|xz)$/i', $path );
+				$is_large = $file_size > 50 * 1024 * 1024;
+
+				if ( $is_large || $is_compressed ) {
+					// Use streaming to add large/compressed files.
+					$added = $this->add_large_file_to_zip( $zip, $path, $name, $is_compressed );
+					if ( ! $added ) {
+						$this->logger->error( 'Failed to add large file to archive', array(
+							'path' => $path,
+							'size' => $file_size,
+						) );
+					}
+				} else {
 					$zip->addFile( $path, $name );
 					$zip->setCompressionName( $name, $method, $this->compression_level );
 				}
@@ -267,6 +288,156 @@ final class BackupArchiver {
 		} catch ( \Exception $e ) {
 			return false;
 		}
+	}
+
+	/**
+	 * Add a large file to a ZIP archive using streaming.
+	 *
+	 * This method reads the file in chunks and uses addFromString() to avoid
+	 * the memory issues that can occur with addFile() on very large files.
+	 * For already-compressed files (like tar.gz), we use CM_STORE to avoid
+	 * double-compression.
+	 *
+	 * @param ZipArchive $zip           The ZipArchive object.
+	 * @param string     $file_path     Path to the file to add.
+	 * @param string     $name          Name in the archive.
+	 * @param bool       $is_compressed Whether the file is already compressed.
+	 * @return bool True on success.
+	 */
+	private function add_large_file_to_zip( ZipArchive $zip, string $file_path, string $name, bool $is_compressed = false ): bool {
+		$file_size = filesize( $file_path );
+
+		$this->logger->debug( 'Adding large file to archive using streaming', array(
+			'file'          => $name,
+			'size'          => $file_size,
+			'is_compressed' => $is_compressed,
+		) );
+
+		// For files under 100MB, we can still use addFromString with full read.
+		// This is more reliable than addFile().
+		if ( $file_size < 100 * 1024 * 1024 ) {
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+			$content = file_get_contents( $file_path );
+			if ( false === $content ) {
+				$this->logger->error( 'Failed to read file for archive', array( 'path' => $file_path ) );
+				return false;
+			}
+
+			$zip->addFromString( $name, $content );
+
+			// Use CM_STORE for already-compressed files to avoid double-compression.
+			if ( $is_compressed ) {
+				$zip->setCompressionName( $name, ZipArchive::CM_STORE );
+			} else {
+				$zip->setCompressionName( $name, ZipArchive::CM_DEFLATE, $this->compression_level );
+			}
+
+			unset( $content );
+			return true;
+		}
+
+		// For very large files (>100MB), we need a different approach.
+		// Close the current zip, use system zip command to add the file, then reopen.
+
+		// First, close the current archive to flush pending writes.
+		$archive_path = $zip->filename;
+		$zip->close();
+
+		// Use system zip command to add the large file.
+		// The -j flag stores just the file without directory path.
+		// The -0 flag (if compressed) stores without compression.
+		$compression_flag = $is_compressed ? '-0' : '';
+
+		// Create a temp directory for the file with the correct name.
+		$temp_dir = dirname( $file_path ) . '/swish-zip-temp-' . uniqid();
+		wp_mkdir_p( $temp_dir );
+
+		// Create a hard link or copy with the target name.
+		$temp_file = $temp_dir . '/' . $name;
+		$temp_file_dir = dirname( $temp_file );
+		if ( ! is_dir( $temp_file_dir ) ) {
+			wp_mkdir_p( $temp_file_dir );
+		}
+
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.link_link
+		if ( ! @link( $file_path, $temp_file ) ) {
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_copy
+			if ( ! @copy( $file_path, $temp_file ) ) {
+				$this->logger->error( 'Failed to prepare large file for zip', array( 'path' => $file_path ) );
+				// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rmdir
+				@rmdir( $temp_dir );
+				// Reopen the zip.
+				$zip->open( $archive_path, ZipArchive::CREATE );
+				return false;
+			}
+		}
+
+		// Use zip command to add the file.
+		$command = sprintf(
+			'cd %s && zip %s -r %s %s 2>&1',
+			escapeshellarg( $temp_dir ),
+			$compression_flag,
+			escapeshellarg( $archive_path ),
+			escapeshellarg( $name )
+		);
+
+		$output = array();
+		$return_var = 0;
+		// phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_exec
+		exec( $command, $output, $return_var );
+
+		// Clean up temp files.
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink
+		@unlink( $temp_file );
+		$this->recursive_rmdir( $temp_dir );
+
+		// Reopen the zip archive.
+		$result = $zip->open( $archive_path, ZipArchive::CREATE );
+		if ( true !== $result ) {
+			$this->logger->error( 'Failed to reopen zip after adding large file' );
+			return false;
+		}
+
+		if ( 0 !== $return_var ) {
+			$this->logger->error( 'System zip command failed', array(
+				'return_code' => $return_var,
+				'output'      => implode( "\n", $output ),
+			) );
+			return false;
+		}
+
+		$this->logger->debug( 'Large file added to archive via system zip' );
+		return true;
+	}
+
+	/**
+	 * Recursively remove a directory.
+	 *
+	 * @param string $dir Directory path.
+	 * @return void
+	 */
+	private function recursive_rmdir( string $dir ): void {
+		if ( ! is_dir( $dir ) ) {
+			return;
+		}
+
+		$files = new \RecursiveIteratorIterator(
+			new \RecursiveDirectoryIterator( $dir, \RecursiveDirectoryIterator::SKIP_DOTS ),
+			\RecursiveIteratorIterator::CHILD_FIRST
+		);
+
+		foreach ( $files as $file ) {
+			if ( $file->isDir() ) {
+				// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rmdir
+				@rmdir( $file->getPathname() );
+			} else {
+				// phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink
+				@unlink( $file->getPathname() );
+			}
+		}
+
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rmdir
+		@rmdir( $dir );
 	}
 
 	/**

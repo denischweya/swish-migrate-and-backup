@@ -296,12 +296,48 @@
 		},
 
 		/**
+		 * Format file size.
+		 */
+		formatFileSize: function(bytes) {
+			if (bytes === 0) return '0 Bytes';
+			const k = 1024;
+			const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+			const i = Math.floor(Math.log(bytes) / Math.log(k));
+			return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+		},
+
+		/**
 		 * Handle file select.
 		 */
 		handleFileSelect: function() {
 			const file = $('#backup_file')[0].files[0];
 			if (file) {
-				$('#selected-file-name').text(file.name);
+				// Check file size against server limits.
+				const maxUploadSize = swishBackup.maxUploadSize || 0;
+				const postMaxSize = swishBackup.postMaxSize || 0;
+				const effectiveLimit = Math.min(maxUploadSize, postMaxSize) || maxUploadSize || postMaxSize;
+
+				if (effectiveLimit > 0 && file.size > effectiveLimit) {
+					const fileSize = SwishBackup.formatFileSize(file.size);
+					const limitSize = SwishBackup.formatFileSize(effectiveLimit);
+
+					$('#swish-backup-file-info').html(
+						'<div class="swish-backup-error-notice">' +
+						'<span class="dashicons dashicons-warning"></span>' +
+						'<p><strong>File too large:</strong> The selected file (' + fileSize + ') exceeds your server\'s upload limit (' + limitSize + ').</p>' +
+						'<p>To upload larger files, please contact your hosting provider to increase:</p>' +
+						'<ul>' +
+						'<li><code>upload_max_filesize</code> (currently: ' + (swishBackup.maxUploadSizeFormatted || 'unknown') + ')</li>' +
+						'<li><code>post_max_size</code> (currently: ' + (swishBackup.postMaxSizeFormatted || 'unknown') + ')</li>' +
+						'</ul>' +
+						'</div>'
+					).show();
+					$('#swish-backup-continue-import').prop('disabled', true);
+					$('#backup_file').val(''); // Clear the file input.
+					return;
+				}
+
+				$('#selected-file-name').text(file.name + ' (' + SwishBackup.formatFileSize(file.size) + ')');
 				$('#swish-backup-file-info').show();
 				$('#swish-backup-continue-import').prop('disabled', false);
 				// Hide any previous analysis.
@@ -326,21 +362,57 @@
 			$button.prop('disabled', true).text('Uploading...');
 			$('#swish-backup-import-analysis').hide();
 
+			// Add progress bar below button.
+			let $progressContainer = $('#swish-upload-progress');
+			if ($progressContainer.length === 0) {
+				$button.after(
+					'<div id="swish-upload-progress" class="swish-upload-progress">' +
+					'<div class="swish-upload-progress-bar"><div class="swish-upload-progress-bar-inner"></div></div>' +
+					'<div class="swish-upload-progress-text">0%</div>' +
+					'</div>'
+				);
+				$progressContainer = $('#swish-upload-progress');
+			}
+			$progressContainer.show();
+			$progressContainer.find('.swish-upload-progress-bar-inner').css('width', '0%');
+			$progressContainer.find('.swish-upload-progress-text').text('0%');
+
 			// Create FormData for file upload.
 			const formData = new FormData();
 			formData.append('backup_file', file);
 
-			// Upload via REST API.
+			// Upload via REST API with progress tracking.
 			$.ajax({
 				url: swishBackup.apiUrl + '/import',
 				method: 'POST',
 				data: formData,
 				processData: false,
 				contentType: false,
+				xhr: function() {
+					const xhr = new window.XMLHttpRequest();
+					xhr.upload.addEventListener('progress', function(e) {
+						if (e.lengthComputable) {
+							const percent = Math.round((e.loaded / e.total) * 100);
+							$progressContainer.find('.swish-upload-progress-bar-inner').css('width', percent + '%');
+							$progressContainer.find('.swish-upload-progress-text').text(percent + '%');
+
+							// Update button text with percentage.
+							if (percent < 100) {
+								$button.text('Uploading... ' + percent + '%');
+							} else {
+								$button.text('Analyzing...');
+							}
+						}
+					}, false);
+					return xhr;
+				},
 				beforeSend: function(xhr) {
 					xhr.setRequestHeader('X-WP-Nonce', swishBackup.nonce);
 				},
 				success: function(response) {
+					// Hide progress bar.
+					$('#swish-upload-progress').hide();
+
 					if (response.success) {
 						// Store backup path for migration.
 						SwishBackup.importedBackupPath = response.backup_path;
@@ -399,12 +471,38 @@
 						$button.prop('disabled', false).text(originalText);
 					}
 				},
-				error: function(xhr) {
+				error: function(xhr, textStatus, errorThrown) {
+					// Hide progress bar.
+					$('#swish-upload-progress').hide();
+
 					let errorMessage = 'Upload failed';
+					let errorDetail = '';
+
+					// Check for specific error responses.
 					if (xhr.responseJSON && xhr.responseJSON.message) {
 						errorMessage = xhr.responseJSON.message;
+					} else if (xhr.status === 413) {
+						// Request Entity Too Large.
+						errorMessage = 'File too large';
+						errorDetail = 'The file exceeds your server\'s upload limit. Please contact your hosting provider to increase upload_max_filesize and post_max_size.';
+					} else if (xhr.status === 0 || textStatus === 'error') {
+						// Connection error - often caused by file size limits.
+						errorMessage = 'Upload failed - connection error';
+						errorDetail = 'This often happens when the file exceeds your server\'s upload limit (' + (swishBackup.maxUploadSizeFormatted || 'unknown') + '). Please contact your hosting provider to increase the limit, or try a smaller backup file.';
+					} else if (xhr.status === 500) {
+						errorMessage = 'Server error during upload';
+						errorDetail = 'The server encountered an error. This may be due to memory limits or timeout settings.';
 					}
-					alert(errorMessage);
+
+					// Show error in the file info area instead of alert.
+					$('#swish-backup-file-info').html(
+						'<div class="swish-backup-error-notice">' +
+						'<span class="dashicons dashicons-warning"></span>' +
+						'<p><strong>' + errorMessage + '</strong></p>' +
+						(errorDetail ? '<p>' + errorDetail + '</p>' : '') +
+						'</div>'
+					).show();
+
 					$button.prop('disabled', false).text(originalText);
 				}
 			});

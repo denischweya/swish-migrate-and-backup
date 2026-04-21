@@ -91,15 +91,21 @@ final class Migrator {
 				throw new \RuntimeException( 'Invalid backup file' );
 			}
 
-			// Create pre-migration backup if requested.
-			if ( $options['create_backup'] ?? true ) {
+			// Create pre-migration backup if explicitly requested.
+			// Defaults to false to avoid memory exhaustion on constrained servers.
+			if ( $options['create_backup'] ?? false ) {
 				$this->logger->info( 'Creating pre-migration backup...' );
-				$pre_backup = $this->backup_manager->create_full_backup( array(
-					'storage_destinations' => array( 'local' ),
-				) );
+				try {
+					$pre_backup = $this->backup_manager->create_full_backup( array(
+						'storage_destinations' => array( 'local' ),
+					) );
 
-				if ( ! $pre_backup ) {
-					throw new \RuntimeException( 'Failed to create pre-migration backup' );
+					if ( ! $pre_backup ) {
+						$this->logger->warning( 'Pre-migration backup failed, continuing without it.' );
+					}
+				} catch ( \Exception $e ) {
+					// Log but don't fail the migration if pre-backup fails.
+					$this->logger->warning( 'Pre-migration backup failed: ' . $e->getMessage() . '. Continuing without it.' );
 				}
 			}
 
@@ -378,10 +384,30 @@ final class Migrator {
 		// Flush object cache.
 		wp_cache_flush();
 
-		// Clear any transients.
+		// Clear transients in batches to avoid memory issues on large sites.
 		global $wpdb;
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_%'" );
+		$batch_size = 1000;
+		$deleted_total = 0;
+
+		do {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$deleted = $wpdb->query(
+				$wpdb->prepare(
+					"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s LIMIT %d",
+					'_transient_%',
+					$batch_size
+				)
+			);
+
+			$deleted_total += (int) $deleted;
+
+			// Free memory between batches.
+			if ( function_exists( 'gc_collect_cycles' ) ) {
+				gc_collect_cycles();
+			}
+		} while ( $deleted > 0 );
+
+		$this->logger->info( 'Transients cleared', array( 'count' => $deleted_total ) );
 
 		// Clear opcache if available.
 		if ( function_exists( 'opcache_reset' ) ) {
