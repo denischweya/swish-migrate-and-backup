@@ -27,6 +27,12 @@
 			$(document).on('click', '.swish-backup-download', this.downloadBackup);
 			$(document).on('click', '.swish-backup-delete', this.deleteBackup);
 
+			// Bulk selection
+			$(document).on('change', '#swish-backup-select-all', this.toggleSelectAll);
+			$(document).on('change', '.swish-backup-checkbox', this.updateBulkSelection);
+			$(document).on('click', '#swish-backup-bulk-download', this.bulkDownload);
+			$(document).on('click', '#swish-backup-bulk-delete', this.bulkDelete);
+
 			// Modal
 			$(document).on('click', '.swish-backup-modal-cancel', this.hideModals);
 			$(document).on('click', '.swish-backup-modal', function(e) {
@@ -185,8 +191,158 @@
 			}).then(function(response) {
 				row.fadeOut(function() {
 					$(this).remove();
+					SwishBackup.updateBulkSelection();
 				});
 			});
+		},
+
+		/**
+		 * Toggle select all checkboxes.
+		 */
+		toggleSelectAll: function() {
+			const isChecked = $(this).is(':checked');
+			$('.swish-backup-checkbox').prop('checked', isChecked);
+			SwishBackup.updateBulkSelection();
+		},
+
+		/**
+		 * Update bulk selection UI.
+		 */
+		updateBulkSelection: function() {
+			const $checkboxes = $('.swish-backup-checkbox');
+			const $checked = $('.swish-backup-checkbox:checked');
+			const count = $checked.length;
+
+			// Update count display
+			$('#swish-backup-selected-count').text(count);
+
+			// Show/hide bulk actions bar
+			if (count > 0) {
+				$('#swish-backup-bulk-actions').removeClass('hidden');
+			} else {
+				$('#swish-backup-bulk-actions').addClass('hidden');
+			}
+
+			// Update select all checkbox state
+			if (count === 0) {
+				$('#swish-backup-select-all').prop('checked', false).prop('indeterminate', false);
+			} else if (count === $checkboxes.length) {
+				$('#swish-backup-select-all').prop('checked', true).prop('indeterminate', false);
+			} else {
+				$('#swish-backup-select-all').prop('checked', false).prop('indeterminate', true);
+			}
+		},
+
+		/**
+		 * Bulk download selected backups.
+		 */
+		bulkDownload: function() {
+			const $checked = $('.swish-backup-checkbox:checked');
+			if ($checked.length === 0) {
+				return;
+			}
+
+			// Download each backup sequentially
+			const backupIds = $checked.map(function() {
+				return $(this).val();
+			}).get();
+
+			let index = 0;
+
+			function downloadNext() {
+				if (index >= backupIds.length) {
+					return;
+				}
+
+				const backupId = backupIds[index];
+				index++;
+
+				wp.apiFetch({
+					path: `/swish-backup/v1/backup/${backupId}/download`,
+					method: 'GET'
+				}).then(function(response) {
+					if (response.url) {
+						// Create hidden iframe to trigger download
+						const iframe = document.createElement('iframe');
+						iframe.style.display = 'none';
+						iframe.src = response.url;
+						document.body.appendChild(iframe);
+
+						// Download next after a short delay
+						setTimeout(downloadNext, 1000);
+					} else {
+						downloadNext();
+					}
+				}).catch(function() {
+					downloadNext();
+				});
+			}
+
+			downloadNext();
+		},
+
+		/**
+		 * Bulk delete selected backups.
+		 */
+		bulkDelete: function() {
+			const $checked = $('.swish-backup-checkbox:checked');
+			const count = $checked.length;
+
+			if (count === 0) {
+				return;
+			}
+
+			const confirmMessage = count === 1
+				? swishBackup.i18n.confirmDelete
+				: 'Are you sure you want to delete ' + count + ' backups? This cannot be undone.';
+
+			if (!confirm(confirmMessage)) {
+				return;
+			}
+
+			const backupIds = $checked.map(function() {
+				return $(this).val();
+			}).get();
+
+			// Show progress
+			const $button = $('#swish-backup-bulk-delete');
+			const originalText = $button.html();
+			$button.prop('disabled', true).html('<span class="dashicons dashicons-update spin"></span> Deleting...');
+
+			let deleted = 0;
+			let failed = 0;
+
+			function deleteNext(index) {
+				if (index >= backupIds.length) {
+					// All done
+					$button.prop('disabled', false).html(originalText);
+					SwishBackup.updateBulkSelection();
+
+					if (failed > 0) {
+						alert('Deleted ' + deleted + ' backup(s). ' + failed + ' failed.');
+					}
+					return;
+				}
+
+				const backupId = backupIds[index];
+				const $row = $('tr[data-backup-id="' + backupId + '"]');
+
+				wp.apiFetch({
+					path: `/swish-backup/v1/backup/${backupId}`,
+					method: 'DELETE'
+				}).then(function() {
+					deleted++;
+					$row.fadeOut(function() {
+						$(this).remove();
+					});
+					deleteNext(index + 1);
+				}).catch(function() {
+					failed++;
+					deleteNext(index + 1);
+				});
+			}
+
+			deleteNext(0);
 		},
 
 		/**

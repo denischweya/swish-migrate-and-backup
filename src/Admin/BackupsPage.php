@@ -111,9 +111,29 @@ final class BackupsPage {
 					</button>
 				</div>
 			<?php else : ?>
+				<!-- Bulk Actions Bar -->
+				<div class="swish-backup-bulk-actions hidden" id="swish-backup-bulk-actions">
+					<span class="swish-backup-bulk-select-info">
+						<span id="swish-backup-selected-count">0</span> <?php esc_html_e( 'backup(s) selected', 'swish-migrate-and-backup' ); ?>
+					</span>
+					<div class="swish-backup-bulk-buttons">
+						<button type="button" class="button button-secondary" id="swish-backup-bulk-download">
+							<span class="dashicons dashicons-download"></span>
+							<?php esc_html_e( 'Download Selected', 'swish-migrate-and-backup' ); ?>
+						</button>
+						<button type="button" class="button button-link-delete" id="swish-backup-bulk-delete">
+							<span class="dashicons dashicons-trash"></span>
+							<?php esc_html_e( 'Delete Selected', 'swish-migrate-and-backup' ); ?>
+						</button>
+					</div>
+				</div>
+
 				<table class="wp-list-table widefat fixed striped">
 					<thead>
 						<tr>
+							<th class="column-cb check-column">
+								<input type="checkbox" id="swish-backup-select-all" title="<?php esc_attr_e( 'Select All', 'swish-migrate-and-backup' ); ?>">
+							</th>
 							<th class="column-filename"><?php esc_html_e( 'Backup', 'swish-migrate-and-backup' ); ?></th>
 							<th class="column-type"><?php esc_html_e( 'Type', 'swish-migrate-and-backup' ); ?></th>
 							<th class="column-size"><?php esc_html_e( 'Size', 'swish-migrate-and-backup' ); ?></th>
@@ -124,6 +144,9 @@ final class BackupsPage {
 					<tbody>
 						<?php foreach ( $backups as $backup ) : ?>
 							<tr data-backup-id="<?php echo esc_attr( $backup['id'] ); ?>">
+								<td class="column-cb check-column">
+									<input type="checkbox" class="swish-backup-checkbox" value="<?php echo esc_attr( $backup['id'] ); ?>">
+								</td>
 								<td class="column-filename">
 									<strong><?php echo esc_html( $backup['filename'] ); ?></strong>
 									<?php if ( ! empty( $backup['checksum'] ) ) : ?>

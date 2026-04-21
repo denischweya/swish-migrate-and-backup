@@ -1113,6 +1113,99 @@
 	font-weight: 500;
 }
 
+/* Backup Type Selector */
+.swish-backup-type-options {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 15px;
+	margin-top: 15px;
+}
+
+.swish-backup-type-option {
+	padding: 20px;
+	text-align: center;
+	border: 2px solid #dcdcde;
+	border-radius: 4px;
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.swish-backup-type-option:hover {
+	border-color: #2271b1;
+	background: #f0f6fc;
+}
+
+.swish-backup-type-option.selected {
+	border-color: #2271b1;
+	background: #f0f6fc;
+}
+
+.swish-backup-type-option .dashicons {
+	font-size: 32px;
+	width: 32px;
+	height: 32px;
+	color: #2271b1;
+	margin-bottom: 10px;
+}
+
+.swish-backup-type-option h3 {
+	margin: 0 0 5px;
+	font-size: 14px;
+}
+
+.swish-backup-type-option p {
+	margin: 0;
+	font-size: 12px;
+	color: #646970;
+}
+
+/* Bulk Actions */
+.swish-backup-bulk-actions {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin-bottom: 16px;
+	padding: 12px 16px;
+	background: #f6f7f7;
+	border: 1px solid #ddd;
+	border-radius: 4px;
+}
+
+.swish-backup-bulk-actions.hidden {
+	display: none;
+}
+
+.swish-backup-bulk-select-info {
+	font-weight: 500;
+	color: #1d2327;
+}
+
+.swish-backup-bulk-buttons {
+	display: flex;
+	gap: 8px;
+	margin-left: auto;
+}
+
+.swish-backup-select-all-wrap {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.swish-backup-select-all-wrap label {
+	cursor: pointer;
+	font-weight: 500;
+}
+
+.column-cb {
+	width: 30px;
+	padding: 8px !important;
+}
+
+.column-cb input[type="checkbox"] {
+	margin: 0;
+}
+
 /* Table Columns */
 .column-filename,
 .swish-backup-wrap .wp-list-table .column-filename {
