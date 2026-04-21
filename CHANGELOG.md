@@ -5,6 +5,21 @@ All notable changes to Swish Migrate and Backup will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.16] - 2026-04-21
+
+### Fixed
+- Critical bug: ServerLimits timing check caused immediate yield due to int/float comparison (`0 === 0.0` is false in PHP 8)
+- Files stuck in 'processing' status now reset to 'pending' for retry
+- Reduced stale processing threshold from 300s to 30s for faster recovery
+- Partial file resume corruption - files now restart from scratch instead of attempting resume
+
+### Added
+- Detailed logging for file processing: batch info, file status, yield reasons
+- Context data now included in log file output for better debugging
+
+### Changed
+- Overall progress calculation now includes all phases (indexing 0-10%, processing 10-95%, finalizing 95-100%)
+
 ## [1.0.15] - 2026-04-21
 
 ### Added

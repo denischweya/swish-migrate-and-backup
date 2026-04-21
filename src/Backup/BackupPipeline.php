@@ -46,19 +46,34 @@ final class BackupPipeline {
 	private const DEFAULT_TIME_BUDGET = 15;
 
 	/**
-	 * Maximum files to index per request.
+	 * Default files to index per request.
 	 */
-	private const INDEX_BATCH_SIZE = 500;
+	private const DEFAULT_INDEX_BATCH_SIZE = 500;
 
 	/**
-	 * Maximum files to process per request.
+	 * Default files to process per request.
+	 * Can be overridden via settings for different server capabilities.
 	 */
-	private const PROCESS_BATCH_SIZE = 20;
+	private const DEFAULT_PROCESS_BATCH_SIZE = 50;
 
 	/**
 	 * Memory threshold (percentage) before yielding.
 	 */
 	private const MEMORY_THRESHOLD = 0.75;
+
+	/**
+	 * Actual process batch size (configurable).
+	 *
+	 * @var int
+	 */
+	private int $process_batch_size = self::DEFAULT_PROCESS_BATCH_SIZE;
+
+	/**
+	 * Actual index batch size (configurable).
+	 *
+	 * @var int
+	 */
+	private int $index_batch_size = self::DEFAULT_INDEX_BATCH_SIZE;
 
 	/**
 	 * Logger instance.
@@ -173,6 +188,15 @@ final class BackupPipeline {
 			$this->time_budget = (int) $options['time_budget'];
 		}
 
+		// Configurable batch sizes for different server capabilities.
+		if ( isset( $options['pipeline_batch_size'] ) ) {
+			$this->process_batch_size = max( 10, min( 500, (int) $options['pipeline_batch_size'] ) );
+		}
+
+		if ( isset( $options['index_batch_size'] ) ) {
+			$this->index_batch_size = max( 100, min( 2000, (int) $options['index_batch_size'] ) );
+		}
+
 		return $this;
 	}
 
@@ -275,7 +299,7 @@ final class BackupPipeline {
 						++$global_index;
 
 						// Write batch to database when full.
-						if ( count( $batch ) >= self::INDEX_BATCH_SIZE ) {
+						if ( count( $batch ) >= $this->index_batch_size ) {
 							FileQueue::add_files_batch( $job_id, $batch );
 							$batch = array();
 							$current_offset = $global_index;
@@ -365,7 +389,7 @@ final class BackupPipeline {
 		}
 
 		// Get batch of pending files.
-		$batch = FileQueue::get_pending_batch( $job_id, self::PROCESS_BATCH_SIZE );
+		$batch = FileQueue::get_pending_batch( $job_id, $this->process_batch_size );
 
 		$this->logger->info( 'Processing batch info', array(
 			'pending_count' => count( $batch ),
@@ -376,7 +400,7 @@ final class BackupPipeline {
 
 		if ( empty( $batch ) ) {
 			// Check for retryable failures.
-			$batch = FileQueue::get_retryable( $job_id, 3, self::PROCESS_BATCH_SIZE );
+			$batch = FileQueue::get_retryable( $job_id, 3, $this->process_batch_size );
 
 			if ( empty( $batch ) ) {
 				// Log status breakdown to understand why no files are available.
