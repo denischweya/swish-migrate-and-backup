@@ -157,6 +157,20 @@ const Dashboard = ({
 						{__('Start Migration', 'swish-migrate-and-backup')}
 					</a>
 				</div>
+
+				<div className="swish-action-card">
+					<h3>{__('Migrate Site', 'swish-migrate-and-backup')}</h3>
+					<p>
+						{__('Import a backup from another site.', 'swish-migrate-and-backup')}
+					</p>
+					<a
+						className="button button-hero"
+						href={window.location.href.split('?')[0] + '?page=swish-backup-migration'}
+					>
+						<span className="dashicons dashicons-migrate"></span>
+						{__('Start Migration', 'swish-migrate-and-backup')}
+					</a>
+				</div>
 			</div>
 
 			{showMigration && <MigrationPanel siteUrl={stats?.site_url} />}

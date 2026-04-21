@@ -171,6 +171,10 @@ final class BackupManager {
 	 *
 	 * Uses ServerLimits to adaptively set batch sizes based on
 	 * hosting environment, memory, and execution time limits.
+	 * Configure batch sizes from options with server-aware adjustments.
+	 *
+	 * Uses ServerLimits to adaptively set batch sizes based on
+	 * hosting environment, memory, and execution time limits.
 	 *
 	 * @param array $options Backup options.
 	 * @return void
@@ -235,6 +239,12 @@ final class BackupManager {
 		if ( ! empty( $checkpoint['options'] ) ) {
 			$state->save_options( $job_id, $checkpoint['options'] );
 		}
+
+		$this->logger->debug( 'Checkpoint saved to file-based state', array(
+			'job_id'    => $job_id,
+			'processed' => $checkpoint['processed'] ?? 0,
+			'total'     => $checkpoint['total'] ?? 0,
+		) );
 
 		$this->logger->debug( 'Checkpoint saved to file-based state', array(
 			'job_id'    => $job_id,
@@ -352,6 +362,8 @@ final class BackupManager {
 		try {
 			if ( 'files' === $phase ) {
 				$this->continue_file_backup( $job_id, $checkpoint );
+			} elseif ( 'archiving' === $phase ) {
+				$this->continue_archiving( $job_id, $checkpoint );
 			} else {
 				// For other phases, just run the full backup again.
 				$this->run_full_backup( $job_id, $options );
@@ -360,6 +372,142 @@ final class BackupManager {
 			$this->fail_job( $job_id, $e->getMessage() );
 			$this->delete_checkpoint( $job_id );
 		}
+	}
+
+	/**
+	 * Continue archive creation from checkpoint.
+	 *
+	 * @param string $job_id     Job ID.
+	 * @param array  $checkpoint Checkpoint data.
+	 * @return void
+	 */
+	private function continue_archiving( string $job_id, array $checkpoint ): void {
+		$backup_path     = $checkpoint['backup_path'] ?? '';
+		$file_list_path  = $checkpoint['file_list_path'] ?? '';
+		$temp_dir        = $checkpoint['temp_dir'] ?? '';
+		$filemap_offset  = $checkpoint['filemap_offset'] ?? 0;
+		$file_offset     = $checkpoint['file_offset'] ?? 0;
+		$archive_offset  = $checkpoint['archive_offset'] ?? 0;
+		$options         = $checkpoint['options'] ?? array();
+		$metadata        = $checkpoint['metadata'] ?? array();
+		$backup_filename = $checkpoint['backup_filename'] ?? '';
+
+		$this->logger->info( 'Continuing archive creation', array(
+			'processed'      => $checkpoint['processed'] ?? 0,
+			'total'          => $checkpoint['total'] ?? 0,
+			'filemap_offset' => $filemap_offset,
+			'file_offset'    => $file_offset,
+			'archive_offset' => $archive_offset,
+		) );
+
+		// Create SwishArchiver to continue from where we left off.
+		$swish_archiver = new SwishArchiver( $backup_path );
+
+		// Determine timeout.
+		$timeout = min( (int) ini_get( 'max_execution_time' ) - 5, 25 );
+		if ( $timeout <= 0 ) {
+			$timeout = 10;
+		}
+
+		// Progress callback.
+		$archive_progress = function ( int $processed, int $total, string $current_file ) use ( $job_id ) {
+			$percent = $total > 0 ? (int) ( ( $processed / $total ) * 100 ) : 0;
+			$job_progress = 15 + (int) ( $percent * 0.75 );
+			$this->update_job_status(
+				$job_id,
+				'processing',
+				$job_progress,
+				sprintf( 'Archiving files... %d/%d (%d%%) [resumed]', $processed, $total, $percent )
+			);
+		};
+
+		// Continue archive creation from saved offsets.
+		$result = $swish_archiver->create_from_file_list(
+			$file_list_path,
+			ABSPATH,
+			$filemap_offset,
+			$file_offset,
+			$archive_offset,
+			$archive_progress,
+			$timeout
+		);
+
+		// If not completed, schedule another continuation.
+		if ( ! $result['completed'] ) {
+			$this->logger->info( 'Archive creation needs more time', array(
+				'processed'      => $result['processed'],
+				'total'          => $result['total'],
+				'filemap_offset' => $result['filemap_offset'],
+				'file_offset'    => $result['file_offset'],
+				'archive_offset' => $result['archive_offset'],
+			) );
+
+			// Update checkpoint with new offsets.
+			$new_checkpoint = array(
+				'phase'           => 'archiving',
+				'backup_path'     => $backup_path,
+				'file_list_path'  => $file_list_path,
+				'temp_dir'        => $temp_dir,
+				'filemap_offset'  => $result['filemap_offset'],
+				'file_offset'     => $result['file_offset'],
+				'archive_offset'  => $result['archive_offset'],
+				'processed'       => $result['processed'],
+				'total'           => $result['total'],
+				'options'         => $options,
+				'metadata'        => $metadata,
+				'backup_filename' => $backup_filename,
+			);
+			$this->save_checkpoint( $job_id, $new_checkpoint );
+			$this->schedule_continuation( $job_id );
+
+			return;
+		}
+
+		if ( isset( $result['error'] ) ) {
+			throw new \RuntimeException( 'Archive creation failed: ' . $result['error'] );
+		}
+
+		$this->logger->info( 'Archive creation completed after continuation' );
+
+		// Check backup size limit.
+		$this->check_backup_size_limit( $backup_path, $job_id );
+
+		// Upload to storage.
+		$this->update_job_status( $job_id, 'processing', 92, 'Uploading to storage...' );
+		$destinations = $options['storage_destinations'] ?? array( 'local' );
+		$upload_results = $this->storage_manager->upload_to_destinations(
+			$backup_path,
+			$backup_filename,
+			$destinations
+		);
+
+		// Calculate checksum.
+		$checksum = hash_file( 'sha256', $backup_path );
+
+		// Clean up temp directory.
+		$this->cleanup_temp_directory( $temp_dir );
+		$this->delete_checkpoint( $job_id );
+
+		// Update job as completed.
+		$backup_result = array(
+			'job_id'       => $job_id,
+			'filename'     => $backup_filename,
+			'path'         => $backup_path,
+			'size'         => filesize( $backup_path ),
+			'checksum'     => $checksum,
+			'destinations' => $upload_results,
+			'manifest'     => $metadata,
+			'format'       => 'swish',
+		);
+
+		$this->complete_job( $job_id, $backup_result );
+
+		do_action( 'swish_backup_after', $job_id, $backup_result );
+
+		$this->logger->info( 'Backup completed after archiving continuation', array(
+			'filename' => $backup_filename,
+			'size'     => ServerLimits::format_bytes( $backup_result['size'] ),
+		) );
 	}
 
 	/**
@@ -547,7 +695,7 @@ final class BackupManager {
 			}
 
 			// Handle tar.gz format - update output path if needed.
-			if ( is_array( $result ) && ! empty( $result['format'] ) && 'tar.gz' === $result['format'] ) {
+			if ( is_array( $result ) && ! empty( $result['format'] ) && in_array( $result['format'], array( 'tar.gz', 'swish' ), true ) ) {
 				$output_path = $result['path'];
 			}
 		}
@@ -775,6 +923,9 @@ final class BackupManager {
 		// Initialize timing for this backup request.
 		ServerLimits::init_timing();
 
+		// Initialize timing for this backup request.
+		ServerLimits::init_timing();
+
 		do_action( 'swish_backup_before', $job_id, $options );
 
 		// Check if we should use optimized tar.gz flow.
@@ -859,8 +1010,8 @@ final class BackupManager {
 						'name' => 'files.zip',
 					);
 				} elseif ( is_array( $backup_result ) && ! empty( $backup_result['success'] ) ) {
-					// Check if it's a tar.gz backup.
-					if ( ! empty( $backup_result['format'] ) && 'tar.gz' === $backup_result['format'] ) {
+					// Check if it's a swish backup.
+					if ( ! empty( $backup_result['format'] ) && in_array( $backup_result['format'], array( 'tar.gz', 'swish' ), true ) ) {
 						// Tar.gz backup - add the single tar.gz file.
 						$tar_path = $backup_result['path'];
 						if ( file_exists( $tar_path ) ) {
@@ -868,7 +1019,7 @@ final class BackupManager {
 								'path' => $tar_path,
 								'name' => basename( $tar_path ),
 							);
-							$this->logger->info( 'Added tar.gz archive to backup', array(
+							$this->logger->info( 'Added swish archive to backup', array(
 								'path' => $tar_path,
 								'size' => ServerLimits::format_bytes( $backup_result['size'] ?? filesize( $tar_path ) ),
 							) );
@@ -981,7 +1132,7 @@ final class BackupManager {
 	 * @return array Backup result.
 	 */
 	private function run_full_backup_tar( string $job_id, array $options ): array {
-		$this->logger->info( 'Starting optimized tar.gz backup', array( 'job_id' => $job_id ) );
+		$this->logger->info( 'Starting optimized swish backup', array( 'job_id' => $job_id ) );
 
 		try {
 			$temp_dir = $this->get_temp_directory( $job_id );
@@ -1032,45 +1183,115 @@ final class BackupManager {
 			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
 			file_put_contents( $manifest_path, wp_json_encode( $metadata, JSON_PRETTY_PRINT ) );
 
-			// Step 5: Create tar.gz archive using streaming method.
+			// Step 5: Create archive using custom .swish format (resumable).
 			$this->update_job_status( $job_id, 'processing', 15, 'Creating archive...' );
 
 			$backup_filename = $this->generate_backup_filename_tar();
 			$backup_path = $this->get_backup_directory() . '/' . $backup_filename;
 
-			$tar_archiver = new TarArchiver( $this->logger );
+			// Use SwishArchiver for true incremental archive creation.
+			$swish_archiver = new SwishArchiver( $backup_path );
+
+			// Determine timeout based on server limits (use 10 seconds as default).
+			$timeout = min( (int) ini_get( 'max_execution_time' ) - 5, 25 );
+			if ( $timeout <= 0 ) {
+				$timeout = 10;
+			}
+
+			$this->logger->info( 'Creating .swish archive', array(
+				'timeout'     => $timeout,
+				'total_files' => $total_files,
+			) );
+
+			// First, add manifest and config files to archive.
+			if ( ! $swish_archiver->open_for_write() ) {
+				throw new \RuntimeException( 'Failed to create archive file' );
+			}
+
+			// Add manifest.
+			$swish_archiver->add_file_direct( $manifest_path, 'manifest.json' );
+
+			// Add database if present.
+			$db_file = $temp_dir . '/database.sql';
+			if ( file_exists( $db_file ) ) {
+				$swish_archiver->add_file_direct( $db_file, 'database.sql' );
+			}
+
+			// Add wp-config backup if present.
+			$config_file = $temp_dir . '/wp-config.php';
+			if ( file_exists( $config_file ) ) {
+				$swish_archiver->add_file_direct( $config_file, 'wp-config.php' );
+			}
+
+			$swish_archiver->close( false ); // Don't finalize yet.
 
 			// Progress callback for archive creation.
-			$archive_progress = function ( int $progress, string $message ) use ( $job_id ) {
+			$archive_progress = function ( int $processed, int $total, string $current_file ) use ( $job_id ) {
+				$percent = $total > 0 ? (int) ( ( $processed / $total ) * 100 ) : 0;
 				// Map 0-100 to 15-90.
-				$job_progress = 15 + (int) ( $progress * 0.75 );
+				$job_progress = 15 + (int) ( $percent * 0.75 );
 				$this->update_job_status(
 					$job_id,
 					'processing',
 					$job_progress,
-					sprintf( 'Creating archive (%d%%)... %s', $progress, $message )
+					sprintf( 'Archiving files... %d/%d (%d%%)', $processed, $total, $percent )
 				);
 			};
 
-			// Use streaming tar creation that reads from file list.
-			$result = $tar_archiver->create_backup_from_file_list(
-				$backup_path,
+			// Create archive incrementally from file list.
+			$result = $swish_archiver->create_from_file_list(
 				$file_list_path,
-				$temp_dir,
-				$total_files,
-				$archive_progress
+				ABSPATH,
+				0,  // filemap_offset
+				0,  // file_offset
+				$swish_archiver->get_size(), // archive_offset (after manifest/db)
+				$archive_progress,
+				$timeout
 			);
 
-			if ( ! $result['success'] ) {
-				// Check if it's a timeout - fall back to ZIP method.
-				if ( ! empty( $result['timeout'] ) ) {
-					$this->logger->warning( 'Tar backup timed out, falling back to ZIP method' );
-					$this->cleanup_temp_directory( $temp_dir );
-					// Re-run using the ZIP-based method which has better chunking support.
-					return $this->run_full_backup_fallback( $job_id, $options );
-				}
-				throw new \RuntimeException( 'Archive creation failed: ' . ( $result['error'] ?? 'Unknown error' ) );
+			// If not completed, schedule continuation.
+			if ( ! $result['completed'] ) {
+				$this->logger->info( 'Archive creation needs continuation', array(
+					'processed'      => $result['processed'],
+					'total'          => $result['total'],
+					'filemap_offset' => $result['filemap_offset'],
+					'file_offset'    => $result['file_offset'],
+					'archive_offset' => $result['archive_offset'],
+				) );
+
+				// Save state for continuation with all offsets.
+				$checkpoint = array(
+					'phase'           => 'archiving',
+					'backup_path'     => $backup_path,
+					'file_list_path'  => $file_list_path,
+					'temp_dir'        => $temp_dir,
+					'filemap_offset'  => $result['filemap_offset'],
+					'file_offset'     => $result['file_offset'],
+					'archive_offset'  => $result['archive_offset'],
+					'processed'       => $result['processed'],
+					'total'           => $result['total'],
+					'options'         => $options,
+					'metadata'        => $metadata,
+					'backup_filename' => $backup_filename,
+				);
+				$this->save_checkpoint( $job_id, $checkpoint );
+				$this->schedule_continuation( $job_id );
+
+				return array(
+					'status'  => 'continuing',
+					'job_id'  => $job_id,
+					'message' => 'Archive creation in progress...',
+				);
 			}
+
+			if ( isset( $result['error'] ) ) {
+				throw new \RuntimeException( 'Archive creation failed: ' . $result['error'] );
+			}
+
+			$this->logger->info( 'Archive creation completed', array(
+				'processed' => $result['processed'],
+				'total'     => $result['total'],
+			) );
 
 			// Check backup size limit.
 			$this->check_backup_size_limit( $backup_path, $job_id );
@@ -1099,14 +1320,14 @@ final class BackupManager {
 				'checksum'     => $checksum,
 				'destinations' => $upload_results,
 				'manifest'     => $metadata,
-				'format'       => 'tar.gz',
+				'format'       => 'swish',
 			);
 
 			$this->complete_job( $job_id, $backup_result );
 
 			do_action( 'swish_backup_after', $job_id, $backup_result );
 
-			$this->logger->info( 'Optimized tar.gz backup completed', array(
+			$this->logger->info( 'Optimized swish backup completed', array(
 				'filename' => $backup_filename,
 				'size'     => ServerLimits::format_bytes( $backup_result['size'] ),
 			) );
@@ -1276,7 +1497,7 @@ final class BackupManager {
 			'file_count'        => $file_list['count'] ?? 0,
 			'total_size'        => $file_list['total_size'] ?? 0,
 			'options'           => $options,
-			'format'            => 'tar.gz',
+			'format'            => 'swish',
 		);
 	}
 
@@ -1288,7 +1509,7 @@ final class BackupManager {
 	private function generate_backup_filename_tar(): string {
 		$site_name = sanitize_file_name( wp_parse_url( get_site_url(), PHP_URL_HOST ) );
 		$timestamp = gmdate( 'Y-m-d-His' );
-		return "{$site_name}-full-{$timestamp}.tar.gz";
+		return "{$site_name}-full-{$timestamp}.swish";
 	}
 
 	/**
@@ -1404,7 +1625,7 @@ final class BackupManager {
 			}
 
 			// Handle tar.gz format - the actual path may be different.
-			if ( is_array( $backup_result ) && ! empty( $backup_result['format'] ) && 'tar.gz' === $backup_result['format'] ) {
+			if ( is_array( $backup_result ) && ! empty( $backup_result['format'] ) && in_array( $backup_result['format'], array( 'tar.gz', 'swish' ), true ) ) {
 				$backup_path = $backup_result['path'];
 				$backup_filename = basename( $backup_path );
 			}
@@ -1451,6 +1672,9 @@ final class BackupManager {
 
 		// Configure batch sizes for shared hosting compatibility.
 		$this->configure_batch_sizes( $options );
+
+		// Initialize timing for this backup request.
+		ServerLimits::init_timing();
 
 		// Initialize timing for this backup request.
 		ServerLimits::init_timing();
@@ -1542,8 +1766,8 @@ final class BackupManager {
 						'name' => 'files.zip',
 					);
 				} elseif ( is_array( $backup_result ) && ! empty( $backup_result['success'] ) ) {
-					// Check if it's a tar.gz backup.
-					if ( ! empty( $backup_result['format'] ) && 'tar.gz' === $backup_result['format'] ) {
+					// Check if it's a swish backup.
+					if ( ! empty( $backup_result['format'] ) && in_array( $backup_result['format'], array( 'tar.gz', 'swish' ), true ) ) {
 						// Tar.gz backup - add the single tar.gz file.
 						$tar_path = $backup_result['path'];
 						if ( file_exists( $tar_path ) ) {
@@ -1551,7 +1775,7 @@ final class BackupManager {
 								'path' => $tar_path,
 								'name' => basename( $tar_path ),
 							);
-							$this->logger->info( 'Added tar.gz archive to backup', array(
+							$this->logger->info( 'Added swish archive to backup', array(
 								'path' => $tar_path,
 								'size' => ServerLimits::format_bytes( $backup_result['size'] ?? filesize( $tar_path ) ),
 							) );
@@ -1784,7 +2008,7 @@ final class BackupManager {
 			}
 
 			// Handle tar.gz format - the actual path may be different.
-			if ( is_array( $backup_result ) && ! empty( $backup_result['format'] ) && 'tar.gz' === $backup_result['format'] ) {
+			if ( is_array( $backup_result ) && ! empty( $backup_result['format'] ) && in_array( $backup_result['format'], array( 'tar.gz', 'swish' ), true ) ) {
 				$backup_path = $backup_result['path'];
 				$backup_filename = basename( $backup_path );
 			}

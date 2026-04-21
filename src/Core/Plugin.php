@@ -28,6 +28,8 @@ use SwishMigrateAndBackup\Backup\BackupState;
 use SwishMigrateAndBackup\Backup\DatabaseBackup;
 use SwishMigrateAndBackup\Backup\FileBackup;
 use SwishMigrateAndBackup\Backup\BackupArchiver;
+use SwishMigrateAndBackup\Export\ExportController;
+use SwishMigrateAndBackup\Export\ExportAjaxHandler;
 use SwishMigrateAndBackup\Logger\Logger;
 use SwishMigrateAndBackup\Migration\Migrator;
 use SwishMigrateAndBackup\Migration\SearchReplace;
@@ -284,6 +286,20 @@ final class Plugin {
 			)
 		);
 
+		// Export system (new streaming architecture).
+		$this->container->singleton(
+			ExportController::class,
+			fn( Container $c ) => new ExportController( $c->get( Logger::class ) )
+		);
+
+		$this->container->singleton(
+			ExportAjaxHandler::class,
+			fn( Container $c ) => new ExportAjaxHandler(
+				$c->get( ExportController::class ),
+				$c->get( Logger::class )
+			)
+		);
+
 		/**
 		 * Fires after all services have been registered.
 		 *
@@ -322,6 +338,9 @@ final class Plugin {
 
 		// Handle backup file downloads.
 		add_action( 'admin_init', array( $this, 'handle_backup_download' ) );
+
+		// Register export AJAX handlers (new streaming architecture).
+		add_action( 'init', array( $this->container->get( ExportAjaxHandler::class ), 'register' ) );
 	}
 
 	/**
