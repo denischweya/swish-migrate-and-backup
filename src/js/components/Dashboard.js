@@ -69,6 +69,7 @@ const Dashboard = ({
 	return (
 		<div className="swish-dashboard">
 			<div className="swish-dashboard-header">
+				<h1>{__('Swish Backup', 'swish-migrate-and-backup')}</h1>
 				<button className="button button-link" onClick={onOpenSettings}>
 					<span className="dashicons dashicons-admin-settings"></span>
 					{__('Settings', 'swish-migrate-and-backup')}
