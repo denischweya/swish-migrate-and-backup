@@ -368,7 +368,7 @@ const SettingsModal = ( { settings, onSave, onClose } ) => {
 									min="10"
 									max="500"
 									step="10"
-									value={ formData.pipeline_batch_size || 50 }
+									value={ formData.pipeline_batch_size || 150 }
 									onChange={ ( e ) =>
 										updateField(
 											'pipeline_batch_size',
@@ -384,23 +384,23 @@ const SettingsModal = ( { settings, onSave, onClose } ) => {
 								<button
 									type="button"
 									className="button button-small"
-									onClick={ () => updateField( 'pipeline_batch_size', 20 ) }
+									onClick={ () => updateField( 'pipeline_batch_size', 150 ) }
 								>
-									{ __( 'Shared (20)', 'swish-migrate-and-backup' ) }
+									{ __( 'Shared (150)', 'swish-migrate-and-backup' ) }
 								</button>
 								<button
 									type="button"
 									className="button button-small"
-									onClick={ () => updateField( 'pipeline_batch_size', 50 ) }
+									onClick={ () => updateField( 'pipeline_batch_size', 250 ) }
 								>
-									{ __( 'Standard (50)', 'swish-migrate-and-backup' ) }
+									{ __( 'VPS (250)', 'swish-migrate-and-backup' ) }
 								</button>
 								<button
 									type="button"
 									className="button button-small"
-									onClick={ () => updateField( 'pipeline_batch_size', 200 ) }
+									onClick={ () => updateField( 'pipeline_batch_size', 500 ) }
 								>
-									{ __( 'Fast (200)', 'swish-migrate-and-backup' ) }
+									{ __( 'Dedicated (500)', 'swish-migrate-and-backup' ) }
 								</button>
 							</div>
 							<p className="description">
@@ -601,7 +601,7 @@ const SettingsModal = ( { settings, onSave, onClose } ) => {
 								onClick={ () => {
 									updateField( 'db_batch_size', 100 );
 									updateField( 'file_batch_size', 50 );
-									updateField( 'pipeline_batch_size', 20 );
+									updateField( 'pipeline_batch_size', 150 );
 								} }
 							>
 								{ __( 'Shared Hosting', 'swish-migrate-and-backup' ) }
@@ -612,7 +612,7 @@ const SettingsModal = ( { settings, onSave, onClose } ) => {
 								onClick={ () => {
 									updateField( 'db_batch_size', 500 );
 									updateField( 'file_batch_size', 100 );
-									updateField( 'pipeline_batch_size', 50 );
+									updateField( 'pipeline_batch_size', 250 );
 								} }
 							>
 								{ __( 'VPS / Managed', 'swish-migrate-and-backup' ) }
@@ -623,7 +623,7 @@ const SettingsModal = ( { settings, onSave, onClose } ) => {
 								onClick={ () => {
 									updateField( 'db_batch_size', 1000 );
 									updateField( 'file_batch_size', 250 );
-									updateField( 'pipeline_batch_size', 200 );
+									updateField( 'pipeline_batch_size', 500 );
 								} }
 							>
 								{ __( 'Dedicated Server', 'swish-migrate-and-backup' ) }

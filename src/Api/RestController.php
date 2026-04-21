@@ -900,7 +900,7 @@ final class RestController extends WP_REST_Controller {
 		$defaults = array(
 			'db_batch_size'        => 200,
 			'file_batch_size'      => 50,
-			'pipeline_batch_size'  => 50,  // Files per pipeline request (10-500).
+			'pipeline_batch_size'  => 150,  // Files per pipeline request (10-500).
 			'backup_database'      => true,
 			'backup_plugins'       => true,
 			'backup_themes'        => true,
@@ -1443,7 +1443,7 @@ final class RestController extends WP_REST_Controller {
 			'exclude_themes'       => $settings['exclude_themes'] ?? array(),
 			'exclude_uploads'      => $settings['exclude_uploads'] ?? array(),
 			'time_budget'          => 15, // 15 seconds per request.
-			'pipeline_batch_size'  => $settings['pipeline_batch_size'] ?? 50, // Files per batch.
+			'pipeline_batch_size'  => $settings['pipeline_batch_size'] ?? 150, // Files per batch.
 		);
 
 		// Create backup directory.
