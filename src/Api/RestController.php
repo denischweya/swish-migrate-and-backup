@@ -325,6 +325,63 @@ final class RestController extends WP_REST_Controller {
 				),
 			)
 		);
+
+		// Folder structure route for granular backup selection.
+		register_rest_route(
+			$this->namespace,
+			'/folders',
+			array(
+				array(
+					'methods'             => WP_REST_Server::READABLE,
+					'callback'            => array( $this, 'get_folder_structure' ),
+					'permission_callback' => array( $this, 'check_admin_permission' ),
+				),
+			)
+		);
+
+		// Pipeline-based backup routes (queue-based, chunked processing).
+		register_rest_route(
+			$this->namespace,
+			'/pipeline/start',
+			array(
+				array(
+					'methods'             => WP_REST_Server::CREATABLE,
+					'callback'            => array( $this, 'pipeline_start' ),
+					'permission_callback' => array( $this, 'check_admin_permission' ),
+					'args'                => array(
+						'type' => array(
+							'type'    => 'string',
+							'enum'    => array( 'full', 'database', 'files' ),
+							'default' => 'full',
+						),
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			$this->namespace,
+			'/pipeline/continue/(?P<job_id>[a-zA-Z0-9_-]+)',
+			array(
+				array(
+					'methods'             => WP_REST_Server::CREATABLE,
+					'callback'            => array( $this, 'pipeline_continue' ),
+					'permission_callback' => array( $this, 'check_admin_permission' ),
+				),
+			)
+		);
+
+		register_rest_route(
+			$this->namespace,
+			'/pipeline/status/(?P<job_id>[a-zA-Z0-9_-]+)',
+			array(
+				array(
+					'methods'             => WP_REST_Server::READABLE,
+					'callback'            => array( $this, 'pipeline_status' ),
+					'permission_callback' => array( $this, 'check_admin_permission' ),
+				),
+			)
+		);
 	}
 
 	/**
@@ -367,6 +424,10 @@ final class RestController extends WP_REST_Controller {
 			'storage_destinations' => $request->get_param( 'destinations' ) ?? array( 'local' ),
 			'db_batch_size'        => $request->get_param( 'db_batch_size' ) ?? 200,
 			'file_batch_size'      => $request->get_param( 'file_batch_size' ) ?? 50,
+			// Granular exclusions.
+			'exclude_plugins'      => $settings['exclude_plugins'] ?? array(),
+			'exclude_themes'       => $settings['exclude_themes'] ?? array(),
+			'exclude_uploads'      => $settings['exclude_uploads'] ?? array(),
 		);
 
 		// Use async processing to avoid timeouts on shared/managed hosting.
@@ -848,6 +909,9 @@ final class RestController extends WP_REST_Controller {
 			'archive_format'       => 'auto',
 			'default_storage'      => 'local',
 			'exclude_files'        => array(),
+			'exclude_plugins'      => array(),  // Plugin slugs to exclude.
+			'exclude_themes'       => array(),  // Theme slugs to exclude.
+			'exclude_uploads'      => array(),  // Upload folder paths to exclude.
 			'email_notifications'  => false,
 			'notification_email'   => get_option( 'admin_email' ),
 			'tar_available'        => \SwishMigrateAndBackup\Core\ServerLimits::is_tar_available(),
@@ -909,6 +973,14 @@ final class RestController extends WP_REST_Controller {
 			$settings['notification_email'] = sanitize_email( $params['notification_email'] );
 		}
 
+		// Handle exclusion arrays.
+		$array_settings = array( 'exclude_plugins', 'exclude_themes', 'exclude_uploads' );
+		foreach ( $array_settings as $key ) {
+			if ( isset( $params[ $key ] ) && is_array( $params[ $key ] ) ) {
+				$settings[ $key ] = array_map( 'sanitize_text_field', $params[ $key ] );
+			}
+		}
+
 		update_option( 'swish_backup_settings', $settings );
 
 		return rest_ensure_response( array(
@@ -946,6 +1018,233 @@ final class RestController extends WP_REST_Controller {
 			'storage'       => $adapters,
 			'site_url'      => get_site_url(),
 		) );
+	}
+
+	/**
+	 * Get folder structure for granular backup selection.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response
+	 */
+	public function get_folder_structure( WP_REST_Request $request ): WP_REST_Response {
+		$structure = array(
+			'plugins' => $this->get_plugins_list(),
+			'themes'  => $this->get_themes_list(),
+			'uploads' => $this->get_uploads_folders(),
+		);
+
+		return rest_ensure_response( $structure );
+	}
+
+	/**
+	 * Get list of all plugins with metadata.
+	 *
+	 * @return array
+	 */
+	private function get_plugins_list(): array {
+		if ( ! function_exists( 'get_plugins' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/plugin.php';
+		}
+
+		$plugins = array();
+		$all_plugins = get_plugins();
+		$active_plugins = get_option( 'active_plugins', array() );
+
+		foreach ( $all_plugins as $plugin_file => $plugin_data ) {
+			$plugin_dir = dirname( $plugin_file );
+			if ( '.' === $plugin_dir ) {
+				$plugin_dir = basename( $plugin_file, '.php' );
+			}
+
+			$plugin_path = WP_PLUGIN_DIR . '/' . $plugin_dir;
+			$size = 0;
+
+			if ( is_dir( $plugin_path ) ) {
+				$size = $this->get_directory_size( $plugin_path );
+			} elseif ( file_exists( WP_PLUGIN_DIR . '/' . $plugin_file ) ) {
+				$size = filesize( WP_PLUGIN_DIR . '/' . $plugin_file );
+			}
+
+			$plugins[] = array(
+				'slug'    => $plugin_dir,
+				'name'    => $plugin_data['Name'],
+				'version' => $plugin_data['Version'],
+				'active'  => in_array( $plugin_file, $active_plugins, true ),
+				'size'    => $size,
+				'path'    => $plugin_dir,
+			);
+		}
+
+		// Sort by name.
+		usort( $plugins, function( $a, $b ) {
+			return strcasecmp( $a['name'], $b['name'] );
+		} );
+
+		return $plugins;
+	}
+
+	/**
+	 * Get list of all themes with metadata.
+	 *
+	 * @return array
+	 */
+	private function get_themes_list(): array {
+		$themes = array();
+		$all_themes = wp_get_themes();
+		$active_theme = get_template();
+		$active_child = get_stylesheet();
+
+		foreach ( $all_themes as $slug => $theme ) {
+			$theme_path = $theme->get_stylesheet_directory();
+			$size = $this->get_directory_size( $theme_path );
+
+			$themes[] = array(
+				'slug'    => $slug,
+				'name'    => $theme->get( 'Name' ),
+				'version' => $theme->get( 'Version' ),
+				'active'  => ( $slug === $active_theme || $slug === $active_child ),
+				'size'    => $size,
+				'path'    => $slug,
+			);
+		}
+
+		// Sort: active first, then by name.
+		usort( $themes, function( $a, $b ) {
+			if ( $a['active'] !== $b['active'] ) {
+				return $a['active'] ? -1 : 1;
+			}
+			return strcasecmp( $a['name'], $b['name'] );
+		} );
+
+		return $themes;
+	}
+
+	/**
+	 * Get top-level folders in uploads directory.
+	 *
+	 * @return array
+	 */
+	private function get_uploads_folders(): array {
+		$upload_dir = wp_upload_dir();
+		$base_dir = $upload_dir['basedir'];
+		$folders = array();
+
+		if ( ! is_dir( $base_dir ) ) {
+			return $folders;
+		}
+
+		$iterator = new \DirectoryIterator( $base_dir );
+
+		foreach ( $iterator as $item ) {
+			if ( $item->isDot() || ! $item->isDir() ) {
+				continue;
+			}
+
+			$folder_name = $item->getFilename();
+
+			// Skip backup folders.
+			if ( in_array( $folder_name, array( 'swish-backups', 'backups' ), true ) ) {
+				continue;
+			}
+
+			$folder_path = $item->getPathname();
+			$size = $this->get_directory_size( $folder_path );
+
+			// Check if it's a year folder (contains month subfolders).
+			$is_year = preg_match( '/^\d{4}$/', $folder_name );
+
+			$folders[] = array(
+				'name'     => $folder_name,
+				'path'     => $folder_name,
+				'size'     => $size,
+				'is_year'  => $is_year,
+				'children' => $is_year ? $this->get_year_subfolders( $folder_path ) : array(),
+			);
+		}
+
+		// Sort by name.
+		usort( $folders, function( $a, $b ) {
+			return strcasecmp( $a['name'], $b['name'] );
+		} );
+
+		return $folders;
+	}
+
+	/**
+	 * Get month subfolders for a year folder in uploads.
+	 *
+	 * @param string $year_path Path to year folder.
+	 * @return array
+	 */
+	private function get_year_subfolders( string $year_path ): array {
+		$subfolders = array();
+
+		if ( ! is_dir( $year_path ) ) {
+			return $subfolders;
+		}
+
+		$iterator = new \DirectoryIterator( $year_path );
+
+		foreach ( $iterator as $item ) {
+			if ( $item->isDot() || ! $item->isDir() ) {
+				continue;
+			}
+
+			$folder_name = $item->getFilename();
+			$size = $this->get_directory_size( $item->getPathname() );
+
+			$subfolders[] = array(
+				'name' => $folder_name,
+				'path' => basename( $year_path ) . '/' . $folder_name,
+				'size' => $size,
+			);
+		}
+
+		// Sort by name.
+		usort( $subfolders, function( $a, $b ) {
+			return strcasecmp( $a['name'], $b['name'] );
+		} );
+
+		return $subfolders;
+	}
+
+	/**
+	 * Get directory size (limited depth for performance).
+	 *
+	 * @param string $path Directory path.
+	 * @return int Size in bytes.
+	 */
+	private function get_directory_size( string $path ): int {
+		$size = 0;
+
+		if ( ! is_dir( $path ) ) {
+			return 0;
+		}
+
+		try {
+			$iterator = new \RecursiveIteratorIterator(
+				new \RecursiveDirectoryIterator( $path, \RecursiveDirectoryIterator::SKIP_DOTS ),
+				\RecursiveIteratorIterator::LEAVES_ONLY
+			);
+
+			// Limit iteration to prevent timeout.
+			$count = 0;
+			$max_files = 10000;
+
+			foreach ( $iterator as $file ) {
+				if ( $file->isFile() ) {
+					$size += $file->getSize();
+				}
+				$count++;
+				if ( $count >= $max_files ) {
+					break;
+				}
+			}
+		} catch ( \Exception $e ) {
+			// Ignore errors.
+		}
+
+		return $size;
 	}
 
 	/**
@@ -1110,5 +1409,296 @@ final class RestController extends WP_REST_Controller {
 		}
 
 		return $value;
+	}
+
+	/**
+	 * Start a pipeline-based backup.
+	 *
+	 * This uses the new queue-based architecture for reliable chunked processing.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function pipeline_start( WP_REST_Request $request ) {
+		$type = $request->get_param( 'type' ) ?? 'full';
+		$settings = get_option( 'swish_backup_settings', array() );
+
+		// Generate job ID.
+		$job_id = 'backup_' . wp_generate_uuid4();
+
+		// Build options.
+		$options = array(
+			'type'                 => $type,
+			'backup_database'      => $settings['backup_database'] ?? true,
+			'backup_plugins'       => $settings['backup_plugins'] ?? true,
+			'backup_themes'        => $settings['backup_themes'] ?? true,
+			'backup_uploads'       => $settings['backup_uploads'] ?? true,
+			'backup_core_files'    => $settings['backup_core_files'] ?? false,
+			'exclude_plugins'      => $settings['exclude_plugins'] ?? array(),
+			'exclude_themes'       => $settings['exclude_themes'] ?? array(),
+			'exclude_uploads'      => $settings['exclude_uploads'] ?? array(),
+			'time_budget'          => 15, // 15 seconds per request.
+		);
+
+		// Create backup directory.
+		$backup_dir = WP_CONTENT_DIR . '/swish-backups';
+		if ( ! is_dir( $backup_dir ) ) {
+			wp_mkdir_p( $backup_dir );
+		}
+
+		// Generate archive filename.
+		$site_name = sanitize_file_name( wp_parse_url( get_site_url(), PHP_URL_HOST ) );
+		$timestamp = gmdate( 'Y-m-d-His' );
+		$archive_filename = "{$site_name}-{$type}-{$timestamp}.swish";
+		$archive_path = $backup_dir . '/' . $archive_filename;
+
+		// Initialize pipeline.
+		$pipeline = new \SwishMigrateAndBackup\Backup\BackupPipeline(
+			new \SwishMigrateAndBackup\Logger\Logger()
+		);
+		$pipeline->configure( $options );
+
+		// Get directories to backup.
+		$directories = $pipeline->get_backup_directories( $options );
+
+		// Ensure file queue table exists.
+		\SwishMigrateAndBackup\Backup\FileQueue::create_table();
+
+		// Clear any previous data for this job.
+		\SwishMigrateAndBackup\Backup\FileQueue::clear_job( $job_id );
+
+		// Store job state.
+		$job_state = array(
+			'job_id'       => $job_id,
+			'type'         => $type,
+			'phase'        => 'indexing',
+			'archive_path' => $archive_path,
+			'directories'  => $directories,
+			'options'      => $options,
+			'index_offset' => 0,
+			'started_at'   => gmdate( 'Y-m-d H:i:s' ),
+		);
+		update_option( 'swish_pipeline_job_' . $job_id, $job_state );
+
+		// Start indexing phase.
+		$result = $pipeline->index_files( $job_id, $directories, 0 );
+
+		// Update job state.
+		$job_state['index_offset'] = $result['offset'];
+		if ( $result['completed'] ) {
+			$job_state['phase'] = 'processing';
+		}
+		update_option( 'swish_pipeline_job_' . $job_id, $job_state );
+
+		// Get stats.
+		$stats = \SwishMigrateAndBackup\Backup\FileQueue::get_job_stats( $job_id );
+
+		// Calculate initial progress: indexing phase = 0-10%.
+		$overall_progress = $result['completed'] ? 10 : min( 9, $stats['total'] > 0 ? 5 : 2 );
+
+		return rest_ensure_response( array(
+			'success'   => true,
+			'job_id'    => $job_id,
+			'phase'     => $job_state['phase'],
+			'completed' => $result['completed'] && $stats['total'] === 0,
+			'indexed'   => $result['indexed'],
+			'stats'     => $stats,
+			'progress'  => $overall_progress,
+			'message'   => $result['completed']
+				? 'Indexing complete, ready to process ' . $stats['total'] . ' files'
+				: 'Indexing in progress (' . $result['indexed'] . ' files found so far)',
+		) );
+	}
+
+	/**
+	 * Continue a pipeline-based backup.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function pipeline_continue( WP_REST_Request $request ) {
+		$job_id = $request->get_param( 'job_id' );
+
+		// Get job state.
+		$job_state = get_option( 'swish_pipeline_job_' . $job_id );
+		if ( ! $job_state ) {
+			return new WP_Error(
+				'job_not_found',
+				__( 'Backup job not found.', 'swish-migrate-and-backup' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		// Initialize pipeline.
+		$pipeline = new \SwishMigrateAndBackup\Backup\BackupPipeline(
+			new \SwishMigrateAndBackup\Logger\Logger()
+		);
+		$pipeline->configure( $job_state['options'] );
+
+		$phase = $job_state['phase'];
+		$result = array();
+
+		if ( 'indexing' === $phase ) {
+			// Continue indexing.
+			$result = $pipeline->index_files(
+				$job_id,
+				$job_state['directories'],
+				$job_state['index_offset']
+			);
+
+			$job_state['index_offset'] = $result['offset'];
+			if ( $result['completed'] ) {
+				$job_state['phase'] = 'processing';
+			}
+
+			$stats = \SwishMigrateAndBackup\Backup\FileQueue::get_job_stats( $job_id );
+
+			update_option( 'swish_pipeline_job_' . $job_id, $job_state );
+
+			// Calculate overall progress: indexing = 0-10%.
+			// Since we don't know total files until indexing completes, estimate based on completion.
+			$overall_progress = $result['completed'] ? 10 : min( 9, $stats['total'] > 0 ? 5 : 2 );
+
+			return rest_ensure_response( array(
+				'success'   => true,
+				'job_id'    => $job_id,
+				'phase'     => $job_state['phase'],
+				'completed' => false,
+				'indexed'   => $result['indexed'],
+				'stats'     => $stats,
+				'progress'  => $overall_progress,
+				'message'   => $result['completed']
+					? 'Indexing complete, ' . $stats['total'] . ' files to process'
+					: 'Indexing: ' . $stats['total'] . ' files found',
+			) );
+		}
+
+		if ( 'processing' === $phase ) {
+			// Continue processing (archiving files).
+			$result = $pipeline->process_files( $job_id, $job_state['archive_path'] );
+
+			if ( $result['completed'] ) {
+				$job_state['phase'] = 'finalizing';
+			}
+
+			update_option( 'swish_pipeline_job_' . $job_id, $job_state );
+
+			// Calculate overall progress: processing = 10-95%.
+			// stats['progress'] is 0-100 of processing phase only.
+			$processing_progress = $result['stats']['progress'] ?? 0;
+			$overall_progress = 10 + (int) ( $processing_progress * 0.85 );
+			if ( $result['completed'] ) {
+				$overall_progress = 95;
+			}
+
+			$completed_files = ( $result['stats']['completed'] ?? 0 ) + ( $result['stats']['skipped'] ?? 0 );
+			$total_files = $result['stats']['total'] ?? 0;
+
+			return rest_ensure_response( array(
+				'success'   => true,
+				'job_id'    => $job_id,
+				'phase'     => $job_state['phase'],
+				'completed' => false,
+				'processed' => $result['processed'],
+				'failed'    => $result['failed'],
+				'skipped'   => $result['skipped'],
+				'stats'     => $result['stats'],
+				'progress'  => $overall_progress,
+				'message'   => sprintf(
+					'Processing: %d/%d files (%d%%)',
+					$completed_files,
+					$total_files,
+					$processing_progress
+				),
+			) );
+		}
+
+		if ( 'finalizing' === $phase ) {
+			// Finalize archive.
+			$result = $pipeline->finalize( $job_id, $job_state['archive_path'] );
+
+			if ( $result['success'] ) {
+				$job_state['phase'] = 'complete';
+				$job_state['completed_at'] = gmdate( 'Y-m-d H:i:s' );
+				$job_state['file_size'] = $result['size'];
+				$job_state['checksum'] = $result['checksum'];
+
+				update_option( 'swish_pipeline_job_' . $job_id, $job_state );
+
+				// Register backup in the manager.
+				$this->backup_manager->register_backup( array(
+					'job_id'    => $job_id,
+					'type'      => $job_state['type'],
+					'file_path' => $job_state['archive_path'],
+					'file_size' => $result['size'],
+					'checksum'  => $result['checksum'],
+				) );
+
+				return rest_ensure_response( array(
+					'success'   => true,
+					'job_id'    => $job_id,
+					'phase'     => 'complete',
+					'completed' => true,
+					'progress'  => 100,
+					'file_path' => $job_state['archive_path'],
+					'file_size' => $result['size'],
+					'checksum'  => $result['checksum'],
+					'stats'     => $result['stats'],
+					'message'   => 'Backup completed successfully',
+				) );
+			}
+
+			return new WP_Error(
+				'finalize_failed',
+				$result['error'] ?? __( 'Failed to finalize backup.', 'swish-migrate-and-backup' ),
+				array( 'status' => 500 )
+			);
+		}
+
+		// Already complete.
+		return rest_ensure_response( array(
+			'success'   => true,
+			'job_id'    => $job_id,
+			'phase'     => 'complete',
+			'completed' => true,
+			'message'   => 'Backup already completed',
+		) );
+	}
+
+	/**
+	 * Get pipeline backup status.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function pipeline_status( WP_REST_Request $request ) {
+		$job_id = $request->get_param( 'job_id' );
+
+		// Get job state.
+		$job_state = get_option( 'swish_pipeline_job_' . $job_id );
+		if ( ! $job_state ) {
+			return new WP_Error(
+				'job_not_found',
+				__( 'Backup job not found.', 'swish-migrate-and-backup' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		// Get queue stats.
+		$stats = \SwishMigrateAndBackup\Backup\FileQueue::get_job_stats( $job_id );
+
+		return rest_ensure_response( array(
+			'job_id'       => $job_id,
+			'phase'        => $job_state['phase'],
+			'type'         => $job_state['type'],
+			'archive_path' => $job_state['archive_path'] ?? null,
+			'started_at'   => $job_state['started_at'] ?? null,
+			'completed_at' => $job_state['completed_at'] ?? null,
+			'file_size'    => $job_state['file_size'] ?? null,
+			'checksum'     => $job_state['checksum'] ?? null,
+			'stats'        => $stats,
+			'progress'     => $stats['progress'],
+			'completed'    => 'complete' === $job_state['phase'],
+		) );
 	}
 }

@@ -137,3 +137,45 @@ export const updateSettings = ( settings ) =>
 		method: 'POST',
 		data: settings,
 	} );
+
+// ============================================================================
+// Pipeline-based backup API (queue-based, chunked processing)
+// ============================================================================
+
+/**
+ * Start a pipeline-based backup.
+ *
+ * This uses the new queue-based architecture for reliable chunked processing.
+ * Call pipelineContinue() repeatedly until completed.
+ *
+ * @param {string} type - Backup type (full, database, files).
+ * @return {Promise} Pipeline job data with job_id, phase, stats.
+ */
+export const pipelineStart = ( type = 'full' ) =>
+	apiRequest( '/pipeline/start', {
+		method: 'POST',
+		data: { type },
+	} );
+
+/**
+ * Continue a pipeline-based backup.
+ *
+ * Call this repeatedly until the response shows completed: true.
+ * Each call processes a small chunk with a hard time budget (~15 seconds).
+ *
+ * @param {string} jobId - Pipeline job ID from pipelineStart.
+ * @return {Promise} Pipeline status with phase, progress, stats.
+ */
+export const pipelineContinue = ( jobId ) =>
+	apiRequest( `/pipeline/continue/${ jobId }`, {
+		method: 'POST',
+	} );
+
+/**
+ * Get pipeline backup status.
+ *
+ * @param {string} jobId - Pipeline job ID.
+ * @return {Promise} Pipeline status with phase, progress, stats.
+ */
+export const pipelineStatus = ( jobId ) =>
+	apiRequest( `/pipeline/status/${ jobId }` );

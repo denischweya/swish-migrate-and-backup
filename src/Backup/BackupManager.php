@@ -2047,6 +2047,82 @@ final class BackupManager {
 	}
 
 	/**
+	 * Register a backup created by the pipeline.
+	 *
+	 * This creates a job record for a backup that was created via the
+	 * queue-based pipeline system.
+	 *
+	 * @param array $backup_data Backup data with job_id, type, file_path, file_size, checksum.
+	 * @return bool True on success.
+	 */
+	public function register_backup( array $backup_data ): bool {
+		global $wpdb;
+
+		$table = $wpdb->prefix . 'swish_backup_jobs';
+		$job_id = $backup_data['job_id'];
+
+		// Check if job already exists.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$existing = $wpdb->get_var(
+			$wpdb->prepare(
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				"SELECT id FROM {$table} WHERE job_id = %s",
+				$job_id
+			)
+		);
+
+		$now = current_time( 'mysql' );
+
+		if ( $existing ) {
+			// Update existing record.
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$result = $wpdb->update(
+				$table,
+				array(
+					'status'       => 'completed',
+					'progress'     => 100,
+					'completed_at' => $now,
+					'file_path'    => $backup_data['file_path'],
+					'file_size'    => $backup_data['file_size'],
+					'checksum'     => $backup_data['checksum'],
+				),
+				array( 'job_id' => $job_id ),
+				array( '%s', '%d', '%s', '%s', '%d', '%s' ),
+				array( '%s' )
+			);
+
+			return $result !== false;
+		}
+
+		// Create new record.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
+		$result = $wpdb->insert(
+			$table,
+			array(
+				'job_id'       => $job_id,
+				'type'         => $backup_data['type'] ?? 'full',
+				'status'       => 'completed',
+				'progress'     => 100,
+				'started_at'   => $now,
+				'completed_at' => $now,
+				'file_path'    => $backup_data['file_path'],
+				'file_size'    => $backup_data['file_size'],
+				'checksum'     => $backup_data['checksum'],
+				'created_at'   => $now,
+			),
+			array( '%s', '%s', '%s', '%d', '%s', '%s', '%s', '%d', '%s', '%s' )
+		);
+
+		$this->logger->info( 'Pipeline backup registered', array(
+			'job_id'    => $job_id,
+			'file_path' => $backup_data['file_path'],
+			'file_size' => $backup_data['file_size'],
+		) );
+
+		return $result !== false;
+	}
+
+	/**
 	 * Get list of existing backups.
 	 *
 	 * @param int $limit Maximum number of backups to return.

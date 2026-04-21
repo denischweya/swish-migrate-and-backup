@@ -61,6 +61,27 @@ final class FileBackup {
 	private array $exclude_patterns = array();
 
 	/**
+	 * Specific plugins to exclude (by folder name).
+	 *
+	 * @var array
+	 */
+	private array $exclude_plugins = array();
+
+	/**
+	 * Specific themes to exclude (by folder name).
+	 *
+	 * @var array
+	 */
+	private array $exclude_themes = array();
+
+	/**
+	 * Specific upload folders to exclude (by path like "2024", "2024/01").
+	 *
+	 * @var array
+	 */
+	private array $exclude_uploads = array();
+
+	/**
 	 * Maximum files per batch.
 	 *
 	 * @var int
@@ -179,6 +200,39 @@ final class FileBackup {
 	 */
 	public function set_exclude_patterns( array $patterns ): self {
 		$this->exclude_patterns = array_merge( $this->exclude_patterns, $patterns );
+		return $this;
+	}
+
+	/**
+	 * Set specific plugins to exclude.
+	 *
+	 * @param array $plugins Plugin folder names to exclude.
+	 * @return self
+	 */
+	public function set_exclude_plugins( array $plugins ): self {
+		$this->exclude_plugins = $plugins;
+		return $this;
+	}
+
+	/**
+	 * Set specific themes to exclude.
+	 *
+	 * @param array $themes Theme folder names to exclude.
+	 * @return self
+	 */
+	public function set_exclude_themes( array $themes ): self {
+		$this->exclude_themes = $themes;
+		return $this;
+	}
+
+	/**
+	 * Set specific upload folders to exclude.
+	 *
+	 * @param array $uploads Upload folder paths to exclude (e.g., "2024", "2024/01").
+	 * @return self
+	 */
+	public function set_exclude_uploads( array $uploads ): self {
+		$this->exclude_uploads = $uploads;
 		return $this;
 	}
 
@@ -1480,6 +1534,19 @@ final class FileBackup {
 			$this->set_exclude_patterns( $options['exclude_files'] );
 		}
 
+		// Apply granular exclusions from settings.
+		if ( ! empty( $options['exclude_plugins'] ) ) {
+			$this->set_exclude_plugins( $options['exclude_plugins'] );
+		}
+
+		if ( ! empty( $options['exclude_themes'] ) ) {
+			$this->set_exclude_themes( $options['exclude_themes'] );
+		}
+
+		if ( ! empty( $options['exclude_uploads'] ) ) {
+			$this->set_exclude_uploads( $options['exclude_uploads'] );
+		}
+
 		$files = $this->get_file_list( $directories );
 		$total_size = array_sum( array_column( $files, 'size' ) );
 
@@ -1519,6 +1586,54 @@ final class FileBackup {
 				// Check if path is the core file/directory or inside a core directory.
 				if ( strpos( $normalized_path, $core_path ) === 0 ) {
 					return true;
+				}
+			}
+		}
+
+		// Check for excluded plugins.
+		if ( ! empty( $this->exclude_plugins ) ) {
+			$plugins_dir = str_replace( '\\', '/', WP_PLUGIN_DIR ) . '/';
+			if ( strpos( $normalized_path, $plugins_dir ) === 0 ) {
+				// Extract the plugin folder name from the path.
+				$relative_to_plugins = substr( $normalized_path, strlen( $plugins_dir ) );
+				$plugin_folder = explode( '/', $relative_to_plugins )[0];
+
+				if ( in_array( $plugin_folder, $this->exclude_plugins, true ) ) {
+					return true;
+				}
+			}
+		}
+
+		// Check for excluded themes.
+		if ( ! empty( $this->exclude_themes ) ) {
+			$themes_dir = str_replace( '\\', '/', get_theme_root() ) . '/';
+			if ( strpos( $normalized_path, $themes_dir ) === 0 ) {
+				// Extract the theme folder name from the path.
+				$relative_to_themes = substr( $normalized_path, strlen( $themes_dir ) );
+				$theme_folder = explode( '/', $relative_to_themes )[0];
+
+				if ( in_array( $theme_folder, $this->exclude_themes, true ) ) {
+					return true;
+				}
+			}
+		}
+
+		// Check for excluded upload folders.
+		if ( ! empty( $this->exclude_uploads ) ) {
+			$upload_dir = wp_upload_dir();
+			$uploads_base = str_replace( '\\', '/', $upload_dir['basedir'] ) . '/';
+
+			if ( strpos( $normalized_path, $uploads_base ) === 0 ) {
+				// Extract the relative path within uploads.
+				$relative_to_uploads = substr( $normalized_path, strlen( $uploads_base ) );
+
+				foreach ( $this->exclude_uploads as $excluded_folder ) {
+					// Check if path starts with the excluded folder.
+					$excluded_normalized = trim( str_replace( '\\', '/', $excluded_folder ), '/' );
+					if ( strpos( $relative_to_uploads, $excluded_normalized . '/' ) === 0 ||
+						$relative_to_uploads === $excluded_normalized ) {
+						return true;
+					}
 				}
 			}
 		}

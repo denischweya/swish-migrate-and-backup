@@ -82,7 +82,8 @@ final class ServerLimits {
 	 * @return float Elapsed time in seconds.
 	 */
 	public static function get_elapsed_time(): float {
-		if ( 0 === self::$start_time ) {
+		// Use loose comparison because $start_time is float, so 0.0 !== 0 (int).
+		if ( 0.0 === self::$start_time || self::$start_time < 1.0 ) {
 			self::init_timing();
 		}
 

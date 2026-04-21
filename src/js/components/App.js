@@ -20,6 +20,8 @@ import {
 	processJob,
 	getSettings,
 	updateSettings,
+	pipelineStart,
+	pipelineContinue,
 } from '../api';
 
 /**
@@ -64,6 +66,15 @@ const App = () => {
 
 	const handleBackup = useCallback(
 		async ( type ) => {
+			// Use pipeline for full and files backups (more reliable for large sites).
+			// Database-only backups can use the original method.
+			const usePipeline = type !== 'database';
+
+			if ( usePipeline ) {
+				handlePipelineBackup( type );
+				return;
+			}
+
 			try {
 				setShowProgress( true );
 				setCurrentJob( {
@@ -96,6 +107,126 @@ const App = () => {
 			}
 		},
 		[ settings ]
+	);
+
+	const handlePipelineBackup = useCallback(
+		async ( type ) => {
+			try {
+				setShowProgress( true );
+				setCurrentJob( {
+					status: 'starting',
+					progress: 0,
+					message: 'Starting backup pipeline...',
+					stages: [],
+				} );
+
+				// Start the pipeline.
+				const startResult = await pipelineStart( type );
+
+				if ( ! startResult.success ) {
+					throw new Error( startResult.message || 'Failed to start backup' );
+				}
+
+				setCurrentJob( ( prev ) => ( {
+					...prev,
+					status: 'processing',
+					message: startResult.message,
+					stages: [ { name: 'Indexing files', status: 'in_progress' } ],
+				} ) );
+
+				// Continue the pipeline until complete.
+				await runPipeline( startResult.job_id );
+			} catch ( err ) {
+				setCurrentJob( {
+					status: 'failed',
+					progress: 0,
+					message: err.message || 'Backup failed',
+				} );
+			}
+		},
+		[]
+	);
+
+	const runPipeline = useCallback(
+		async ( jobId ) => {
+			let completed = false;
+			let consecutiveErrors = 0;
+			const maxErrors = 3;
+
+			while ( ! completed && consecutiveErrors < maxErrors ) {
+				try {
+					const result = await pipelineContinue( jobId );
+					consecutiveErrors = 0; // Reset on success.
+
+					// Use the overall progress from the backend.
+					const progress = result.progress || 0;
+
+					// Calculate completed files count.
+					const completedFiles = ( result.stats?.completed || 0 ) + ( result.stats?.skipped || 0 );
+					const totalFiles = result.stats?.total || 0;
+					const phase = result.phase || 'processing';
+
+					// Build stages for progress display.
+					const stages = [];
+					if ( phase === 'indexing' ) {
+						stages.push( {
+							name: 'Indexing files',
+							status: 'in_progress',
+							detail: `${ totalFiles } files found`,
+						} );
+					} else if ( phase === 'processing' ) {
+						stages.push( { name: 'Indexing files', status: 'completed', detail: `${ totalFiles } files` } );
+						stages.push( {
+							name: 'Creating archive',
+							status: 'in_progress',
+							detail: `${ completedFiles }/${ totalFiles } files`,
+						} );
+					} else if ( phase === 'finalizing' ) {
+						stages.push( { name: 'Indexing files', status: 'completed', detail: `${ totalFiles } files` } );
+						stages.push( { name: 'Creating archive', status: 'completed', detail: `${ completedFiles } files` } );
+						stages.push( { name: 'Finalizing', status: 'in_progress', detail: 'Creating backup file' } );
+					} else if ( phase === 'complete' || result.completed ) {
+						stages.push( { name: 'Indexing files', status: 'completed' } );
+						stages.push( { name: 'Creating archive', status: 'completed' } );
+						stages.push( { name: 'Finalizing', status: 'completed' } );
+					}
+
+					setCurrentJob( {
+						status: result.completed ? 'completed' : 'processing',
+						progress: result.completed ? 100 : progress,
+						message: result.message,
+						stages,
+					} );
+
+					if ( result.completed ) {
+						completed = true;
+						setTimeout( () => {
+							setShowProgress( false );
+							loadDashboardData();
+						}, 2000 );
+					} else {
+						// Small delay between requests to avoid overwhelming the server.
+						await new Promise( ( resolve ) => setTimeout( resolve, 500 ) );
+					}
+				} catch ( err ) {
+					consecutiveErrors++;
+					console.warn( `Pipeline error (${ consecutiveErrors }/${ maxErrors }):`, err.message );
+
+					if ( consecutiveErrors >= maxErrors ) {
+						setCurrentJob( {
+							status: 'failed',
+							progress: 0,
+							message: `Backup failed after ${ maxErrors } retries: ${ err.message }`,
+						} );
+						break;
+					}
+
+					// Wait before retry.
+					await new Promise( ( resolve ) => setTimeout( resolve, 2000 ) );
+				}
+			}
+		},
+		[]
 	);
 
 	const pollJobStatus = useCallback( async ( jobId ) => {
