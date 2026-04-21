@@ -40,12 +40,22 @@ final class DatabaseBackup {
 	 *
 	 * @var int
 	 */
-	private int $rows_per_batch = 500;
+	private int $rows_per_batch = 200;
 
 	/**
 	 * Default rows per batch.
 	 */
-	private const DEFAULT_ROWS_PER_BATCH = 500;
+	private const DEFAULT_ROWS_PER_BATCH = 200;
+
+	/**
+	 * Minimum rows per batch (for memory-constrained environments).
+	 */
+	private const MIN_ROWS_PER_BATCH = 50;
+
+	/**
+	 * Memory threshold for reducing batch size (32MB).
+	 */
+	private const MEMORY_THRESHOLD = 33554432;
 
 	/**
 	 * Constructor.
@@ -280,15 +290,20 @@ final class DatabaseBackup {
 		$column_names = array_map( fn( $col ) => $col['Field'], $columns );
 		$column_list = '`' . implode( '`, `', $column_names ) . '`';
 
-		// Dump data in batches.
+		// Dump data in batches with adaptive batch sizing.
 		$offset = 0;
+		$current_batch_size = $this->rows_per_batch;
+
 		while ( $offset < $row_count ) {
+			// Check memory and reduce batch size if needed.
+			$current_batch_size = $this->get_adaptive_batch_size( $current_batch_size );
+
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Table name from $wpdb->get_col() is safe.
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
 					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 					"SELECT * FROM `{$table}` LIMIT %d OFFSET %d",
-					$this->rows_per_batch,
+					$current_batch_size,
 					$offset
 				),
 				ARRAY_A
@@ -300,10 +315,15 @@ final class DatabaseBackup {
 
 			$this->write_insert_statements( $handle, $table, $column_list, $rows, $columns );
 
-			$offset += $this->rows_per_batch;
+			$offset += $current_batch_size;
 
-			// Free up memory.
+			// Free up memory aggressively.
 			unset( $rows );
+
+			// Trigger garbage collection if available and memory is getting low.
+			if ( $this->is_memory_low() && function_exists( 'gc_collect_cycles' ) ) {
+				gc_collect_cycles();
+			}
 		}
 
 		// Re-enable keys.
@@ -449,5 +469,81 @@ final class DatabaseBackup {
 		}
 
 		return $sizes;
+	}
+
+	/**
+	 * Get adaptive batch size based on available memory.
+	 *
+	 * @param int $current_batch_size Current batch size.
+	 * @return int Adjusted batch size.
+	 */
+	private function get_adaptive_batch_size( int $current_batch_size ): int {
+		if ( ! $this->is_memory_low() ) {
+			return $current_batch_size;
+		}
+
+		// Reduce batch size by half, but not below minimum.
+		$new_size = max( self::MIN_ROWS_PER_BATCH, (int) ( $current_batch_size / 2 ) );
+
+		if ( $new_size < $current_batch_size ) {
+			$this->logger->debug( 'Reducing batch size due to memory pressure', array(
+				'old_size' => $current_batch_size,
+				'new_size' => $new_size,
+			) );
+		}
+
+		return $new_size;
+	}
+
+	/**
+	 * Check if available memory is below threshold.
+	 *
+	 * @return bool True if memory is low.
+	 */
+	private function is_memory_low(): bool {
+		$available = $this->get_available_memory();
+		return $available < self::MEMORY_THRESHOLD;
+	}
+
+	/**
+	 * Get available memory in bytes.
+	 *
+	 * @return int Available memory.
+	 */
+	private function get_available_memory(): int {
+		$memory_limit = $this->get_memory_limit();
+		$memory_used = memory_get_usage( true );
+
+		return max( 0, $memory_limit - $memory_used );
+	}
+
+	/**
+	 * Get PHP memory limit in bytes.
+	 *
+	 * @return int Memory limit.
+	 */
+	private function get_memory_limit(): int {
+		$limit = ini_get( 'memory_limit' );
+
+		if ( '-1' === $limit ) {
+			// No limit set, assume 512MB.
+			return 512 * 1024 * 1024;
+		}
+
+		$value = (int) $limit;
+		$unit = strtoupper( substr( $limit, -1 ) );
+
+		switch ( $unit ) {
+			case 'G':
+				$value *= 1024;
+				// Fall through.
+			case 'M':
+				$value *= 1024;
+				// Fall through.
+			case 'K':
+				$value *= 1024;
+		}
+
+		return $value;
 	}
 }

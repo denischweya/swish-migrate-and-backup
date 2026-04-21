@@ -158,6 +158,45 @@ const SettingsModal = ( { settings, onSave, onClose } ) => {
 					</div>
 
 					<div className="swish-settings-section">
+						<h3>{ __( 'Archive Format', 'swish-migrate-and-backup' ) }</h3>
+						<p className="description">
+							{ __(
+								'Choose the archive format for backups.',
+								'swish-migrate-and-backup'
+							) }
+						</p>
+						<div className="swish-setting-row">
+							<select
+								id="archive_format"
+								value={ formData.archive_format || 'auto' }
+								onChange={ ( e ) =>
+									updateField( 'archive_format', e.target.value )
+								}
+								className="swish-select-field"
+							>
+								<option value="auto">
+									{ __( 'Auto (recommended)', 'swish-migrate-and-backup' ) }
+								</option>
+								<option value="zip">
+									{ __( 'ZIP - Better for shared hosting, chunked processing', 'swish-migrate-and-backup' ) }
+								</option>
+								<option value="tar" disabled={ ! settings.tar_available }>
+									{ __( 'TAR.GZ - Faster for large sites', 'swish-migrate-and-backup' ) }
+									{ ! settings.tar_available && ' (' + __( 'not available', 'swish-migrate-and-backup' ) + ')' }
+								</option>
+							</select>
+							<p className="description swish-archive-format-hint">
+								{ formData.archive_format === 'zip' &&
+									__( 'ZIP supports chunked processing and timeout recovery.', 'swish-migrate-and-backup' ) }
+								{ formData.archive_format === 'tar' &&
+									__( 'TAR.GZ uses system tar command for better performance.', 'swish-migrate-and-backup' ) }
+								{ ( ! formData.archive_format || formData.archive_format === 'auto' ) &&
+									__( 'Auto mode selects the best format based on your server environment.', 'swish-migrate-and-backup' ) }
+							</p>
+						</div>
+					</div>
+
+					<div className="swish-settings-section">
 						<h3>{ __( 'Backup Contents', 'swish-migrate-and-backup' ) }</h3>
 						<div className="swish-checkbox-group">
 							<label>

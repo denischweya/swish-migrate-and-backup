@@ -215,6 +215,74 @@
 	margin-bottom: 20px;
 }
 
+.swish-backup-error-notice {
+	background: #fef2f2;
+	border: 1px solid #f87171;
+	border-left: 4px solid #dc2626;
+	color: #991b1b;
+	padding: 15px 20px;
+	border-radius: 4px;
+	margin: 15px 0;
+}
+
+.swish-backup-error-notice .dashicons {
+	color: #dc2626;
+	font-size: 24px;
+	width: 24px;
+	height: 24px;
+	margin-right: 10px;
+	float: left;
+}
+
+.swish-backup-error-notice p {
+	margin: 0 0 10px;
+}
+
+.swish-backup-error-notice p:last-child {
+	margin-bottom: 0;
+}
+
+.swish-backup-error-notice ul {
+	margin: 10px 0 0 20px;
+	list-style: disc;
+}
+
+.swish-backup-error-notice code {
+	background: #fee2e2;
+	padding: 2px 6px;
+	border-radius: 3px;
+}
+
+/* Upload Progress */
+.swish-upload-progress {
+	margin-top: 15px;
+	text-align: center;
+}
+
+.swish-upload-progress-bar {
+	width: 100%;
+	max-width: 300px;
+	height: 20px;
+	background: #e5e7eb;
+	border-radius: 10px;
+	overflow: hidden;
+	margin: 0 auto 8px;
+}
+
+.swish-upload-progress-bar-inner {
+	height: 100%;
+	background: linear-gradient(90deg, #2271b1 0%, #135e96 100%);
+	border-radius: 10px;
+	transition: width 0.3s ease;
+	width: 0%;
+}
+
+.swish-upload-progress-text {
+	font-size: 14px;
+	font-weight: 600;
+	color: #1e40af;
+}
+
 .swish-backup-restore-options label {
 	display: block;
 	margin-bottom: 10px;

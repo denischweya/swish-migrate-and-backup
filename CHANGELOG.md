@@ -5,6 +5,67 @@ All notable changes to Swish Migrate and Backup will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.15] - 2026-04-21
+
+### Added
+- Archive format setting (Auto/ZIP/TAR.GZ) in settings page
+- Streaming file scanning for large sites (writes to disk, not memory)
+- Memory-efficient tar creation using `--files-from` for 50k+ files
+- Docker/ddev environment detection with automatic ZIP fallback
+- CPU/IO throttling with `nice` and `ionice` for tar operations
+
+### Fixed
+- Backup failing at 70% on large sites (2GB+) due to memory exhaustion
+- Server crashes during archive creation in containerized environments
+- Timeout issues during file staging step
+
+### Changed
+- Tar backups now skip staging step entirely (direct archive from source)
+- File list written to disk instead of held in memory
+- Fast GZIP compression (level 1) for better performance
+- Auto-fallback to ZIP if tar fails or times out
+
+## [1.0.12] - 2026-04-20
+
+### Changed
+- Dashboard now has three action boxes: Backup Now, Search & Replace, and Migrate Site
+- Renamed "Migrate Site" panel to "Search & Replace" for clarity
+- Added dedicated "Migrate Site" button linking to the migration page
+
+## [1.0.11] - 2026-04-20
+
+### Fixed
+- Vendor folders are now included in backups (previously excluded, causing plugin errors after migration)
+
+## [1.0.10] - 2026-04-20
+
+### Added
+- Memory-aware adaptive batch sizing for database and file backups
+- Memory-aware adaptive batch sizing for URL search/replace during migration
+- Automatic batch size reduction when memory pressure is detected
+- Stream-based ZIP extraction to prevent memory exhaustion on large backups
+- Memory threshold monitoring (32MB) to trigger adaptive processing
+- User-friendly error messages for server limit errors (memory, timeout, upload size)
+- Pre-import memory check with clear warning if insufficient memory available
+- Shutdown handler to catch and report fatal errors during import/migration
+
+### Fixed
+- Memory exhaustion during import/restore of large backups (now uses streaming extraction)
+- Import failing with `wp_handle_upload()` undefined function error
+- Large file extraction causing PHP memory limit errors
+- Fatal errors during import now show helpful messages instead of silent failures
+- Connection reset during "Updating URLs" phase on memory-constrained servers
+- Connection reset during "Finalizing" phase caused by pre-migration backup creation
+
+### Changed
+- ZIP extraction now reads files in 8KB chunks instead of loading entire files into memory
+- Database backup automatically reduces batch size when memory is low
+- File backup flushes ZIP archive more frequently under memory pressure
+- File backup progress now shows percentage instead of time estimation
+- URL search/replace now processes 100 rows per batch (reduced from 500)
+- Transient cache clearing now uses batched deletion (1000 at a time)
+- Pre-migration backup is now opt-in to avoid memory exhaustion during migration
+
 ## [1.0.9] - 2026-04-20
 
 ### Added

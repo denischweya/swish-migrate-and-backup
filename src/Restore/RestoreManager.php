@@ -16,6 +16,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 use SwishMigrateAndBackup\Logger\Logger;
 use SwishMigrateAndBackup\Storage\StorageManager;
+use SwishMigrateAndBackup\Backup\TarArchiver;
+use SwishMigrateAndBackup\Core\ServerLimits;
 use ZipArchive;
 
 /**
@@ -93,10 +95,37 @@ final class RestoreManager {
 			}
 
 			// Restore files.
-			if ( ( $options['restore_files'] ?? true ) && file_exists( $extract_dir . '/files.zip' ) ) {
-				$this->logger->info( 'Restoring files...' );
-				if ( ! $this->restore_files( $extract_dir . '/files.zip', $options ) ) {
-					throw new \RuntimeException( 'File restore failed' );
+			if ( $options['restore_files'] ?? true ) {
+				// Check for tar.gz archive first (preferred, faster).
+				$tar_files = glob( $extract_dir . '/files*.tar.gz' );
+				if ( ! empty( $tar_files ) ) {
+					sort( $tar_files );
+					$this->logger->info( 'Restoring files from tar.gz archive...', array( 'archives' => count( $tar_files ) ) );
+					foreach ( $tar_files as $tar_path ) {
+						$this->logger->debug( 'Extracting tar.gz archive', array( 'archive' => basename( $tar_path ) ) );
+						if ( ! $this->restore_files_tar( $tar_path, $options ) ) {
+							throw new \RuntimeException( 'File restore failed for: ' . basename( $tar_path ) );
+						}
+					}
+				} elseif ( file_exists( $extract_dir . '/files.zip' ) ) {
+					// Check for single files.zip (legacy/small backups).
+					$this->logger->info( 'Restoring files...' );
+					if ( ! $this->restore_files( $extract_dir . '/files.zip', $options ) ) {
+						throw new \RuntimeException( 'File restore failed' );
+					}
+				}
+
+				// Check for multiple batch parts (files-001.zip, files-002.zip, etc.).
+				$file_parts = glob( $extract_dir . '/files-*.zip' );
+				if ( ! empty( $file_parts ) ) {
+					sort( $file_parts ); // Ensure correct order.
+					$this->logger->info( 'Restoring files from batch parts...', array( 'parts' => count( $file_parts ) ) );
+					foreach ( $file_parts as $part_path ) {
+						$this->logger->debug( 'Extracting file part', array( 'part' => basename( $part_path ) ) );
+						if ( ! $this->restore_files( $part_path, $options ) ) {
+							throw new \RuntimeException( 'File restore failed for part: ' . basename( $part_path ) );
+						}
+					}
 				}
 			}
 
@@ -282,9 +311,89 @@ final class RestoreManager {
 	}
 
 	/**
+	 * Restore files from a tar.gz archive.
+	 *
+	 * Uses system tar command for efficient extraction.
+	 *
+	 * @param string $archive_path Path to tar.gz archive.
+	 * @param array  $options      Restore options.
+	 * @return bool True if successful.
+	 */
+	public function restore_files_tar( string $archive_path, array $options = array() ): bool {
+		$this->logger->info( 'Starting tar.gz file restore', array( 'archive' => $archive_path ) );
+
+		try {
+			// Check if tar is available.
+			if ( ! ServerLimits::is_tar_available() ) {
+				$this->logger->warning( 'Tar not available, falling back to PHP extraction' );
+				return $this->restore_files_tar_php( $archive_path, $options );
+			}
+
+			$tar_archiver = new TarArchiver( $this->logger );
+			$destination = ABSPATH;
+
+			// Create backup of current files if requested.
+			if ( $options['backup_before_restore'] ?? false ) {
+				$this->create_pre_restore_backup();
+			}
+
+			// Extract using system tar.
+			$result = $tar_archiver->extract_archive( $archive_path, $destination );
+
+			if ( ! $result['success'] ) {
+				$this->logger->error( 'Tar extraction failed', array(
+					'error' => $result['error'] ?? 'Unknown error',
+				) );
+				return false;
+			}
+
+			$this->logger->info( 'Tar.gz file restore completed' );
+
+			return true;
+		} catch ( \Exception $e ) {
+			$this->logger->error( 'Tar.gz file restore failed: ' . $e->getMessage() );
+			return false;
+		}
+	}
+
+	/**
+	 * Restore files from tar.gz using PHP (fallback when system tar unavailable).
+	 *
+	 * Uses PharData for extraction.
+	 *
+	 * @param string $archive_path Path to tar.gz archive.
+	 * @param array  $options      Restore options.
+	 * @return bool True if successful.
+	 */
+	private function restore_files_tar_php( string $archive_path, array $options = array() ): bool {
+		try {
+			$destination = ABSPATH;
+
+			// Create backup of current files if requested.
+			if ( $options['backup_before_restore'] ?? false ) {
+				$this->create_pre_restore_backup();
+			}
+
+			// Use PharData to extract.
+			$phar = new \PharData( $archive_path );
+
+			// Extract - PharData handles gzip decompression automatically.
+			$phar->extractTo( $destination, null, true ); // true = overwrite.
+
+			$this->logger->info( 'Tar.gz file restore completed (PHP fallback)' );
+
+			return true;
+		} catch ( \Exception $e ) {
+			$this->logger->error( 'PHP tar extraction failed: ' . $e->getMessage() );
+			return false;
+		}
+	}
+
+	/**
 	 * Safely extract a ZIP archive with path traversal validation.
 	 *
 	 * Prevents Zip Slip attacks by ensuring all extracted files stay within the destination directory.
+	 * Uses stream-based extraction to handle large files without memory exhaustion.
 	 *
 	 * @param ZipArchive $zip         The ZipArchive object.
 	 * @param string     $destination The destination directory.
@@ -337,15 +446,58 @@ final class RestoreManager {
 				continue;
 			}
 
-			// Extract the single file.
-			$content = $zip->getFromIndex( $i );
-			if ( false === $content ) {
+			// Extract the file using streams to avoid memory exhaustion on large files.
+			if ( ! $this->extract_file_stream( $zip, $entry_name, $target_path ) ) {
+				$this->logger->warning( 'Failed to extract file', array( 'entry' => $entry_name ) );
 				continue;
 			}
-
-			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
-			file_put_contents( $target_path, $content );
 		}
+
+		return true;
+	}
+
+	/**
+	 * Extract a single file from ZIP using streams.
+	 *
+	 * This method reads and writes in chunks to avoid loading entire files into memory.
+	 *
+	 * @param ZipArchive $zip         The ZipArchive object.
+	 * @param string     $entry_name  The name of the entry in the ZIP.
+	 * @param string     $target_path The target path to write to.
+	 * @return bool True if successful.
+	 */
+	private function extract_file_stream( ZipArchive $zip, string $entry_name, string $target_path ): bool {
+		// Get a stream for the ZIP entry.
+		$stream = $zip->getStream( $entry_name );
+		if ( false === $stream ) {
+			return false;
+		}
+
+		// Open target file for writing.
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen
+		$output = fopen( $target_path, 'wb' );
+		if ( false === $output ) {
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+			fclose( $stream );
+			return false;
+		}
+
+		// Copy in chunks (8KB at a time).
+		$chunk_size = 8192;
+		while ( ! feof( $stream ) ) {
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fread
+			$chunk = fread( $stream, $chunk_size );
+			if ( false === $chunk ) {
+				break;
+			}
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite
+			fwrite( $output, $chunk );
+		}
+
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+		fclose( $stream );
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+		fclose( $output );
 
 		return true;
 	}
@@ -583,10 +735,25 @@ final class RestoreManager {
 		// Clear object cache.
 		wp_cache_flush();
 
-		// Clear any transients.
+		// Clear transients in batches to avoid memory issues on large sites.
 		global $wpdb;
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_%'" );
+		$batch_size = 1000;
+
+		do {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$deleted = $wpdb->query(
+				$wpdb->prepare(
+					"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s LIMIT %d",
+					'_transient_%',
+					$batch_size
+				)
+			);
+
+			// Free memory between batches.
+			if ( function_exists( 'gc_collect_cycles' ) ) {
+				gc_collect_cycles();
+			}
+		} while ( $deleted > 0 );
 
 		$this->logger->info( 'Caches flushed' );
 	}

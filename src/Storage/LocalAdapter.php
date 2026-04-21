@@ -87,6 +87,29 @@ final class LocalAdapter extends AbstractStorageAdapter {
 		$destination = $this->get_full_path( $remote_path );
 		$destination_dir = dirname( $destination );
 
+		// Check if source and destination are the same file.
+		// This can happen when the backup is created directly in the backup directory.
+		// In this case, no copy is needed - the file is already in place.
+		$source_real = realpath( $local_path );
+		$dest_real = realpath( $destination );
+
+		if ( $source_real && $source_real === $dest_real ) {
+			$this->logger->info( 'File already in local storage (no copy needed)', array(
+				'path' => $destination,
+				'size' => filesize( $local_path ),
+			) );
+			return true;
+		}
+
+		// Also check if paths are equivalent even if destination doesn't exist yet.
+		if ( $this->normalize_path( $local_path ) === $this->normalize_path( $destination ) ) {
+			$this->logger->info( 'File already in local storage (same path)', array(
+				'path' => $destination,
+				'size' => filesize( $local_path ),
+			) );
+			return true;
+		}
+
 		// Create destination directory if needed.
 		if ( ! is_dir( $destination_dir ) ) {
 			if ( ! wp_mkdir_p( $destination_dir ) ) {
@@ -94,28 +117,106 @@ final class LocalAdapter extends AbstractStorageAdapter {
 			}
 		}
 
-		// Use WP Filesystem API when possible.
-		global $wp_filesystem;
-		if ( empty( $wp_filesystem ) ) {
-			require_once ABSPATH . 'wp-admin/includes/file.php';
-			WP_Filesystem();
+		$file_size = filesize( $local_path );
+
+		// For large files (>50MB), use streaming to avoid memory issues and timeouts.
+		// This is more reliable than PHP's copy() function for large files.
+		$use_streaming = $file_size > 50 * 1024 * 1024;
+
+		if ( $use_streaming ) {
+			$this->logger->debug( 'Using streaming copy for large file', array(
+				'size' => $file_size,
+				'file' => basename( $local_path ),
+			) );
+
+			return $this->stream_copy( $local_path, $destination );
 		}
 
-		// Copy the file.
+		// For smaller files, use regular copy.
 		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_copy
 		$result = copy( $local_path, $destination );
 
 		if ( ! $result ) {
-			return $this->log_error( 'Failed to copy file', array(
-				'source'      => $local_path,
-				'destination' => $destination,
-			) );
+			// Fallback to streaming if copy fails.
+			$this->logger->debug( 'Regular copy failed, trying streaming copy' );
+			return $this->stream_copy( $local_path, $destination );
 		}
 
 		$this->logger->info( 'File uploaded to local storage', array(
 			'source'      => $local_path,
 			'destination' => $destination,
 			'size'        => filesize( $destination ),
+		) );
+
+		return true;
+	}
+
+	/**
+	 * Stream copy a file in chunks.
+	 *
+	 * More reliable than copy() for large files as it doesn't require
+	 * loading the entire file into memory.
+	 *
+	 * @param string $source      Source file path.
+	 * @param string $destination Destination file path.
+	 * @return bool True on success.
+	 */
+	private function stream_copy( string $source, string $destination ): bool {
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen
+		$src = fopen( $source, 'rb' );
+		if ( ! $src ) {
+			return $this->log_error( 'Failed to open source file for reading', array( 'path' => $source ) );
+		}
+
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen
+		$dst = fopen( $destination, 'wb' );
+		if ( ! $dst ) {
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+			fclose( $src );
+			return $this->log_error( 'Failed to open destination file for writing', array( 'path' => $destination ) );
+		}
+
+		// Copy in 8MB chunks for efficiency.
+		$chunk_size = 8 * 1024 * 1024;
+		$bytes_copied = 0;
+
+		while ( ! feof( $src ) ) {
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fread
+			$chunk = fread( $src, $chunk_size );
+			if ( false === $chunk ) {
+				break;
+			}
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite
+			$written = fwrite( $dst, $chunk );
+			if ( false === $written ) {
+				// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+				fclose( $src );
+				// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+				fclose( $dst );
+				return $this->log_error( 'Failed to write chunk to destination' );
+			}
+			$bytes_copied += $written;
+		}
+
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+		fclose( $src );
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+		fclose( $dst );
+
+		// Verify the copy was successful.
+		$source_size = filesize( $source );
+		$dest_size = filesize( $destination );
+
+		if ( $source_size !== $dest_size ) {
+			return $this->log_error( 'File size mismatch after copy', array(
+				'source_size' => $source_size,
+				'dest_size'   => $dest_size,
+			) );
+		}
+
+		$this->logger->info( 'File uploaded to local storage (streaming)', array(
+			'destination' => $destination,
+			'size'        => $dest_size,
 		) );
 
 		return true;
@@ -136,6 +237,32 @@ final class LocalAdapter extends AbstractStorageAdapter {
 
 		$destination = $this->get_full_path( $remote_path );
 		$destination_dir = dirname( $destination );
+
+		// Check if source and destination are the same file.
+		$source_real = realpath( $local_path );
+		$dest_real = realpath( $destination );
+
+		if ( $source_real && $source_real === $dest_real ) {
+			$this->logger->info( 'File already in local storage (chunked, no copy needed)', array(
+				'path' => $destination,
+				'size' => filesize( $local_path ),
+			) );
+			if ( $progress_callback ) {
+				$progress_callback( 100, 1, 1 );
+			}
+			return true;
+		}
+
+		if ( $this->normalize_path( $local_path ) === $this->normalize_path( $destination ) ) {
+			$this->logger->info( 'File already in local storage (chunked, same path)', array(
+				'path' => $destination,
+				'size' => filesize( $local_path ),
+			) );
+			if ( $progress_callback ) {
+				$progress_callback( 100, 1, 1 );
+			}
+			return true;
+		}
 
 		if ( ! is_dir( $destination_dir ) && ! wp_mkdir_p( $destination_dir ) ) {
 			return $this->log_error( 'Failed to create destination directory' );

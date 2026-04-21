@@ -5,81 +5,7 @@
  */
 
 import { useState, useEffect, useMemo, Fragment } from '@wordpress/element';
-import { __, sprintf } from '@wordpress/i18n';
-
-/**
- * Parse ETA from job message.
- *
- * @param {string} message - Job message containing ETA.
- * @return {string|null} Formatted ETA or null.
- */
-const parseEtaFromMessage = ( message ) => {
-	if ( ! message ) {
-		return null;
-	}
-
-	// Match patterns like "2m 30s remaining", "1h 15m remaining", "45s remaining"
-	const etaMatch = message.match( /\((\d+[hms]\s*(?:\d+[hms]\s*)?(?:remaining|left)?[^)]*)\)/i );
-	if ( etaMatch ) {
-		return etaMatch[ 1 ].replace( /\s*remaining\s*/i, '' ).trim();
-	}
-
-	// Match "almost done"
-	if ( message.toLowerCase().includes( 'almost done' ) ) {
-		return 'almost done';
-	}
-
-	return null;
-};
-
-/**
- * Format ETA for display in the notice.
- *
- * @param {string} eta - Raw ETA string like "2m 30s".
- * @return {string} Formatted string like "approximately 2 minutes".
- */
-const formatEtaForNotice = ( eta ) => {
-	if ( ! eta || eta === 'almost done' ) {
-		return __( 'almost done', 'swish-migrate-and-backup' );
-	}
-
-	// Parse hours, minutes, seconds
-	const hours = eta.match( /(\d+)h/i );
-	const minutes = eta.match( /(\d+)m/i );
-	const seconds = eta.match( /(\d+)s/i );
-
-	const h = hours ? parseInt( hours[ 1 ], 10 ) : 0;
-	const m = minutes ? parseInt( minutes[ 1 ], 10 ) : 0;
-	const s = seconds ? parseInt( seconds[ 1 ], 10 ) : 0;
-
-	// Convert to a readable format
-	if ( h > 0 ) {
-		if ( m > 0 ) {
-			return sprintf(
-				__( 'approximately %1$d hour %2$d minutes', 'swish-migrate-and-backup' ),
-				h,
-				m
-			);
-		}
-		return sprintf(
-			__( 'approximately %d hour(s)', 'swish-migrate-and-backup' ),
-			h
-		);
-	}
-
-	if ( m > 0 ) {
-		return sprintf(
-			__( 'approximately %d minute(s)', 'swish-migrate-and-backup' ),
-			m + ( s > 30 ? 1 : 0 ) // Round up if more than 30 seconds
-		);
-	}
-
-	if ( s > 0 ) {
-		return __( 'less than a minute', 'swish-migrate-and-backup' );
-	}
-
-	return __( 'calculating...', 'swish-migrate-and-backup' );
-};
+import { __ } from '@wordpress/i18n';
 
 /**
  * Stage information mapping.
@@ -324,17 +250,6 @@ const ProgressModal = ( { job, onClose } ) => {
 					{ isProcessing && (
 						<p className="swish-processing-notice">
 							{ __( 'Please wait while the backup completes. Do not close this window.', 'swish-migrate-and-backup' ) }
-							{ job?.message && parseEtaFromMessage( job.message ) && (
-								<span className="swish-eta-notice">
-									<br />
-									<strong>
-										{ sprintf(
-											__( 'Estimated time: %s', 'swish-migrate-and-backup' ),
-											formatEtaForNotice( parseEtaFromMessage( job.message ) )
-										) }
-									</strong>
-								</span>
-							) }
 						</p>
 					) }
 				</div>
