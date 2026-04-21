@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace SwishMigrateAndBackup\Core;
 
 use SwishMigrateAndBackup\Backup\BackupState;
+use SwishMigrateAndBackup\Backup\FileQueue;
 
 // Prevent direct access.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -205,8 +206,11 @@ final class Activator {
 		// Create backup state table for file-based checkpoints.
 		BackupState::create_table();
 
+		// Create file queue table for chunked processing.
+		FileQueue::create_table();
+
 		// Store database version for future migrations.
-		update_option( 'swish_backup_db_version', '1.0.2' );
+		update_option( 'swish_backup_db_version', '1.0.3' );
 	}
 
 	/**

@@ -11,6 +11,7 @@ import { __ } from '@wordpress/i18n';
  * Stage information mapping.
  */
 const STAGE_INFO = {
+	// Legacy stages.
 	init: {
 		title: __( 'Initializing backup', 'swish-migrate-and-backup' ),
 		detail: __( 'Preparing backup environment', 'swish-migrate-and-backup' ),
@@ -31,25 +32,42 @@ const STAGE_INFO = {
 		title: __( 'Finalizing', 'swish-migrate-and-backup' ),
 		detail: __( 'Saving backup and cleaning up', 'swish-migrate-and-backup' ),
 	},
+	// Pipeline stages.
+	'Indexing files': {
+		title: __( 'Indexing Files', 'swish-migrate-and-backup' ),
+		detail: __( 'Scanning files to backup', 'swish-migrate-and-backup' ),
+	},
+	'Creating archive': {
+		title: __( 'Creating Archive', 'swish-migrate-and-backup' ),
+		detail: __( 'Adding files to archive', 'swish-migrate-and-backup' ),
+	},
+	Finalizing: {
+		title: __( 'Finalizing', 'swish-migrate-and-backup' ),
+		detail: __( 'Completing backup', 'swish-migrate-and-backup' ),
+	},
 };
 
 /**
  * Log entry component.
  *
  * @param {Object} props        - Component props.
- * @param {string} props.stage  - Stage name.
+ * @param {string} props.stage  - Stage name (legacy) or name (pipeline).
+ * @param {string} props.name   - Stage name (pipeline).
  * @param {string} props.status - Stage status.
  * @param {string} props.detail - Stage detail.
  * @return {JSX.Element} Component.
  */
-const LogEntry = ( { stage, status, detail } ) => {
-	const stageInfo = STAGE_INFO[ stage ] || { title: stage, detail: '' };
+const LogEntry = ( { stage, name, status, detail } ) => {
+	// Support both legacy (stage) and pipeline (name) formats.
+	const stageName = name || stage;
+	const stageInfo = STAGE_INFO[ stageName ] || { title: stageName, detail: '' };
 
 	const getStatusClass = () => {
 		switch ( status ) {
 			case 'completed':
 				return 'swish-log-completed';
 			case 'in-progress':
+			case 'in_progress':
 				return 'swish-log-in-progress';
 			case 'failed':
 				return 'swish-log-failed';
@@ -63,6 +81,7 @@ const LogEntry = ( { stage, status, detail } ) => {
 			case 'completed':
 				return '✓';
 			case 'in-progress':
+			case 'in_progress':
 				return '●';
 			case 'failed':
 				return '✗';
@@ -128,6 +147,13 @@ const ProgressModal = ( { job, onClose } ) => {
 			return;
 		}
 
+		// If job has explicit stages (from pipeline), use those.
+		if ( job.stages && job.stages.length > 0 ) {
+			setLogEntries( job.stages );
+			return;
+		}
+
+		// Otherwise, infer stages from progress (legacy behavior).
 		const stages = [ 'init', 'database', 'files', 'archive', 'upload' ];
 		const currentIndex = stages.indexOf( currentStage );
 
@@ -149,7 +175,7 @@ const ProgressModal = ( { job, onClose } ) => {
 		} );
 
 		setLogEntries( entries );
-	}, [ currentStage, isCompleted, isFailed, job?.message ] );
+	}, [ currentStage, isCompleted, isFailed, job?.message, job?.stages ] );
 
 	if ( ! job ) {
 		return null;
@@ -206,10 +232,11 @@ const ProgressModal = ( { job, onClose } ) => {
 							{ __( 'Backup Progress', 'swish-migrate-and-backup' ) }
 						</h4>
 						<div className="swish-backup-log">
-							{ logEntries.map( ( entry ) => (
+							{ logEntries.map( ( entry, index ) => (
 								<LogEntry
-									key={ entry.stage }
+									key={ entry.stage || entry.name || index }
 									stage={ entry.stage }
+									name={ entry.name }
 									status={ entry.status }
 									detail={ entry.detail }
 								/>

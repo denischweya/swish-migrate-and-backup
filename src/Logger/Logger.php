@@ -365,11 +365,29 @@ final class Logger {
 
 		$filename = $this->log_dir . '/backup-' . gmdate( 'Y-m-d' ) . '.log';
 
+		// Include context data in log output for debugging.
+		$context_str = '';
+		if ( ! empty( $entry['context'] ) ) {
+			$context_parts = array();
+			foreach ( $entry['context'] as $key => $value ) {
+				if ( is_array( $value ) ) {
+					$value = wp_json_encode( $value );
+				} elseif ( is_bool( $value ) ) {
+					$value = $value ? 'true' : 'false';
+				}
+				$context_parts[] = "{$key}={$value}";
+			}
+			if ( ! empty( $context_parts ) ) {
+				$context_str = ' | ' . implode( ', ', $context_parts );
+			}
+		}
+
 		$line = sprintf(
-			"[%s] %s: %s\n",
+			"[%s] %s: %s%s\n",
 			$entry['timestamp'],
 			$entry['level'],
-			$entry['message']
+			$entry['message'],
+			$context_str
 		);
 
 		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents

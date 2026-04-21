@@ -445,6 +445,242 @@
 	font-family: monospace;
 }
 
+/* Folder Tree - Granular Selection */
+.swish-backup-contents {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.swish-content-item {
+	background: #f9f9f9;
+	border: 1px solid #e0e0e0;
+	border-radius: 4px;
+	padding: 12px;
+}
+
+.swish-content-toggle {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-weight: 500;
+	cursor: pointer;
+}
+
+.swish-content-toggle input[type="checkbox"] {
+	margin: 0;
+}
+
+.swish-content-toggle .dashicons {
+	color: #646970;
+}
+
+.swish-core-hint {
+	margin: 8px 0 0 0;
+	font-size: 12px;
+	color: #646970;
+}
+
+.swish-loading-folders {
+	padding: 10px;
+}
+
+.swish-loading-folders .spinner {
+	float: none;
+	margin: 0;
+}
+
+.swish-folder-tree {
+	margin-top: 10px;
+}
+
+.swish-folder-tree-toggle {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	width: 100%;
+	padding: 8px 12px;
+	background: #fff;
+	border: 1px solid #ddd;
+	border-radius: 4px;
+	cursor: pointer;
+	text-align: left;
+	font-size: 13px;
+	transition: background-color 0.2s;
+}
+
+.swish-folder-tree-toggle:hover:not(:disabled) {
+	background: #f0f6fc;
+}
+
+.swish-folder-tree-toggle:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+.swish-folder-tree-toggle .dashicons {
+	font-size: 16px;
+	width: 16px;
+	height: 16px;
+	transition: transform 0.2s;
+}
+
+.swish-folder-tree-toggle.expanded .dashicons {
+	transform: rotate(90deg);
+}
+
+.swish-folder-tree-title {
+	flex: 1;
+}
+
+.swish-folder-tree-count {
+	color: #646970;
+	font-size: 12px;
+}
+
+.swish-folder-tree-items {
+	margin-top: 8px;
+	padding: 10px;
+	background: #fff;
+	border: 1px solid #ddd;
+	border-radius: 4px;
+	max-height: 300px;
+	overflow-y: auto;
+}
+
+.swish-folder-tree-actions {
+	display: flex;
+	gap: 8px;
+	margin-bottom: 10px;
+	padding-bottom: 10px;
+	border-bottom: 1px solid #eee;
+}
+
+.swish-folder-item {
+	padding: 4px 0;
+}
+
+.swish-folder-item label {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	cursor: pointer;
+	padding: 4px 8px;
+	border-radius: 3px;
+	transition: background-color 0.15s;
+}
+
+.swish-folder-item label:hover {
+	background: #f0f6fc;
+}
+
+.swish-folder-item label.active-item {
+	background: #e7f5e7;
+}
+
+.swish-folder-item input[type="checkbox"] {
+	margin: 0;
+}
+
+.swish-folder-name {
+	flex: 1;
+	font-size: 13px;
+}
+
+.swish-active-badge {
+	display: inline-block;
+	margin-left: 6px;
+	padding: 2px 6px;
+	background: #4ab866;
+	color: #fff;
+	border-radius: 3px;
+	font-size: 10px;
+	font-weight: 500;
+	text-transform: uppercase;
+}
+
+.swish-folder-size {
+	color: #888;
+	font-size: 12px;
+	font-family: monospace;
+}
+
+.swish-year-folder {
+	margin-left: 24px;
+	margin-top: 4px;
+}
+
+.swish-year-toggle {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 4px 8px;
+	background: none;
+	border: none;
+	color: #2271b1;
+	font-size: 12px;
+	cursor: pointer;
+}
+
+.swish-year-toggle:hover {
+	text-decoration: underline;
+}
+
+.swish-year-toggle .dashicons {
+	font-size: 14px;
+	width: 14px;
+	height: 14px;
+}
+
+.swish-month-folders {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	margin-top: 6px;
+	padding-left: 20px;
+}
+
+.swish-month-item {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 3px 8px;
+	background: #f5f5f5;
+	border-radius: 3px;
+	font-size: 12px;
+	cursor: pointer;
+	transition: background-color 0.15s;
+}
+
+.swish-month-item:hover {
+	background: #e0e0e0;
+}
+
+.swish-month-item input[type="checkbox"] {
+	margin: 0;
+}
+
+/* Hosting Presets */
+.swish-preset-buttons.hosting-presets {
+	margin-top: 10px;
+}
+
+/* Archive Format Hint */
+.swish-archive-format-hint {
+	margin-top: 8px !important;
+	font-style: italic;
+}
+
+/* Settings Modal */
+.swish-settings-modal {
+	max-width: 700px;
+}
+
+.swish-select-field {
+	width: 100%;
+	max-width: 400px;
+}
+
 /* Responsive */
 @media screen and (max-width: 782px) {
 	.swish-backup-dashboard {
@@ -458,5 +694,13 @@
 
 	.swish-backup-status-grid {
 		grid-template-columns: 1fr;
+	}
+
+	.swish-folder-tree-items {
+		max-height: 200px;
+	}
+
+	.swish-month-folders {
+		flex-direction: column;
 	}
 }
