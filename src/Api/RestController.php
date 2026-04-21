@@ -153,7 +153,7 @@ final class RestController extends WP_REST_Controller {
 
 		register_rest_route(
 			$this->namespace,
-			'/backup/(?P<id>[a-zA-Z0-9-]+)',
+			'/backup/(?P<id>[a-zA-Z0-9_-]+)',
 			array(
 				array(
 					'methods'             => WP_REST_Server::READABLE,
@@ -170,7 +170,7 @@ final class RestController extends WP_REST_Controller {
 
 		register_rest_route(
 			$this->namespace,
-			'/backup/(?P<id>[a-zA-Z0-9-]+)/download',
+			'/backup/(?P<id>[a-zA-Z0-9_-]+)/download',
 			array(
 				array(
 					'methods'             => WP_REST_Server::READABLE,
@@ -272,7 +272,7 @@ final class RestController extends WP_REST_Controller {
 		// Job status route.
 		register_rest_route(
 			$this->namespace,
-			'/job/(?P<id>[a-zA-Z0-9-]+)',
+			'/job/(?P<id>[a-zA-Z0-9_-]+)',
 			array(
 				array(
 					'methods'             => WP_REST_Server::READABLE,
@@ -285,7 +285,7 @@ final class RestController extends WP_REST_Controller {
 		// Process pending job (fallback for hosts where WP Cron doesn't trigger immediately).
 		register_rest_route(
 			$this->namespace,
-			'/job/(?P<id>[a-zA-Z0-9-]+)/process',
+			'/job/(?P<id>[a-zA-Z0-9_-]+)/process',
 			array(
 				array(
 					'methods'             => WP_REST_Server::CREATABLE,
