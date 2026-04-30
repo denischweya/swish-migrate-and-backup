@@ -135,13 +135,17 @@ final class Migrator {
 				);
 			}
 
+			// Activate plugins from manifest (especially important for multisite-to-singlesite migrations).
+			$plugins_activated = $this->activate_plugins_from_manifest( $backup_info );
+
 			// Flush caches.
 			$this->flush_all_caches();
 
 			$result = array(
-				'success'        => true,
-				'backup_info'    => $backup_info,
-				'url_replacement' => $replace_result,
+				'success'           => true,
+				'backup_info'       => $backup_info,
+				'url_replacement'   => $replace_result,
+				'plugins_activated' => $plugins_activated,
 			);
 
 			$this->logger->info( 'Migration completed successfully', $result );
@@ -415,6 +419,89 @@ final class Migrator {
 		}
 
 		$this->logger->info( 'All caches flushed' );
+	}
+
+	/**
+	 * Activate plugins from the backup manifest.
+	 *
+	 * This is especially important for multisite-to-singlesite migrations where
+	 * plugins may have been network-activated (stored in wp_sitemeta) rather than
+	 * site-activated (stored in wp_options).
+	 *
+	 * @param array $backup_info Backup manifest information.
+	 * @return array Result with activated plugins and any errors.
+	 */
+	private function activate_plugins_from_manifest( array $backup_info ): array {
+		$result = array(
+			'activated' => array(),
+			'skipped'   => array(),
+			'errors'    => array(),
+		);
+
+		// Get active plugins from the manifest.
+		$manifest_plugins = $backup_info['active_plugins'] ?? array();
+
+		if ( empty( $manifest_plugins ) ) {
+			$this->logger->info( 'No active plugins in manifest to activate' );
+			return $result;
+		}
+
+		$this->logger->info( 'Activating plugins from manifest', array(
+			'count'     => count( $manifest_plugins ),
+			'multisite' => $backup_info['multisite'] ?? false,
+		) );
+
+		// Get all available plugins on the destination site.
+		if ( ! function_exists( 'get_plugins' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/plugin.php';
+		}
+
+		$available_plugins = get_plugins();
+		$current_active    = get_option( 'active_plugins', array() );
+		$plugins_to_activate = array();
+
+		foreach ( $manifest_plugins as $plugin_file ) {
+			// Skip if it's the current plugin (Swish Migrate) - it's already active.
+			if ( str_contains( $plugin_file, 'swish-migrate-and-backup' ) ) {
+				continue;
+			}
+
+			// Check if plugin exists on destination.
+			if ( ! isset( $available_plugins[ $plugin_file ] ) ) {
+				$result['skipped'][] = $plugin_file;
+				$this->logger->warning( 'Plugin not found on destination, skipping', array(
+					'plugin' => $plugin_file,
+				) );
+				continue;
+			}
+
+			// Check if already active.
+			if ( in_array( $plugin_file, $current_active, true ) ) {
+				continue;
+			}
+
+			$plugins_to_activate[] = $plugin_file;
+		}
+
+		if ( empty( $plugins_to_activate ) ) {
+			$this->logger->info( 'All manifest plugins already active or not available' );
+			return $result;
+		}
+
+		// Merge with current active plugins and update.
+		$new_active_plugins = array_unique( array_merge( $current_active, $plugins_to_activate ) );
+
+		// Update the active_plugins option.
+		update_option( 'active_plugins', $new_active_plugins );
+
+		$result['activated'] = $plugins_to_activate;
+
+		$this->logger->info( 'Plugins activated from manifest', array(
+			'activated' => $plugins_to_activate,
+			'skipped'   => $result['skipped'],
+		) );
+
+		return $result;
 	}
 
 	/**
