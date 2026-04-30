@@ -5,6 +5,12 @@ All notable changes to Swish Migrate and Backup will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.18] - 2026-04-30
+
+### Fixed
+- Plugins not activating when importing a single site from a multisite backup
+- Network-activated plugins now captured in backup manifest for multisite exports
+
 ## [1.0.17] - 2026-04-21
 
 ### Fixed

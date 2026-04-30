@@ -1493,7 +1493,7 @@ final class BackupManager {
 			'table_prefix'      => $wpdb->prefix,
 			'multisite'         => is_multisite(),
 			'active_theme'      => get_template(),
-			'active_plugins'    => get_option( 'active_plugins', array() ),
+			'active_plugins'    => $this->get_all_active_plugins(),
 			'file_count'        => $file_list['count'] ?? 0,
 			'total_size'        => $file_list['total_size'] ?? 0,
 			'options'           => $options,
@@ -2523,5 +2523,32 @@ final class BackupManager {
 		) );
 
 		return $deleted;
+	}
+
+	/**
+	 * Get all active plugins including network-activated plugins on multisite.
+	 *
+	 * On multisite, plugins can be either site-activated (stored in wp_options)
+	 * or network-activated (stored in wp_sitemeta). This method captures both
+	 * to ensure plugins are properly restored when migrating to a single site.
+	 *
+	 * @return array List of active plugin file paths.
+	 */
+	private function get_all_active_plugins(): array {
+		// Get site-level active plugins.
+		$active_plugins = get_option( 'active_plugins', array() );
+
+		// On multisite, also get network-activated plugins.
+		if ( is_multisite() ) {
+			$network_plugins = get_site_option( 'active_sitewide_plugins', array() );
+
+			// Network plugins are stored as plugin_file => timestamp, we need just the keys.
+			if ( ! empty( $network_plugins ) && is_array( $network_plugins ) ) {
+				$network_plugin_files = array_keys( $network_plugins );
+				$active_plugins = array_unique( array_merge( $active_plugins, $network_plugin_files ) );
+			}
+		}
+
+		return array_values( $active_plugins );
 	}
 }
