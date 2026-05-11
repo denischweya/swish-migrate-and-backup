@@ -54,7 +54,7 @@
 			$(document).on('click', '#swish-backup-test-connection', this.testStorageConnection);
 
 			// Schedule
-			$(document).on('click', '#swish-backup-add-schedule', this.showScheduleForm);
+			$(document).on('click', '#swish-backup-add-schedule, #swish-backup-add-schedule-empty', this.showScheduleForm);
 			$(document).on('click', '#swish-backup-cancel-schedule', this.hideScheduleForm);
 			$(document).on('click', '.swish-backup-run-schedule', this.runSchedule);
 			$(document).on('click', '.swish-backup-toggle-schedule', this.toggleSchedule);

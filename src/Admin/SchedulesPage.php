@@ -148,6 +148,9 @@ final class SchedulesPage {
 					<span class="dashicons dashicons-calendar-alt"></span>
 					<h2><?php esc_html_e( 'No Schedules', 'swish-migrate-and-backup' ); ?></h2>
 					<p><?php esc_html_e( 'Create a backup schedule to automate your backups.', 'swish-migrate-and-backup' ); ?></p>
+					<button type="button" class="button button-primary" id="swish-backup-add-schedule-empty">
+						<?php esc_html_e( 'Schedule Backup', 'swish-migrate-and-backup' ); ?>
+					</button>
 				</div>
 			<?php else : ?>
 				<table class="wp-list-table widefat fixed striped">
