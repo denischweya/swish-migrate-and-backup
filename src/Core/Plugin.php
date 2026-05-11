@@ -455,7 +455,8 @@ final class Plugin {
 	 * Handle backup file download requests.
 	 *
 	 * Supports HTTP Range requests for resumable downloads of large files (4GB+).
-	 * Uses chunked streaming to avoid memory issues.
+	 * Uses X-Sendfile/X-Accel-Redirect when available for optimal performance.
+	 * Falls back to chunked PHP streaming for compatibility.
 	 *
 	 * @return void
 	 */
@@ -511,6 +512,218 @@ final class Plugin {
 			wp_die( esc_html__( 'Backup file not found.', 'swish-migrate-and-backup' ), 404 );
 		}
 
+		// Get file info.
+		$filename = basename( $real_file_path );
+		$filesize = filesize( $real_file_path );
+
+		// Clear any output buffers.
+		while ( ob_get_level() ) {
+			ob_end_clean();
+		}
+
+		// Try X-Sendfile/X-Accel-Redirect for optimal performance.
+		// This bypasses PHP completely for the actual file transfer, avoiding timeouts.
+		if ( $this->try_sendfile_download( $real_file_path, $filename, $filesize, $transient_key ) ) {
+			exit; // Web server takes over from here.
+		}
+
+		// Fallback to PHP streaming (for servers without X-Sendfile support).
+		$this->stream_file_download( $real_file_path, $filename, $filesize, $transient_key );
+		exit;
+	}
+
+	/**
+	 * Try to use X-Sendfile/X-Accel-Redirect for file download.
+	 *
+	 * This lets the web server handle the file transfer directly, which:
+	 * - Bypasses PHP timeout limits completely
+	 * - Uses zero PHP memory for the file content
+	 * - Is significantly faster and more reliable
+	 * - Handles Range requests natively
+	 *
+	 * Server requirements:
+	 * - Apache: mod_xsendfile module
+	 * - Nginx: internal location configured for backups directory
+	 * - LiteSpeed: built-in support (no configuration needed)
+	 *
+	 * @param string $file_path     Absolute path to the file.
+	 * @param string $filename      Filename for Content-Disposition.
+	 * @param int    $filesize      File size in bytes.
+	 * @param string $transient_key Transient key for download token.
+	 * @return bool True if sendfile was used, false to fall back to PHP.
+	 */
+	private function try_sendfile_download( string $file_path, string $filename, int $filesize, string $transient_key ): bool {
+		$server_type = $this->detect_server_type();
+		$method      = $this->get_sendfile_method( $server_type );
+
+		if ( ! $method ) {
+			return false; // No sendfile support, fall back to PHP.
+		}
+
+		// Send common headers.
+		nocache_headers();
+		header( 'Content-Type: application/octet-stream' );
+		header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
+		header( 'Content-Length: ' . $filesize );
+		header( 'Accept-Ranges: bytes' );
+
+		// Send the appropriate header based on server type.
+		switch ( $method ) {
+			case 'x-sendfile':
+				// Apache with mod_xsendfile.
+				header( 'X-Sendfile: ' . $file_path );
+				break;
+
+			case 'x-accel-redirect':
+				// Nginx - requires internal location configuration.
+				$internal_path = $this->get_nginx_internal_path( $file_path );
+				if ( $internal_path ) {
+					header( 'X-Accel-Redirect: ' . $internal_path );
+					header( 'X-Accel-Buffering: no' );
+				} else {
+					return false; // Nginx internal path not configured.
+				}
+				break;
+
+			case 'x-litespeed-location':
+				// LiteSpeed - built-in support.
+				header( 'X-LiteSpeed-Location: ' . $file_path );
+				break;
+
+			default:
+				return false;
+		}
+
+		// Delete transient after successful sendfile (full download assumed).
+		delete_transient( $transient_key );
+
+		return true;
+	}
+
+	/**
+	 * Detect the web server type.
+	 *
+	 * @return string Server type: 'apache', 'nginx', 'litespeed', or 'unknown'.
+	 */
+	private function detect_server_type(): string {
+		$server_software = $_SERVER['SERVER_SOFTWARE'] ?? '';
+
+		if ( stripos( $server_software, 'litespeed' ) !== false ) {
+			return 'litespeed';
+		}
+
+		if ( stripos( $server_software, 'nginx' ) !== false ) {
+			return 'nginx';
+		}
+
+		if ( stripos( $server_software, 'apache' ) !== false ) {
+			return 'apache';
+		}
+
+		return 'unknown';
+	}
+
+	/**
+	 * Get the sendfile method for the server type.
+	 *
+	 * @param string $server_type Server type.
+	 * @return string|null Sendfile method or null if not available.
+	 */
+	private function get_sendfile_method( string $server_type ): ?string {
+		// Check if sendfile is enabled in settings.
+		$settings         = get_option( 'swish_backup_settings', array() );
+		$sendfile_enabled = $settings['sendfile_enabled'] ?? 'auto';
+
+		if ( 'disabled' === $sendfile_enabled ) {
+			return null;
+		}
+
+		switch ( $server_type ) {
+			case 'litespeed':
+				// LiteSpeed has built-in support, always available.
+				return 'x-litespeed-location';
+
+			case 'nginx':
+				// Nginx requires X-Accel-Redirect internal location.
+				$nginx_internal = $settings['nginx_internal_location'] ?? '';
+				if ( ! empty( $nginx_internal ) || 'auto' === $sendfile_enabled ) {
+					return 'x-accel-redirect';
+				}
+				return null;
+
+			case 'apache':
+				// Apache requires mod_xsendfile.
+				if ( $this->is_mod_xsendfile_available() ) {
+					return 'x-sendfile';
+				}
+				return null;
+
+			default:
+				return null;
+		}
+	}
+
+	/**
+	 * Check if Apache mod_xsendfile is available.
+	 *
+	 * @return bool True if mod_xsendfile is available.
+	 */
+	private function is_mod_xsendfile_available(): bool {
+		if ( function_exists( 'apache_get_modules' ) ) {
+			$modules = apache_get_modules();
+			return in_array( 'mod_xsendfile', $modules, true );
+		}
+		return false;
+	}
+
+	/**
+	 * Get the Nginx internal path for X-Accel-Redirect.
+	 *
+	 * For X-Accel-Redirect to work, Nginx needs an internal location:
+	 *
+	 * location /swish-backups-internal/ {
+	 *     internal;
+	 *     alias /path/to/wp-content/swish-backups/;
+	 * }
+	 *
+	 * @param string $file_path Absolute file path.
+	 * @return string|null Internal path or null if not configured.
+	 */
+	private function get_nginx_internal_path( string $file_path ): ?string {
+		$settings = get_option( 'swish_backup_settings', array() );
+
+		// Check for custom internal location setting.
+		$internal_location = $settings['nginx_internal_location'] ?? '';
+
+		$backup_dir = WP_CONTENT_DIR . '/swish-backups';
+
+		if ( strpos( $file_path, $backup_dir ) !== 0 ) {
+			return null;
+		}
+
+		$relative = substr( $file_path, strlen( $backup_dir ) );
+
+		if ( ! empty( $internal_location ) ) {
+			// User configured a custom internal location.
+			return rtrim( $internal_location, '/' ) . $relative;
+		}
+
+		// Default internal location.
+		return '/swish-backups-internal' . $relative;
+	}
+
+	/**
+	 * Stream file download using PHP (fallback method).
+	 *
+	 * Used when X-Sendfile is not available. Supports Range requests for resume.
+	 *
+	 * @param string $file_path     Absolute path to the file.
+	 * @param string $filename      Filename for Content-Disposition.
+	 * @param int    $filesize      File size in bytes.
+	 * @param string $transient_key Transient key for download token.
+	 * @return void
+	 */
+	private function stream_file_download( string $file_path, string $filename, int $filesize, string $transient_key ): void {
 		// Ensure long downloads complete even if connection drops briefly.
 		// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
 		@ignore_user_abort( true );
@@ -519,24 +732,15 @@ final class Plugin {
 		// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
 		@set_time_limit( 0 );
 
-		// Get file info.
-		$filename = basename( $real_file_path );
-		$filesize = filesize( $real_file_path );
-		$start    = 0;
-		$end      = $filesize - 1;
-		$length   = $filesize;
-
-		// Clear any output buffers.
-		while ( ob_get_level() ) {
-			ob_end_clean();
-		}
+		$start  = 0;
+		$end    = $filesize - 1;
+		$length = $filesize;
 
 		// Check for Range request (browser requesting partial content for resume).
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotValidated
 		$range_header = isset( $_SERVER['HTTP_RANGE'] ) ? $_SERVER['HTTP_RANGE'] : '';
 
 		if ( $range_header && preg_match( '/bytes=(\d*)-(\d*)/', $range_header, $matches ) ) {
-			// Parse range values.
 			$range_start = $matches[1];
 			$range_end   = $matches[2];
 
@@ -549,23 +753,20 @@ final class Plugin {
 
 			// Validate range.
 			if ( $start > $end || $start >= $filesize || $end >= $filesize ) {
-				// Invalid range - send 416 Range Not Satisfiable.
 				header( 'HTTP/1.1 416 Range Not Satisfiable' );
 				header( 'Content-Range: bytes */' . $filesize );
-				exit;
+				return;
 			}
 
 			$length = $end - $start + 1;
 
-			// Send 206 Partial Content for range request.
 			header( 'HTTP/1.1 206 Partial Content' );
 			header( 'Content-Range: bytes ' . $start . '-' . $end . '/' . $filesize );
 		} else {
-			// Full file request - send 200 OK.
 			header( 'HTTP/1.1 200 OK' );
 		}
 
-		// Common headers for both full and partial responses.
+		// Common headers.
 		nocache_headers();
 		header( 'Accept-Ranges: bytes' );
 		header( 'Content-Type: application/octet-stream' );
@@ -573,18 +774,17 @@ final class Plugin {
 		header( 'Content-Length: ' . $length );
 		header( 'Content-Transfer-Encoding: binary' );
 		header( 'Pragma: public' );
-		header( 'X-Accel-Buffering: no' ); // Disable Nginx buffering for streaming.
+		header( 'X-Accel-Buffering: no' );
 
-		// Stream file in chunks (8MB per chunk for memory efficiency).
+		// Stream file in chunks (8MB per chunk).
 		$chunk_size = 8 * 1024 * 1024;
 
 		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen
-		$handle = fopen( $real_file_path, 'rb' );
+		$handle = fopen( $file_path, 'rb' );
 		if ( false === $handle ) {
 			wp_die( esc_html__( 'Failed to open backup file.', 'swish-migrate-and-backup' ), 500 );
 		}
 
-		// Seek to start position for Range requests.
 		if ( $start > 0 ) {
 			fseek( $handle, $start );
 		}
@@ -592,7 +792,6 @@ final class Plugin {
 		$bytes_sent = 0;
 
 		while ( ! feof( $handle ) && $bytes_sent < $length ) {
-			// Calculate how much to read this iteration.
 			$remaining = $length - $bytes_sent;
 			$read_size = min( $chunk_size, $remaining );
 
@@ -603,11 +802,9 @@ final class Plugin {
 				break;
 			}
 
-			// Output chunk.
 			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 			echo $buffer;
 
-			// Flush to browser immediately.
 			if ( ob_get_level() > 0 ) {
 				ob_flush();
 			}
@@ -615,7 +812,6 @@ final class Plugin {
 
 			$bytes_sent += strlen( $buffer );
 
-			// Check if connection is still alive (prevents CPU waste on closed connections).
 			if ( connection_aborted() ) {
 				break;
 			}
@@ -624,13 +820,10 @@ final class Plugin {
 		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
 		fclose( $handle );
 
-		// Only delete transient if full download completed successfully.
-		// This allows resume attempts within the token expiry window.
+		// Only delete transient if full download completed.
 		if ( $bytes_sent >= $length && 0 === $start ) {
 			delete_transient( $transient_key );
 		}
-
-		exit;
 	}
 
 	/**

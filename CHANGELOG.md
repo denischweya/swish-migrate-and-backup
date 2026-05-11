@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.1.5] - 2026-05-11
 
 ### Added
+- **X-Sendfile/X-Accel-Redirect support** for large file downloads - bypasses PHP completely for file transfer
+  - Apache: Uses `mod_xsendfile` when available
+  - Nginx: Uses `X-Accel-Redirect` with configurable internal location
+  - LiteSpeed: Uses `X-LiteSpeed-Location` (built-in support)
+  - Automatic fallback to PHP streaming when not available
 - HTTP Range request support for resumable backup downloads (4GB+ files)
 - Chunked file streaming for downloads (8MB chunks) to avoid memory exhaustion
 - `Accept-Ranges: bytes` header for browser download resume support
