@@ -5,6 +5,28 @@ All notable changes to Swish Migrate and Backup will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.2] - 2026-05-08
+
+### Added
+- New `StreamingTarBackup` class for true streaming file backups
+- Pure PHP tar creation - works in all environments (Docker, ddev, managed hosts)
+- 10-second time slices with automatic state persistence and continuation
+- 1MB file chunk reads - never loads more than 1MB into memory
+- USTAR tar format with extended header support for long filenames (>100 chars)
+- Streaming gzip compression after tar completion
+
+### Fixed
+- Full backups getting stuck at "Backing up files..." on large sites (50,000+ files)
+- Memory exhaustion during file backup in Docker/ddev environments
+- `should_use_tar()` returning false in containerized environments forcing memory-heavy ZIP mode
+- Empty files (0 bytes) causing `fread()` error during streaming backup
+- Missing `BackupState::delete_meta()` method causing backup completion to fail
+
+### Changed
+- `BackupManager::run_full_backup()` now always uses streaming tar (no more ZIP batch mode)
+- File backups process files one at a time instead of loading entire lists into memory
+- Backup continuation now handles `streaming_files` phase for seamless resumption
+
 ## [1.0.18] - 2026-04-30
 
 ### Fixed

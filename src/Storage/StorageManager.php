@@ -128,6 +128,18 @@ final class StorageManager {
 	}
 
 	/**
+	 * Store a backup file to specified destinations.
+	 *
+	 * @param string $local_path   Local file path.
+	 * @param array  $destinations Array of adapter IDs.
+	 * @return array Results keyed by adapter ID.
+	 */
+	public function store( string $local_path, array $destinations ): array {
+		$remote_path = basename( $local_path );
+		return $this->upload_to_destinations( $local_path, $remote_path, $destinations );
+	}
+
+	/**
 	 * Upload a file to specified storage destinations.
 	 *
 	 * @param string $local_path    Local file path.
