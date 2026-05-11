@@ -626,27 +626,33 @@ final class Plugin {
 	/**
 	 * Get the sendfile method for the server type.
 	 *
+	 * X-Sendfile is OPT-IN because it requires server configuration:
+	 * - Apache: mod_xsendfile must be installed and configured
+	 * - Nginx: internal location must be configured
+	 * - LiteSpeed: works automatically (built-in)
+	 *
 	 * @param string $server_type Server type.
 	 * @return string|null Sendfile method or null if not available.
 	 */
 	private function get_sendfile_method( string $server_type ): ?string {
-		// Check if sendfile is enabled in settings.
 		$settings         = get_option( 'swish_backup_settings', array() );
-		$sendfile_enabled = $settings['sendfile_enabled'] ?? 'auto';
+		$sendfile_enabled = $settings['sendfile_enabled'] ?? 'disabled'; // Default OFF for safety.
 
-		if ( 'disabled' === $sendfile_enabled ) {
+		// LiteSpeed always works - no configuration needed.
+		if ( 'litespeed' === $server_type ) {
+			return 'x-litespeed-location';
+		}
+
+		// For Apache/Nginx, require explicit opt-in since they need server config.
+		if ( 'enabled' !== $sendfile_enabled ) {
 			return null;
 		}
 
 		switch ( $server_type ) {
-			case 'litespeed':
-				// LiteSpeed has built-in support, always available.
-				return 'x-litespeed-location';
-
 			case 'nginx':
-				// Nginx requires X-Accel-Redirect internal location.
+				// Nginx requires X-Accel-Redirect internal location to be configured.
 				$nginx_internal = $settings['nginx_internal_location'] ?? '';
-				if ( ! empty( $nginx_internal ) || 'auto' === $sendfile_enabled ) {
+				if ( ! empty( $nginx_internal ) ) {
 					return 'x-accel-redirect';
 				}
 				return null;
@@ -731,6 +737,14 @@ final class Plugin {
 		// Disable PHP time limit for downloads (0 = unlimited).
 		// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
 		@set_time_limit( 0 );
+
+		// Disable output compression which can cause issues with large files.
+		// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.PHP.IniSet.Risky
+		@ini_set( 'zlib.output_compression', 'Off' );
+
+		// Disable implicit flush to prevent buffering issues.
+		// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+		@ob_implicit_flush( true );
 
 		$start  = 0;
 		$end    = $filesize - 1;
