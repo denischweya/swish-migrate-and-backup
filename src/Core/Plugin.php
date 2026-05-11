@@ -445,6 +445,9 @@ final class Plugin {
 	/**
 	 * Handle backup file download requests.
 	 *
+	 * Supports HTTP Range requests for resumable downloads of large files (4GB+).
+	 * Uses chunked streaming to avoid memory issues.
+	 *
 	 * @return void
 	 */
 	public function handle_backup_download(): void {
@@ -499,29 +502,125 @@ final class Plugin {
 			wp_die( esc_html__( 'Backup file not found.', 'swish-migrate-and-backup' ), 404 );
 		}
 
-		// Delete the transient to prevent reuse.
-		delete_transient( $transient_key );
+		// Ensure long downloads complete even if connection drops briefly.
+		// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+		@ignore_user_abort( true );
 
-		// Serve the file.
+		// Disable PHP time limit for downloads (0 = unlimited).
+		// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+		@set_time_limit( 0 );
+
+		// Get file info.
 		$filename = basename( $real_file_path );
 		$filesize = filesize( $real_file_path );
+		$start    = 0;
+		$end      = $filesize - 1;
+		$length   = $filesize;
 
 		// Clear any output buffers.
 		while ( ob_get_level() ) {
 			ob_end_clean();
 		}
 
-		// Set headers for download.
+		// Check for Range request (browser requesting partial content for resume).
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotValidated
+		$range_header = isset( $_SERVER['HTTP_RANGE'] ) ? $_SERVER['HTTP_RANGE'] : '';
+
+		if ( $range_header && preg_match( '/bytes=(\d*)-(\d*)/', $range_header, $matches ) ) {
+			// Parse range values.
+			$range_start = $matches[1];
+			$range_end   = $matches[2];
+
+			if ( '' !== $range_start ) {
+				$start = (int) $range_start;
+			}
+			if ( '' !== $range_end ) {
+				$end = (int) $range_end;
+			}
+
+			// Validate range.
+			if ( $start > $end || $start >= $filesize || $end >= $filesize ) {
+				// Invalid range - send 416 Range Not Satisfiable.
+				header( 'HTTP/1.1 416 Range Not Satisfiable' );
+				header( 'Content-Range: bytes */' . $filesize );
+				exit;
+			}
+
+			$length = $end - $start + 1;
+
+			// Send 206 Partial Content for range request.
+			header( 'HTTP/1.1 206 Partial Content' );
+			header( 'Content-Range: bytes ' . $start . '-' . $end . '/' . $filesize );
+		} else {
+			// Full file request - send 200 OK.
+			header( 'HTTP/1.1 200 OK' );
+		}
+
+		// Common headers for both full and partial responses.
 		nocache_headers();
-		header( 'Content-Type: application/zip' );
+		header( 'Accept-Ranges: bytes' );
+		header( 'Content-Type: application/octet-stream' );
 		header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
-		header( 'Content-Length: ' . $filesize );
+		header( 'Content-Length: ' . $length );
 		header( 'Content-Transfer-Encoding: binary' );
 		header( 'Pragma: public' );
+		header( 'X-Accel-Buffering: no' ); // Disable Nginx buffering for streaming.
 
-		// Output the file.
-		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_readfile
-		readfile( $real_file_path );
+		// Stream file in chunks (8MB per chunk for memory efficiency).
+		$chunk_size = 8 * 1024 * 1024;
+
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen
+		$handle = fopen( $real_file_path, 'rb' );
+		if ( false === $handle ) {
+			wp_die( esc_html__( 'Failed to open backup file.', 'swish-migrate-and-backup' ), 500 );
+		}
+
+		// Seek to start position for Range requests.
+		if ( $start > 0 ) {
+			fseek( $handle, $start );
+		}
+
+		$bytes_sent = 0;
+
+		while ( ! feof( $handle ) && $bytes_sent < $length ) {
+			// Calculate how much to read this iteration.
+			$remaining = $length - $bytes_sent;
+			$read_size = min( $chunk_size, $remaining );
+
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fread
+			$buffer = fread( $handle, $read_size );
+
+			if ( false === $buffer ) {
+				break;
+			}
+
+			// Output chunk.
+			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			echo $buffer;
+
+			// Flush to browser immediately.
+			if ( ob_get_level() > 0 ) {
+				ob_flush();
+			}
+			flush();
+
+			$bytes_sent += strlen( $buffer );
+
+			// Check if connection is still alive (prevents CPU waste on closed connections).
+			if ( connection_aborted() ) {
+				break;
+			}
+		}
+
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+		fclose( $handle );
+
+		// Only delete transient if full download completed successfully.
+		// This allows resume attempts within the token expiry window.
+		if ( $bytes_sent >= $length && 0 === $start ) {
+			delete_transient( $transient_key );
+		}
+
 		exit;
 	}
 

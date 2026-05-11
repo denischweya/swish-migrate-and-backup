@@ -5,6 +5,21 @@ All notable changes to Swish Migrate and Backup will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.4] - 2026-05-11
+
+### Added
+- HTTP Range request support for resumable backup downloads (4GB+ files)
+- Chunked file streaming for downloads (8MB chunks) to avoid memory exhaustion
+- `Accept-Ranges: bytes` header for browser download resume support
+
+### Fixed
+- Large backup downloads (4GB+) failing due to memory exhaustion or timeout
+- Browser unable to resume interrupted backup downloads
+
+### Changed
+- Download handler now streams files in chunks instead of using `readfile()`
+- Download token preserved until full download completes (allows resume)
+
 ## [1.1.3] - 2026-05-11
 
 ### Added
