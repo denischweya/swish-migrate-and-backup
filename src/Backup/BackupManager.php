@@ -485,6 +485,9 @@ final class BackupManager {
 	/**
 	 * Continue database backup from checkpoint.
 	 *
+	 * Runs multiple 25-second chunks per request to reduce cron overhead.
+	 * With max_execution_time=300, we can run ~10 chunks before yielding.
+	 *
 	 * @param string $job_id     Job ID.
 	 * @param array  $checkpoint Checkpoint data.
 	 * @return void
@@ -496,9 +499,22 @@ final class BackupManager {
 		$options          = $checkpoint['options'] ?? array();
 		$backup_type      = $checkpoint['backup_type'] ?? 'full';
 
-		$this->logger->info( 'Continuing database backup', array(
-			'table_index' => $db_checkpoint['table_index'] ?? 0,
-			'row_offset'  => $db_checkpoint['row_offset'] ?? 0,
+		// Track request start time for multi-chunk processing.
+		$request_start = microtime( true );
+
+		// Get server max execution time, default to 300s if not set.
+		$server_timeout = (int) ini_get( 'max_execution_time' );
+		if ( $server_timeout <= 0 ) {
+			$server_timeout = 300;
+		}
+		// Leave 30-second buffer for cleanup and cron scheduling.
+		$max_request_time = $server_timeout - 30;
+
+		$this->logger->info( 'Continuing database backup (multi-chunk)', array(
+			'table_index'      => $db_checkpoint['table_index'] ?? 0,
+			'row_offset'       => $db_checkpoint['row_offset'] ?? 0,
+			'server_timeout'   => $server_timeout,
+			'max_request_time' => $max_request_time,
 		) );
 
 		// Progress callback.
@@ -509,15 +525,56 @@ final class BackupManager {
 				$job_id,
 				'processing',
 				$job_progress,
-				sprintf( 'Backing up database... %d/%d tables [resumed]', $tables_done, $total_tables )
+				sprintf( 'Backing up database... %d/%d tables', $tables_done, $total_tables )
 			);
 		};
 
-		// Continue database backup with checkpoint.
-		$result = $this->database_backup->backup_chunked( $db_file, $db_checkpoint, $progress_callback );
+		// Run multiple chunks per request to reduce cron overhead.
+		$chunk_count = 0;
+		$result = null;
 
-		if ( isset( $result['error'] ) ) {
-			throw new \RuntimeException( 'Database backup failed: ' . $result['error'] );
+		while ( true ) {
+			++$chunk_count;
+
+			// Run a single 25-second chunk.
+			$result = $this->database_backup->backup_chunked( $db_file, $db_checkpoint, $progress_callback );
+
+			if ( isset( $result['error'] ) ) {
+				throw new \RuntimeException( 'Database backup failed: ' . $result['error'] );
+			}
+
+			// If completed, break out of loop.
+			if ( $result['completed'] ) {
+				$this->logger->info( 'Database backup completed', array(
+					'chunks_this_request' => $chunk_count,
+					'request_elapsed'     => round( microtime( true ) - $request_start, 2 ),
+				) );
+				break;
+			}
+
+			// Update checkpoint for next chunk.
+			$db_checkpoint = $result['checkpoint'];
+
+			// Check if we have time for another chunk (~25 seconds needed).
+			$elapsed = microtime( true ) - $request_start;
+			$time_remaining = $max_request_time - $elapsed;
+
+			if ( $time_remaining < 30 ) {
+				// Not enough time for another chunk, yield to cron.
+				$this->logger->info( 'Yielding to cron after multi-chunk run', array(
+					'chunks_this_request' => $chunk_count,
+					'request_elapsed'     => round( $elapsed, 2 ),
+					'time_remaining'      => round( $time_remaining, 2 ),
+				) );
+				break;
+			}
+
+			// Log chunk completion and continue.
+			$this->logger->debug( 'Chunk completed, running next chunk', array(
+				'chunk_number'   => $chunk_count,
+				'request_elapsed' => round( $elapsed, 2 ),
+				'time_remaining' => round( $time_remaining, 2 ),
+			) );
 		}
 
 		if ( ! $result['completed'] ) {
@@ -1655,9 +1712,21 @@ final class BackupManager {
 			$temp_dir = $this->get_temp_directory( $job_id );
 
 			// Step 1: Backup database with chunked support for large sites.
+			// Runs multiple 25-second chunks per request to reduce cron overhead.
 			if ( $options['backup_database'] ?? true ) {
 				$this->update_job_status( $job_id, 'processing', 5, 'Backing up database...' );
 				$db_file = $temp_dir . '/database.sql';
+
+				// Track request start time for multi-chunk processing.
+				$request_start = microtime( true );
+
+				// Get server max execution time, default to 300s if not set.
+				$server_timeout = (int) ini_get( 'max_execution_time' );
+				if ( $server_timeout <= 0 ) {
+					$server_timeout = 300;
+				}
+				// Leave 30-second buffer for cleanup and remaining backup steps.
+				$max_db_time = $server_timeout - 30;
 
 				// Progress callback for database backup.
 				$db_progress = function ( int $progress, string $table, int $tables_done, int $total_tables ) use ( $job_id ) {
@@ -1671,11 +1740,52 @@ final class BackupManager {
 					);
 				};
 
-				// Use chunked backup with 10-second time slices.
-				$db_result = $this->database_backup->backup_chunked( $db_file, array(), $db_progress, 10 );
+				// Run multiple chunks per request to reduce cron overhead.
+				$chunk_count = 0;
+				$db_checkpoint = array();
+				$db_result = null;
 
-				if ( isset( $db_result['error'] ) ) {
-					throw new \RuntimeException( 'Database backup failed: ' . $db_result['error'] );
+				while ( true ) {
+					++$chunk_count;
+
+					// Use chunked backup with 25-second time slices.
+					$db_result = $this->database_backup->backup_chunked( $db_file, $db_checkpoint, $db_progress, 25 );
+
+					if ( isset( $db_result['error'] ) ) {
+						throw new \RuntimeException( 'Database backup failed: ' . $db_result['error'] );
+					}
+
+					// If completed, break out of loop.
+					if ( $db_result['completed'] ) {
+						$this->logger->info( 'Database backup completed', array(
+							'chunks_this_request' => $chunk_count,
+							'request_elapsed'     => round( microtime( true ) - $request_start, 2 ),
+						) );
+						break;
+					}
+
+					// Update checkpoint for next chunk.
+					$db_checkpoint = $db_result['checkpoint'];
+
+					// Check if we have time for another chunk (~25 seconds needed).
+					$elapsed = microtime( true ) - $request_start;
+					$time_remaining = $max_db_time - $elapsed;
+
+					if ( $time_remaining < 30 ) {
+						// Not enough time for another chunk, yield to cron.
+						$this->logger->info( 'Database backup yielding to cron', array(
+							'chunks_this_request' => $chunk_count,
+							'request_elapsed'     => round( $elapsed, 2 ),
+							'time_remaining'      => round( $time_remaining, 2 ),
+						) );
+						break;
+					}
+
+					// Log chunk completion and continue.
+					$this->logger->debug( 'Database chunk completed, running next', array(
+						'chunk_number'    => $chunk_count,
+						'request_elapsed' => round( $elapsed, 2 ),
+					) );
 				}
 
 				if ( ! $db_result['completed'] ) {
@@ -2298,6 +2408,17 @@ final class BackupManager {
 
 			$this->update_job_status( $job_id, 'processing', 20, 'Backing up database...' );
 
+			// Track request start time for multi-chunk processing.
+			$request_start = microtime( true );
+
+			// Get server max execution time, default to 300s if not set.
+			$server_timeout = (int) ini_get( 'max_execution_time' );
+			if ( $server_timeout <= 0 ) {
+				$server_timeout = 300;
+			}
+			// Leave 30-second buffer for cleanup and remaining backup steps.
+			$max_db_time = $server_timeout - 30;
+
 			// Progress callback for database backup.
 			$db_progress = function ( int $progress, string $table, int $tables_done, int $total_tables ) use ( $job_id ) {
 				// Database is 20-70% of backup progress.
@@ -2310,11 +2431,52 @@ final class BackupManager {
 				);
 			};
 
-			// Use chunked backup with 10-second time slices.
-			$db_result = $this->database_backup->backup_chunked( $temp_file, array(), $db_progress, 10 );
+			// Run multiple chunks per request to reduce cron overhead.
+			$chunk_count = 0;
+			$db_checkpoint = array();
+			$db_result = null;
 
-			if ( isset( $db_result['error'] ) ) {
-				throw new \RuntimeException( 'Database backup failed: ' . $db_result['error'] );
+			while ( true ) {
+				++$chunk_count;
+
+				// Use chunked backup with 25-second time slices.
+				$db_result = $this->database_backup->backup_chunked( $temp_file, $db_checkpoint, $db_progress, 25 );
+
+				if ( isset( $db_result['error'] ) ) {
+					throw new \RuntimeException( 'Database backup failed: ' . $db_result['error'] );
+				}
+
+				// If completed, break out of loop.
+				if ( $db_result['completed'] ) {
+					$this->logger->info( 'Database backup completed', array(
+						'chunks_this_request' => $chunk_count,
+						'request_elapsed'     => round( microtime( true ) - $request_start, 2 ),
+					) );
+					break;
+				}
+
+				// Update checkpoint for next chunk.
+				$db_checkpoint = $db_result['checkpoint'];
+
+				// Check if we have time for another chunk (~25 seconds needed).
+				$elapsed = microtime( true ) - $request_start;
+				$time_remaining = $max_db_time - $elapsed;
+
+				if ( $time_remaining < 30 ) {
+					// Not enough time for another chunk, yield to cron.
+					$this->logger->info( 'Database backup yielding to cron', array(
+						'chunks_this_request' => $chunk_count,
+						'request_elapsed'     => round( $elapsed, 2 ),
+						'time_remaining'      => round( $time_remaining, 2 ),
+					) );
+					break;
+				}
+
+				// Log chunk completion and continue.
+				$this->logger->debug( 'Database chunk completed, running next', array(
+					'chunk_number'    => $chunk_count,
+					'request_elapsed' => round( $elapsed, 2 ),
+				) );
 			}
 
 			if ( ! $db_result['completed'] ) {

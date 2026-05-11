@@ -791,14 +791,14 @@ final class DatabaseBackup {
 	 * @param string        $output_path       Output file path.
 	 * @param array         $checkpoint        Optional checkpoint to resume from.
 	 * @param callable|null $progress_callback Progress callback.
-	 * @param int           $time_slice        Max seconds per chunk (default 10).
+	 * @param int           $time_slice        Max seconds per chunk (default 25).
 	 * @return array Result with 'completed', 'checkpoint', and status info.
 	 */
 	public function backup_chunked(
 		string $output_path,
 		array $checkpoint = array(),
 		?callable $progress_callback = null,
-		int $time_slice = 10
+		int $time_slice = 25
 	): array {
 		global $wpdb;
 

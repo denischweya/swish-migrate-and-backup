@@ -10,11 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Chunked database backup with checkpoint support for large sites
 - `DatabaseBackup::backup_chunked()` method for resumable database backups
-- 10-second time slices for database backup to prevent timeouts
+- 25-second time slices for database backup (up from 10s, with max_execution_time=300)
 - Database backup continuation support via `continue_database_backup()`
 - Full progress tracking for database backup (table-by-table progress)
 - Keyset pagination for database queries (O(1) instead of O(n) per batch)
 - Primary key detection for automatic keyset pagination selection
+- Multi-chunk processing: runs ~10 chunks per request before yielding to cron
+- Extended INSERT syntax with multiple value tuples for fewer SQL statements
 
 ### Fixed
 - Database backup timing out on large sites (100k+ rows in tables like `postmeta`)
@@ -26,13 +28,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - WP-Cron not triggering continuation reliably (added fallback via status polling)
 - Frontend showing stale "X/Y tables" message during large table processing
 - Slow database backup due to OFFSET pagination causing O(n²) row scans
+- Excessive cron overhead from yielding after every 25-second chunk
 
 ### Changed
-- `run_full_backup_streaming()` now uses chunked database backup
-- `run_database_backup()` now uses chunked database backup with continuation
+- `run_full_backup_streaming()` now uses chunked database backup with multi-chunk loop
+- `run_database_backup()` now uses chunked database backup with multi-chunk loop
+- `continue_database_backup()` runs multiple chunks per request (up to 270s before yield)
 - Database backup saves checkpoint after each table for reliable resumption
 - Default batch size increased from 200 to 1000 rows per query (5x faster)
 - Database queries use `WHERE pk > last_pk` instead of `OFFSET` for large tables
+- Time slice increased from 10s to 25s per chunk for better throughput
 
 ## [1.1.2] - 2026-05-08
 

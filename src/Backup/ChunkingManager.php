@@ -44,9 +44,10 @@ abstract class ChunkingManager {
 	public const CHUNK_ERROR = -1;
 
 	/**
-	 * Default time slice in seconds (10 seconds like Duplicator Pro).
+	 * Default time slice in seconds (25 seconds for better throughput).
+	 * We set max_execution_time=300, so 25s gives plenty of buffer.
 	 */
-	public const DEFAULT_TIME_SLICE = 10;
+	public const DEFAULT_TIME_SLICE = 25;
 
 	/**
 	 * Maximum iterations before stopping (0 = no limit).
