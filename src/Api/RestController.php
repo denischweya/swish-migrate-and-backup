@@ -658,15 +658,16 @@ final class RestController extends WP_REST_Controller {
 		}
 
 		// Validate file type - allow ZIP, tar.gz, and .swish (our custom format).
-		$allowed_types = array(
-			'zip'    => 'application/zip',
-			'tar.gz' => 'application/gzip',
-			'tgz'    => 'application/gzip',
-			'gz'     => 'application/gzip',
-			'swish'  => 'application/gzip',
+		$filename = strtolower( $file['name'] );
+		$valid_extension = (
+			str_ends_with( $filename, '.zip' ) ||
+			str_ends_with( $filename, '.tar.gz' ) ||
+			str_ends_with( $filename, '.tgz' ) ||
+			str_ends_with( $filename, '.gz' ) ||
+			str_ends_with( $filename, '.swish' )
 		);
-		$file_type = wp_check_filetype( $file['name'], $allowed_types );
-		if ( ! $file_type['ext'] ) {
+
+		if ( ! $valid_extension ) {
 			return new WP_Error(
 				'invalid_file_type',
 				__( 'Invalid file type. Allowed types: ZIP, TAR.GZ, SWISH.', 'swish-migrate-and-backup' ),
@@ -689,21 +690,44 @@ final class RestController extends WP_REST_Controller {
 			return $uploads;
 		};
 
-		// Add filter temporarily to redirect upload to our backup imports directory.
+		// Allow backup archive mime types (tar.gz, zip, swish).
+		$upload_mimes_filter = function ( $mimes ) {
+			$mimes['zip']    = 'application/zip';
+			$mimes['gz']     = 'application/gzip';
+			$mimes['tar.gz'] = 'application/gzip';
+			$mimes['tgz']    = 'application/gzip';
+			$mimes['swish']  = 'application/gzip';
+			$mimes['tar']    = 'application/x-tar';
+			return $mimes;
+		};
+
+		// Handle .tar.gz double extension that WordPress doesn't handle well.
+		$filetype_filter = function ( $data, $file, $filename ) {
+			if ( ! empty( $data['ext'] ) && ! empty( $data['type'] ) ) {
+				return $data;
+			}
+
+			// Check for .tar.gz double extension.
+			if ( preg_match( '/\.tar\.gz$/i', $filename ) ) {
+				$data['ext']  = 'tar.gz';
+				$data['type'] = 'application/gzip';
+			} elseif ( preg_match( '/\.swish$/i', $filename ) ) {
+				$data['ext']  = 'swish';
+				$data['type'] = 'application/gzip';
+			}
+
+			return $data;
+		};
+
+		// Add filters temporarily.
 		add_filter( 'upload_dir', $upload_dir_filter );
+		add_filter( 'upload_mimes', $upload_mimes_filter );
+		add_filter( 'wp_check_filetype_and_ext', $filetype_filter, 10, 3 );
 
 		// Allow backup archive files for this upload.
 		$upload_overrides = array(
-			'test_form'                => false,
-			'test_type'                => true,
-			'mimes'                    => array(
-				'zip'    => 'application/zip',
-				'tar.gz' => 'application/gzip',
-				'tgz'    => 'application/gzip',
-				'gz'     => 'application/gzip',
-				'swish'  => 'application/gzip',
-			),
-			'unique_filename_callback' => null,
+			'test_form' => false,
+			'test_type' => false, // Disable type check since we handle it ourselves.
 		);
 
 		// Include the file with wp_handle_upload function.
@@ -714,8 +738,10 @@ final class RestController extends WP_REST_Controller {
 		// Use WordPress file upload handler.
 		$upload_result = \wp_handle_upload( $file, $upload_overrides );
 
-		// Remove the filter after upload.
+		// Remove filters after upload.
 		remove_filter( 'upload_dir', $upload_dir_filter );
+		remove_filter( 'upload_mimes', $upload_mimes_filter );
+		remove_filter( 'wp_check_filetype_and_ext', $filetype_filter );
 
 		// Check for upload errors.
 		if ( isset( $upload_result['error'] ) ) {
