@@ -883,17 +883,23 @@
 		 */
 		runSchedule: function() {
 			const scheduleId = $(this).data('schedule-id');
-			SwishBackup.showProgressModal('Running scheduled backup...');
+			const button = $(this);
+			button.prop('disabled', true).text('Running...');
 
 			wp.apiFetch({
-				path: '/swish-backup/v1/backup',
-				method: 'POST',
-				data: { type: 'full', schedule_id: scheduleId }
+				path: '/swish-backup/v1/schedule/' + scheduleId + '/run',
+				method: 'POST'
 			}).then(function(response) {
-				SwishBackup.updateProgress(100, swishBackup.i18n.backupComplete);
-				setTimeout(function() {
-					location.reload();
-				}, 1500);
+				if (response.success) {
+					// Redirect to backups page to see progress
+					window.location.href = swishBackup.adminUrl + '?page=swish-backup-backups';
+				} else {
+					alert(response.message || 'Failed to start backup');
+					button.prop('disabled', false).text('Run Now');
+				}
+			}).catch(function(error) {
+				button.prop('disabled', false).text('Run Now');
+				alert('Failed to run schedule: ' + (error.message || 'Unknown error'));
 			});
 		},
 
@@ -903,12 +909,17 @@
 		toggleSchedule: function() {
 			const scheduleId = $(this).data('schedule-id');
 			const button = $(this);
-
-			// This would require a toggle endpoint
 			button.prop('disabled', true);
-			setTimeout(function() {
+
+			wp.apiFetch({
+				path: '/swish-backup/v1/schedule/' + scheduleId + '/toggle',
+				method: 'POST'
+			}).then(function(response) {
 				location.reload();
-			}, 500);
+			}).catch(function(error) {
+				button.prop('disabled', false);
+				alert('Failed to toggle schedule: ' + (error.message || 'Unknown error'));
+			});
 		},
 
 		/**
@@ -922,9 +933,15 @@
 			const scheduleId = $(this).data('schedule-id');
 			const row = $(this).closest('tr');
 
-			// This would require a delete endpoint
-			row.fadeOut(function() {
-				$(this).remove();
+			wp.apiFetch({
+				path: '/swish-backup/v1/schedule/' + scheduleId,
+				method: 'DELETE'
+			}).then(function(response) {
+				row.fadeOut(function() {
+					$(this).remove();
+				});
+			}).catch(function(error) {
+				alert('Failed to delete schedule: ' + (error.message || 'Unknown error'));
 			});
 		},
 

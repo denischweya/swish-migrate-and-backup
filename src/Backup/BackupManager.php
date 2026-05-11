@@ -3314,9 +3314,22 @@ final class BackupManager {
 			$steps = json_decode( $job['steps_log'], true ) ?: array();
 		}
 
+		// Derive phase from progress for step indicators.
+		$progress = (float) $job['progress'];
+		if ( $progress < 5 ) {
+			$phase = 'initializing';
+		} elseif ( $progress < 15 ) {
+			$phase = 'database';
+		} elseif ( $progress < 80 ) {
+			$phase = 'files';
+		} else {
+			$phase = 'finalizing';
+		}
+
 		return array(
 			'status'   => $job['status'],
-			'progress' => (float) $job['progress'],
+			'progress' => $progress,
+			'phase'    => $phase,
 			'message'  => $job['error_message'] ?? '',
 			'path'     => $job['file_path'] ?? '',
 			'size'     => (int) ( $job['file_size'] ?? 0 ),

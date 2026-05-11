@@ -291,7 +291,8 @@ final class Plugin {
 				$c->get( RestoreManager::class ),
 				$c->get( Migrator::class ),
 				$c->get( StorageManager::class ),
-				$c->get( JobQueue::class )
+				$c->get( JobQueue::class ),
+				$c->get( Scheduler::class )
 			)
 		);
 

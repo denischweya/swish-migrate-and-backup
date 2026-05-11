@@ -17,6 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 use SwishMigrateAndBackup\Backup\BackupManager;
 use SwishMigrateAndBackup\Migration\Migrator;
 use SwishMigrateAndBackup\Queue\JobQueue;
+use SwishMigrateAndBackup\Queue\Scheduler;
 use SwishMigrateAndBackup\Restore\RestoreManager;
 use SwishMigrateAndBackup\Storage\StorageManager;
 use WP_REST_Controller;
@@ -73,6 +74,13 @@ final class RestController extends WP_REST_Controller {
 	private JobQueue $job_queue;
 
 	/**
+	 * Scheduler.
+	 *
+	 * @var Scheduler
+	 */
+	private Scheduler $scheduler;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param BackupManager  $backup_manager  Backup manager.
@@ -80,19 +88,22 @@ final class RestController extends WP_REST_Controller {
 	 * @param Migrator       $migrator        Migrator.
 	 * @param StorageManager $storage_manager Storage manager.
 	 * @param JobQueue       $job_queue       Job queue.
+	 * @param Scheduler      $scheduler       Scheduler.
 	 */
 	public function __construct(
 		BackupManager $backup_manager,
 		RestoreManager $restore_manager,
 		Migrator $migrator,
 		StorageManager $storage_manager,
-		JobQueue $job_queue
+		JobQueue $job_queue,
+		Scheduler $scheduler
 	) {
 		$this->backup_manager  = $backup_manager;
 		$this->restore_manager = $restore_manager;
 		$this->migrator        = $migrator;
 		$this->storage_manager = $storage_manager;
 		$this->job_queue       = $job_queue;
+		$this->scheduler       = $scheduler;
 	}
 
 	/**
@@ -391,6 +402,43 @@ final class RestController extends WP_REST_Controller {
 				array(
 					'methods'             => WP_REST_Server::READABLE,
 					'callback'            => array( $this, 'pipeline_status' ),
+					'permission_callback' => array( $this, 'check_admin_permission' ),
+				),
+			)
+		);
+
+		// Schedule routes.
+		register_rest_route(
+			$this->namespace,
+			'/schedule/(?P<id>\d+)/toggle',
+			array(
+				array(
+					'methods'             => WP_REST_Server::CREATABLE,
+					'callback'            => array( $this, 'toggle_schedule' ),
+					'permission_callback' => array( $this, 'check_admin_permission' ),
+				),
+			)
+		);
+
+		register_rest_route(
+			$this->namespace,
+			'/schedule/(?P<id>\d+)/run',
+			array(
+				array(
+					'methods'             => WP_REST_Server::CREATABLE,
+					'callback'            => array( $this, 'run_schedule' ),
+					'permission_callback' => array( $this, 'check_admin_permission' ),
+				),
+			)
+		);
+
+		register_rest_route(
+			$this->namespace,
+			'/schedule/(?P<id>\d+)',
+			array(
+				array(
+					'methods'             => WP_REST_Server::DELETABLE,
+					'callback'            => array( $this, 'delete_schedule' ),
 					'permission_callback' => array( $this, 'check_admin_permission' ),
 				),
 			)
@@ -1846,6 +1894,91 @@ final class RestController extends WP_REST_Controller {
 			'stats'        => $stats,
 			'progress'     => $stats['progress'],
 			'completed'    => 'complete' === $job_state['phase'],
+		) );
+	}
+
+	/**
+	 * Toggle schedule active status.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function toggle_schedule( WP_REST_Request $request ) {
+		$schedule_id = (int) $request->get_param( 'id' );
+
+		$schedule = $this->scheduler->get_schedule( $schedule_id );
+		if ( ! $schedule ) {
+			return new WP_Error(
+				'schedule_not_found',
+				__( 'Schedule not found.', 'swish-migrate-and-backup' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		$new_status = $this->scheduler->toggle_schedule( $schedule_id );
+
+		return rest_ensure_response( array(
+			'success'   => true,
+			'is_active' => $new_status,
+			'message'   => $new_status
+				? __( 'Schedule activated.', 'swish-migrate-and-backup' )
+				: __( 'Schedule paused.', 'swish-migrate-and-backup' ),
+		) );
+	}
+
+	/**
+	 * Run a scheduled backup immediately.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function run_schedule( WP_REST_Request $request ) {
+		$schedule_id = (int) $request->get_param( 'id' );
+
+		$schedule = $this->scheduler->get_schedule( $schedule_id );
+		if ( ! $schedule ) {
+			return new WP_Error(
+				'schedule_not_found',
+				__( 'Schedule not found.', 'swish-migrate-and-backup' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		$result = $this->scheduler->run_scheduled_backup( $schedule_id );
+
+		return rest_ensure_response( array(
+			'success' => $result,
+			'message' => $result
+				? __( 'Scheduled backup started.', 'swish-migrate-and-backup' )
+				: __( 'Failed to start backup.', 'swish-migrate-and-backup' ),
+		) );
+	}
+
+	/**
+	 * Delete a schedule.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function delete_schedule( WP_REST_Request $request ) {
+		$schedule_id = (int) $request->get_param( 'id' );
+
+		$schedule = $this->scheduler->get_schedule( $schedule_id );
+		if ( ! $schedule ) {
+			return new WP_Error(
+				'schedule_not_found',
+				__( 'Schedule not found.', 'swish-migrate-and-backup' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		$result = $this->scheduler->delete_schedule( $schedule_id );
+
+		return rest_ensure_response( array(
+			'success' => $result,
+			'message' => $result
+				? __( 'Schedule deleted.', 'swish-migrate-and-backup' )
+				: __( 'Failed to delete schedule.', 'swish-migrate-and-backup' ),
 		) );
 	}
 }
