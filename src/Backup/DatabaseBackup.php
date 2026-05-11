@@ -40,7 +40,7 @@ final class DatabaseBackup {
 	 *
 	 * @var int
 	 */
-	private int $rows_per_batch = 200;
+	private int $rows_per_batch = 1000;
 
 	/**
 	 * Start time for timeout tracking.
@@ -57,14 +57,14 @@ final class DatabaseBackup {
 	private int $max_execution_time = 25;
 
 	/**
-	 * Default rows per batch.
+	 * Default rows per batch (increased from 200 for better performance).
 	 */
-	private const DEFAULT_ROWS_PER_BATCH = 200;
+	private const DEFAULT_ROWS_PER_BATCH = 1000;
 
 	/**
 	 * Minimum rows per batch (for memory-constrained environments).
 	 */
-	private const MIN_ROWS_PER_BATCH = 50;
+	private const MIN_ROWS_PER_BATCH = 100;
 
 	/**
 	 * Memory threshold for reducing batch size (32MB).
@@ -330,6 +330,73 @@ final class DatabaseBackup {
 		$count = $wpdb->get_var( "SELECT COUNT(*) FROM `{$table}`" );
 
 		return (int) $count;
+	}
+
+	/**
+	 * Get the primary key column for a table.
+	 *
+	 * Returns the column name if table has a single-column primary key,
+	 * or null if no primary key or composite primary key.
+	 *
+	 * @param string $table Table name.
+	 * @return string|null Primary key column name or null.
+	 */
+	private function get_primary_key_column( string $table ): ?string {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
+		$keys = $wpdb->get_results(
+			"SHOW KEYS FROM `{$table}` WHERE Key_name = 'PRIMARY'",
+			ARRAY_A
+		);
+
+		// No primary key.
+		if ( empty( $keys ) ) {
+			return null;
+		}
+
+		// Composite primary key - can't use keyset pagination easily.
+		if ( count( $keys ) > 1 ) {
+			return null;
+		}
+
+		return $keys[0]['Column_name'] ?? null;
+	}
+
+	/**
+	 * Check if a column is numeric type (for keyset pagination).
+	 *
+	 * @param string $table  Table name.
+	 * @param string $column Column name.
+	 * @return bool True if numeric.
+	 */
+	private function is_numeric_column( string $table, string $column ): bool {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
+		$col_info = $wpdb->get_row(
+			$wpdb->prepare(
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				"SHOW COLUMNS FROM `{$table}` WHERE Field = %s",
+				$column
+			),
+			ARRAY_A
+		);
+
+		if ( ! $col_info ) {
+			return false;
+		}
+
+		$type = strtolower( $col_info['Type'] );
+		$numeric_types = array( 'int', 'bigint', 'smallint', 'tinyint', 'mediumint' );
+
+		foreach ( $numeric_types as $numeric_type ) {
+			if ( strpos( $type, $numeric_type ) !== false ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**
@@ -713,5 +780,354 @@ final class DatabaseBackup {
 		}
 
 		return $value;
+	}
+
+	/**
+	 * Create a database backup with checkpoint support for large sites.
+	 *
+	 * This method backs up the database in time slices, allowing for
+	 * continuation across multiple requests on hosts with short timeouts.
+	 *
+	 * @param string        $output_path       Output file path.
+	 * @param array         $checkpoint        Optional checkpoint to resume from.
+	 * @param callable|null $progress_callback Progress callback.
+	 * @param int           $time_slice        Max seconds per chunk (default 10).
+	 * @return array Result with 'completed', 'checkpoint', and status info.
+	 */
+	public function backup_chunked(
+		string $output_path,
+		array $checkpoint = array(),
+		?callable $progress_callback = null,
+		int $time_slice = 10
+	): array {
+		global $wpdb;
+
+		$this->start_time = microtime( true );
+		$this->max_execution_time = $time_slice;
+
+		// Get table list.
+		$tables = $this->get_tables();
+		$total_tables = count( $tables );
+
+		// Initialize or restore checkpoint state.
+		$table_index = $checkpoint['table_index'] ?? 0;
+		$row_offset = $checkpoint['row_offset'] ?? 0;
+		$last_pk_value = $checkpoint['last_pk_value'] ?? null;
+		$is_resuming = ! empty( $checkpoint );
+
+		$this->logger->info( 'Starting chunked database backup', array(
+			'output_path'   => $output_path,
+			'time_slice'    => $time_slice,
+			'total_tables'  => $total_tables,
+			'resuming'      => $is_resuming,
+			'table_index'   => $table_index,
+			'row_offset'    => $row_offset,
+			'last_pk_value' => $last_pk_value,
+			'batch_size'    => $this->rows_per_batch,
+		) );
+
+		// Open file (append if resuming, write if new).
+		$mode = $is_resuming ? 'a' : 'w';
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen
+		$handle = fopen( $output_path, $mode );
+		if ( ! $handle ) {
+			$this->logger->error( 'Failed to open output file', array( 'path' => $output_path ) );
+			return array(
+				'completed' => false,
+				'error'     => 'Failed to open output file',
+			);
+		}
+
+		// Write header if starting fresh.
+		if ( ! $is_resuming ) {
+			$this->write_header( $handle );
+		}
+
+		$tables_completed = $table_index;
+		$total_rows_written = $checkpoint['total_rows_written'] ?? 0;
+
+		// Process tables starting from checkpoint.
+		while ( $table_index < $total_tables ) {
+			$table = $tables[ $table_index ];
+
+			// Check timeout before starting a new table (allow buffer).
+			if ( $this->is_approaching_timeout( 2 ) ) {
+				$this->logger->info( 'Time slice exhausted, saving checkpoint', array(
+					'table_index'        => $table_index,
+					'row_offset'         => $row_offset,
+					'last_pk_value'      => $last_pk_value,
+					'tables_completed'   => $tables_completed,
+					'total_rows_written' => $total_rows_written,
+					'elapsed'            => round( microtime( true ) - $this->start_time, 2 ),
+				) );
+
+				// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+				fclose( $handle );
+
+				return array(
+					'completed'  => false,
+					'checkpoint' => array(
+						'table_index'        => $table_index,
+						'row_offset'         => $row_offset,
+						'last_pk_value'      => $last_pk_value,
+						'total_rows_written' => $total_rows_written,
+					),
+					'progress' => array(
+						'tables_completed' => $tables_completed,
+						'total_tables'     => $total_tables,
+						'percent'          => $total_tables > 0 ? round( ( $tables_completed / $total_tables ) * 100 ) : 0,
+					),
+				);
+			}
+
+			// Backup table (with keyset pagination when possible).
+			$result = $this->backup_table_chunked( $handle, $table, $row_offset, $last_pk_value );
+
+			$total_rows_written += $result['rows_written'];
+
+			// Check if table was fully completed.
+			if ( $result['needs_continuation'] ) {
+				// Table not fully backed up, save checkpoint mid-table.
+				$this->logger->info( 'Table backup needs continuation', array(
+					'table'          => $table,
+					'rows_written'   => $result['rows_written'],
+					'next_offset'    => $result['next_offset'],
+					'last_pk_value'  => $result['last_pk_value'],
+					'total_rows'     => $result['total_rows'],
+					'percent_done'   => $result['total_rows'] > 0 ? round( ( $result['next_offset'] / $result['total_rows'] ) * 100 ) : 0,
+				) );
+
+				// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+				fclose( $handle );
+
+				return array(
+					'completed'  => false,
+					'checkpoint' => array(
+						'table_index'        => $table_index,
+						'row_offset'         => $result['next_offset'],
+						'last_pk_value'      => $result['last_pk_value'],
+						'total_rows_written' => $total_rows_written,
+					),
+					'progress' => array(
+						'tables_completed' => $tables_completed,
+						'total_tables'     => $total_tables,
+						'percent'          => $total_tables > 0 ? round( ( $tables_completed / $total_tables ) * 100 ) : 0,
+					),
+				);
+			}
+
+			// Table completed, move to next.
+			++$table_index;
+			++$tables_completed;
+			$row_offset = 0; // Reset for next table.
+			$last_pk_value = null; // Reset keyset pagination for next table.
+
+			// Report progress.
+			if ( $progress_callback ) {
+				$progress = (int) ( ( $tables_completed / $total_tables ) * 100 );
+				$progress_callback( $progress, $table, $tables_completed, $total_tables );
+			}
+
+			$this->logger->debug( 'Table backup completed', array(
+				'table'       => $table,
+				'rows'        => $result['total_rows'],
+				'progress'    => sprintf( '%d/%d', $tables_completed, $total_tables ),
+			) );
+		}
+
+		// All tables completed - write footer.
+		$this->write_footer( $handle );
+
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+		fclose( $handle );
+
+		$elapsed = round( microtime( true ) - $this->start_time, 2 );
+		$this->logger->info( 'Chunked database backup completed', array(
+			'tables'             => $total_tables,
+			'total_rows_written' => $total_rows_written,
+			'size'               => filesize( $output_path ),
+			'elapsed'            => $elapsed,
+		) );
+
+		return array(
+			'completed'          => true,
+			'tables'             => $total_tables,
+			'total_rows_written' => $total_rows_written,
+			'size'               => filesize( $output_path ),
+		);
+	}
+
+	/**
+	 * Backup a single table with chunked support.
+	 *
+	 * @param resource $handle     File handle.
+	 * @param string   $table      Table name.
+	 * @param int      $row_offset Starting row offset (for resumption).
+	 * @return array Result with 'needs_continuation', 'rows_written', 'next_offset', 'last_pk_value', 'total_rows'.
+	 */
+	private function backup_table_chunked( $handle, string $table, int $row_offset = 0, $last_pk_value = null ): array {
+		global $wpdb;
+
+		$result = array(
+			'needs_continuation' => false,
+			'rows_written'       => 0,
+			'next_offset'        => 0,
+			'last_pk_value'      => null,
+			'total_rows'         => 0,
+		);
+
+		// Detect primary key for keyset pagination.
+		$pk_column = $this->get_primary_key_column( $table );
+		$use_keyset = $pk_column && $this->is_numeric_column( $table, $pk_column );
+		$is_resuming = ( $row_offset > 0 ) || ( null !== $last_pk_value );
+
+		// If starting from beginning, write table structure.
+		if ( ! $is_resuming ) {
+			$this->logger->debug( 'Backing up table structure', array( 'table' => $table ) );
+
+			// Table comment.
+			$sql = "\n-- --------------------------------------------------------\n";
+			$sql .= "-- Table structure for table `{$table}`\n";
+			$sql .= "-- --------------------------------------------------------\n\n";
+
+			// Drop table if exists.
+			$sql .= "DROP TABLE IF EXISTS `{$table}`;\n";
+
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite
+			fwrite( $handle, $sql );
+
+			// Get CREATE TABLE statement.
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.SchemaChange, PluginCheck.Security.DirectDB.UnescapedDBParameter
+			$create_table = $wpdb->get_row( "SHOW CREATE TABLE `{$table}`", ARRAY_N );
+
+			if ( $create_table && isset( $create_table[1] ) ) {
+				// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite
+				fwrite( $handle, $create_table[1] . ";\n\n" );
+			}
+		}
+
+		// Get row count.
+		$row_count = $this->get_table_row_count( $table );
+		$result['total_rows'] = $row_count;
+
+		// Log large tables for visibility.
+		if ( $row_count > 10000 ) {
+			$this->logger->info( 'Processing large table', array(
+				'table'       => $table,
+				'total_rows'  => $row_count,
+				'use_keyset'  => $use_keyset,
+				'pk_column'   => $pk_column,
+				'last_pk'     => $last_pk_value,
+				'row_offset'  => $row_offset,
+			) );
+		}
+
+		if ( 0 === $row_count ) {
+			return $result;
+		}
+
+		// If starting data section, write header.
+		if ( ! $is_resuming ) {
+			$sql = "-- Dumping data for table `{$table}`\n\n";
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite
+			fwrite( $handle, $sql );
+
+			// Disable keys for faster import.
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite
+			fwrite( $handle, "/*!40000 ALTER TABLE `{$table}` DISABLE KEYS */;\n" );
+		}
+
+		// Get columns.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
+		$columns = $wpdb->get_results( "SHOW COLUMNS FROM `{$table}`", ARRAY_A );
+		$column_names = array_map( fn( $col ) => $col['Field'], $columns );
+		$column_list = '`' . implode( '`, `', $column_names ) . '`';
+
+		// Process rows in batches.
+		$current_batch_size = $this->rows_per_batch;
+		$current_pk = $last_pk_value ?? 0;
+		$offset = $row_offset;
+		$rows_processed = 0;
+
+		while ( true ) {
+			// Check for timeout (with buffer for saving checkpoint).
+			if ( $this->is_approaching_timeout( 2 ) ) {
+				// Need to continue later.
+				$result['needs_continuation'] = true;
+				$result['next_offset'] = $offset;
+				$result['last_pk_value'] = $current_pk;
+
+				$this->logger->debug( 'Table backup paused for continuation', array(
+					'table'        => $table,
+					'rows_written' => $result['rows_written'],
+					'use_keyset'   => $use_keyset,
+					'last_pk'      => $current_pk,
+					'next_offset'  => $offset,
+					'total_rows'   => $row_count,
+				) );
+
+				return $result;
+			}
+
+			// Adaptive batch sizing.
+			$current_batch_size = $this->get_adaptive_batch_size( $current_batch_size );
+
+			// Use keyset pagination for tables with numeric primary key (O(1) per query).
+			// Fall back to OFFSET for tables without primary key (O(n) but rare).
+			if ( $use_keyset ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
+				$rows = $wpdb->get_results(
+					$wpdb->prepare(
+						// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+						"SELECT * FROM `{$table}` WHERE `{$pk_column}` > %d ORDER BY `{$pk_column}` ASC LIMIT %d",
+						$current_pk,
+						$current_batch_size
+					),
+					ARRAY_A
+				);
+			} else {
+				// Fallback to OFFSET for tables without usable primary key.
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
+				$rows = $wpdb->get_results(
+					$wpdb->prepare(
+						// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+						"SELECT * FROM `{$table}` LIMIT %d OFFSET %d",
+						$current_batch_size,
+						$offset
+					),
+					ARRAY_A
+				);
+			}
+
+			if ( empty( $rows ) ) {
+				break;
+			}
+
+			$this->write_insert_statements( $handle, $table, $column_list, $rows, $columns );
+			$result['rows_written'] += count( $rows );
+			$rows_processed += count( $rows );
+
+			// Update position tracking.
+			if ( $use_keyset ) {
+				// Track last primary key value for keyset pagination.
+				$last_row = end( $rows );
+				$current_pk = $last_row[ $pk_column ];
+				$result['last_pk_value'] = $current_pk;
+			}
+			$offset += count( $rows );
+
+			// Free memory.
+			unset( $rows );
+
+			if ( $this->is_memory_low() && function_exists( 'gc_collect_cycles' ) ) {
+				gc_collect_cycles();
+			}
+		}
+
+		// Table fully completed - re-enable keys.
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite
+		fwrite( $handle, "/*!40000 ALTER TABLE `{$table}` ENABLE KEYS */;\n\n" );
+
+		return $result;
 	}
 }

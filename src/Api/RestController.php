@@ -849,7 +849,8 @@ final class RestController extends WP_REST_Controller {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function get_job_status( WP_REST_Request $request ) {
-		$job = $this->backup_manager->get_job_status( $request->get_param( 'id' ) );
+		$job_id = $request->get_param( 'id' );
+		$job = $this->backup_manager->get_job_status( $job_id );
 
 		if ( ! $job ) {
 			return new WP_Error(
@@ -857,6 +858,12 @@ final class RestController extends WP_REST_Controller {
 				__( 'Job not found.', 'swish-migrate-and-backup' ),
 				array( 'status' => 404 )
 			);
+		}
+
+		// Fallback: If job is processing and has a checkpoint, trigger continuation.
+		// This helps when WP-Cron is unreliable.
+		if ( 'processing' === $job['status'] ) {
+			$this->backup_manager->maybe_trigger_continuation( $job_id );
 		}
 
 		return rest_ensure_response( $job );

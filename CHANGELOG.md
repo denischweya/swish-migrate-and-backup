@@ -5,6 +5,35 @@ All notable changes to Swish Migrate and Backup will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.3] - 2026-05-11
+
+### Added
+- Chunked database backup with checkpoint support for large sites
+- `DatabaseBackup::backup_chunked()` method for resumable database backups
+- 10-second time slices for database backup to prevent timeouts
+- Database backup continuation support via `continue_database_backup()`
+- Full progress tracking for database backup (table-by-table progress)
+- Keyset pagination for database queries (O(1) instead of O(n) per batch)
+- Primary key detection for automatic keyset pagination selection
+
+### Fixed
+- Database backup timing out on large sites (100k+ rows in tables like `postmeta`)
+- 77+ tables being skipped due to timeout on large WooCommerce/blog sites
+- Backup appearing to complete but missing most database tables
+- Database backup not resuming properly after timeout
+- Checkpoint not saving database-specific fields (`db_file`, `db_checkpoint`, `backup_type`)
+- Misleading "Async backup completed" log when continuation is scheduled
+- WP-Cron not triggering continuation reliably (added fallback via status polling)
+- Frontend showing stale "X/Y tables" message during large table processing
+- Slow database backup due to OFFSET pagination causing O(n²) row scans
+
+### Changed
+- `run_full_backup_streaming()` now uses chunked database backup
+- `run_database_backup()` now uses chunked database backup with continuation
+- Database backup saves checkpoint after each table for reliable resumption
+- Default batch size increased from 200 to 1000 rows per query (5x faster)
+- Database queries use `WHERE pk > last_pk` instead of `OFFSET` for large tables
+
 ## [1.1.2] - 2026-05-08
 
 ### Added

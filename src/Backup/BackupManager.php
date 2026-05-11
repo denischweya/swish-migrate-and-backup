@@ -251,6 +251,20 @@ final class BackupManager {
 				'files_to_archive' => $checkpoint['files_to_archive'] ?? array(),
 				'has_file_list'    => $checkpoint['has_file_list'] ?? false,
 				'file_offset'      => $checkpoint['file_offset'] ?? 0,
+				// Database backup checkpoint fields.
+				'db_file'          => $checkpoint['db_file'] ?? '',
+				'db_checkpoint'    => $checkpoint['db_checkpoint'] ?? array(),
+				'backup_type'      => $checkpoint['backup_type'] ?? 'full',
+				// Streaming backup fields.
+				'backup_path'      => $checkpoint['backup_path'] ?? '',
+				'files'            => $checkpoint['files'] ?? array(),
+				'total_files'      => $checkpoint['total_files'] ?? 0,
+				'metadata'         => $checkpoint['metadata'] ?? array(),
+				// Archive continuation fields.
+				'file_list_path'   => $checkpoint['file_list_path'] ?? '',
+				'filemap_offset'   => $checkpoint['filemap_offset'] ?? 0,
+				'archive_offset'   => $checkpoint['archive_offset'] ?? 0,
+				'backup_filename'  => $checkpoint['backup_filename'] ?? '',
 			)
 		);
 
@@ -259,14 +273,9 @@ final class BackupManager {
 			$state->save_options( $job_id, $checkpoint['options'] );
 		}
 
-		$this->logger->debug( 'Checkpoint saved to file-based state', array(
+		$this->logger->info( 'Checkpoint saved', array(
 			'job_id'    => $job_id,
-			'processed' => $checkpoint['processed'] ?? 0,
-			'total'     => $checkpoint['total'] ?? 0,
-		) );
-
-		$this->logger->debug( 'Checkpoint saved to file-based state', array(
-			'job_id'    => $job_id,
+			'phase'     => $checkpoint['phase'] ?? 'unknown',
 			'processed' => $checkpoint['processed'] ?? 0,
 			'total'     => $checkpoint['total'] ?? 0,
 		) );
@@ -301,6 +310,20 @@ final class BackupManager {
 			'files_to_archive' => $progress['files_to_archive'] ?? array(),
 			'options'          => $options ?? array(),
 			'has_file_list'    => $progress['has_file_list'] ?? false,
+			// Database backup checkpoint fields.
+			'db_file'          => $progress['db_file'] ?? '',
+			'db_checkpoint'    => $progress['db_checkpoint'] ?? array(),
+			'backup_type'      => $progress['backup_type'] ?? 'full',
+			// Streaming backup fields.
+			'backup_path'      => $progress['backup_path'] ?? '',
+			'files'            => $progress['files'] ?? array(),
+			'total_files'      => $progress['total_files'] ?? 0,
+			'metadata'         => $progress['metadata'] ?? array(),
+			// Archive continuation fields.
+			'file_list_path'   => $progress['file_list_path'] ?? '',
+			'filemap_offset'   => $progress['filemap_offset'] ?? 0,
+			'archive_offset'   => $progress['archive_offset'] ?? 0,
+			'backup_filename'  => $progress['backup_filename'] ?? '',
 		);
 
 		return $checkpoint;
@@ -332,12 +355,53 @@ final class BackupManager {
 		}
 
 		// Schedule immediate continuation.
-		wp_schedule_single_event( time(), 'swish_backup_continue', array( $job_id ) );
+		$scheduled = wp_schedule_single_event( time(), 'swish_backup_continue', array( $job_id ) );
+
+		$this->logger->info( 'Scheduled backup continuation', array(
+			'job_id'    => $job_id,
+			'scheduled' => $scheduled,
+			'time'      => time(),
+		) );
 
 		// Spawn cron to process immediately.
 		$this->spawn_cron();
+	}
 
-		$this->logger->debug( 'Scheduled backup continuation', array( 'job_id' => $job_id ) );
+	/**
+	 * Trigger continuation if a checkpoint exists and cron hasn't fired.
+	 *
+	 * This is called from the status polling endpoint as a fallback
+	 * when WP-Cron is unreliable.
+	 *
+	 * @param string $job_id Job ID.
+	 * @return void
+	 */
+	public function maybe_trigger_continuation( string $job_id ): void {
+		// Check if we have a checkpoint.
+		$checkpoint = $this->get_checkpoint( $job_id );
+		if ( ! $checkpoint ) {
+			return; // No checkpoint, nothing to continue.
+		}
+
+		// Check if cron event is scheduled.
+		$scheduled = wp_next_scheduled( 'swish_backup_continue', array( $job_id ) );
+
+		// If scheduled in the past (cron missed) or not scheduled, trigger directly.
+		if ( ! $scheduled || $scheduled <= time() ) {
+			$this->logger->info( 'Triggering continuation via status poll (cron fallback)', array(
+				'job_id'         => $job_id,
+				'was_scheduled'  => $scheduled ? gmdate( 'Y-m-d H:i:s', $scheduled ) : 'no',
+				'phase'          => $checkpoint['phase'] ?? 'unknown',
+			) );
+
+			// Clear the old scheduled event if any.
+			if ( $scheduled ) {
+				wp_unschedule_event( $scheduled, 'swish_backup_continue', array( $job_id ) );
+			}
+
+			// Run continuation directly (in this request).
+			$this->continue_backup( $job_id );
+		}
 	}
 
 	/**
@@ -400,7 +464,9 @@ final class BackupManager {
 		$this->configure_batch_sizes( $options );
 
 		try {
-			if ( 'streaming_files' === $phase ) {
+			if ( 'database' === $phase ) {
+				$this->continue_database_backup( $job_id, $checkpoint );
+			} elseif ( 'streaming_files' === $phase ) {
 				$this->continue_streaming_backup( $job_id, $checkpoint );
 			} elseif ( 'files' === $phase ) {
 				$this->continue_file_backup( $job_id, $checkpoint );
@@ -414,6 +480,291 @@ final class BackupManager {
 			$this->fail_job( $job_id, $e->getMessage() );
 			$this->delete_checkpoint( $job_id );
 		}
+	}
+
+	/**
+	 * Continue database backup from checkpoint.
+	 *
+	 * @param string $job_id     Job ID.
+	 * @param array  $checkpoint Checkpoint data.
+	 * @return void
+	 */
+	private function continue_database_backup( string $job_id, array $checkpoint ): void {
+		$db_file          = $checkpoint['db_file'] ?? '';
+		$db_checkpoint    = $checkpoint['db_checkpoint'] ?? array();
+		$temp_dir         = $checkpoint['temp_dir'] ?? '';
+		$options          = $checkpoint['options'] ?? array();
+		$backup_type      = $checkpoint['backup_type'] ?? 'full';
+
+		$this->logger->info( 'Continuing database backup', array(
+			'table_index' => $db_checkpoint['table_index'] ?? 0,
+			'row_offset'  => $db_checkpoint['row_offset'] ?? 0,
+		) );
+
+		// Progress callback.
+		$progress_callback = function ( int $progress, string $table, int $tables_done, int $total_tables ) use ( $job_id ) {
+			// Database is 0-10% of full backup progress.
+			$job_progress = (int) ( $progress * 0.1 );
+			$this->update_job_status(
+				$job_id,
+				'processing',
+				$job_progress,
+				sprintf( 'Backing up database... %d/%d tables [resumed]', $tables_done, $total_tables )
+			);
+		};
+
+		// Continue database backup with checkpoint.
+		$result = $this->database_backup->backup_chunked( $db_file, $db_checkpoint, $progress_callback );
+
+		if ( isset( $result['error'] ) ) {
+			throw new \RuntimeException( 'Database backup failed: ' . $result['error'] );
+		}
+
+		if ( ! $result['completed'] ) {
+			// Save checkpoint for next continuation.
+			$this->logger->info( 'Database backup needs more time', array(
+				'checkpoint' => $result['checkpoint'],
+				'progress'   => $result['progress'] ?? array(),
+			) );
+
+			// Update job status with row-level progress for large tables.
+			$tables_done = $result['progress']['tables_completed'] ?? 0;
+			$total_tables = $result['progress']['total_tables'] ?? 0;
+			$row_offset = $result['checkpoint']['row_offset'] ?? 0;
+			$total_rows_written = $result['checkpoint']['total_rows_written'] ?? 0;
+
+			// Show row progress if we're mid-table.
+			if ( $row_offset > 0 ) {
+				$this->update_job_status(
+					$job_id,
+					'processing',
+					(int) ( ( $tables_done / max( 1, $total_tables ) ) * 10 ),
+					sprintf( 'Backing up database... table %d/%d (%s rows written)', $tables_done + 1, $total_tables, number_format( $total_rows_written ) )
+				);
+			}
+
+			$new_checkpoint = array(
+				'phase'         => 'database',
+				'db_file'       => $db_file,
+				'db_checkpoint' => $result['checkpoint'],
+				'temp_dir'      => $temp_dir,
+				'options'       => $options,
+				'backup_type'   => $backup_type,
+				'processed'     => $result['progress']['tables_completed'] ?? 0,
+				'total'         => $result['progress']['total_tables'] ?? 0,
+			);
+			$this->save_checkpoint( $job_id, $new_checkpoint );
+			$this->schedule_continuation( $job_id );
+
+			return;
+		}
+
+		// Database backup complete, continue with rest of backup.
+		$this->logger->info( 'Database backup completed after continuation', array(
+			'tables'             => $result['tables'],
+			'total_rows_written' => $result['total_rows_written'],
+			'size'               => ServerLimits::format_bytes( $result['size'] ),
+		) );
+
+		// Clear database checkpoint and continue with the rest of the backup.
+		$this->delete_checkpoint( $job_id );
+
+		// Now continue with the appropriate backup type.
+		if ( 'database' === $backup_type ) {
+			// Database-only backup - finish it.
+			$this->finish_database_only_backup( $job_id, $db_file, $temp_dir, $options );
+		} else {
+			// Full backup - continue with file scanning and archiving.
+			$this->continue_full_backup_after_database( $job_id, $db_file, $temp_dir, $options );
+		}
+	}
+
+	/**
+	 * Finish a database-only backup after chunked completion.
+	 *
+	 * @param string $job_id   Job ID.
+	 * @param string $db_file  Path to database.sql.
+	 * @param string $temp_dir Temp directory path.
+	 * @param array  $options  Backup options.
+	 * @return void
+	 */
+	private function finish_database_only_backup( string $job_id, string $db_file, string $temp_dir, array $options ): void {
+		$this->update_job_status( $job_id, 'processing', 70, 'Compressing...' );
+
+		$backup_filename = $this->generate_backup_filename( 'db' );
+		$backup_path = $this->get_backup_directory() . '/' . $backup_filename;
+
+		$metadata = array(
+			'job_id' => $job_id,
+			'type'   => 'database',
+			'tables' => $this->database_backup->get_tables(),
+		);
+
+		if ( ! $this->archiver->create_archive(
+			array( array( 'path' => $db_file, 'name' => 'database.sql' ) ),
+			$backup_path,
+			$metadata
+		) ) {
+			throw new \RuntimeException( 'Archive creation failed' );
+		}
+
+		$this->check_backup_size_limit( $backup_path, $job_id );
+
+		$this->update_job_status( $job_id, 'processing', 90, 'Uploading to storage...' );
+		$destinations = $options['storage_destinations'] ?? array( 'local' );
+		$upload_results = $this->storage_manager->upload_to_destinations(
+			$backup_path,
+			$backup_filename,
+			$destinations
+		);
+
+		$this->cleanup_temp_directory( $temp_dir );
+
+		$result = array(
+			'job_id'       => $job_id,
+			'filename'     => $backup_filename,
+			'path'         => $backup_path,
+			'size'         => filesize( $backup_path ),
+			'checksum'     => $this->archiver->calculate_checksum( $backup_path ),
+			'destinations' => $upload_results,
+		);
+
+		$this->complete_job( $job_id, $result );
+	}
+
+	/**
+	 * Continue full backup after database phase completed.
+	 *
+	 * @param string $job_id   Job ID.
+	 * @param string $db_file  Path to database.sql.
+	 * @param string $temp_dir Temp directory path.
+	 * @param array  $options  Backup options.
+	 * @return void
+	 */
+	private function continue_full_backup_after_database( string $job_id, string $db_file, string $temp_dir, array $options ): void {
+		// Step 2: Prepare file list.
+		$this->update_job_status( $job_id, 'processing', 10, 'Scanning files...' );
+
+		$file_list = $this->file_backup->prepare_file_list( $options );
+		$files = $file_list['files'] ?? array();
+		$total_files = count( $files );
+
+		if ( 0 === $total_files ) {
+			throw new \RuntimeException( 'No files found to backup' );
+		}
+
+		$this->logger->info( 'File list prepared after database continuation', array( 'count' => $total_files ) );
+
+		// Step 3: Add special files.
+		$this->update_job_status( $job_id, 'processing', 12, 'Adding configuration files...' );
+		$this->file_backup->backup_wp_config( $temp_dir );
+
+		// Create manifest.
+		$metadata = $this->create_backup_manifest( $job_id, 'full', $options, array(
+			'count' => $total_files,
+		) );
+		$manifest_path = $temp_dir . '/manifest.json';
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+		file_put_contents( $manifest_path, wp_json_encode( $metadata, JSON_PRETTY_PRINT ) );
+
+		// Add special files to the beginning of the file list.
+		$special_files = array();
+		if ( file_exists( $manifest_path ) ) {
+			$special_files[] = array( 'path' => $manifest_path, 'relative' => 'manifest.json' );
+		}
+		if ( file_exists( $db_file ) ) {
+			$special_files[] = array( 'path' => $db_file, 'relative' => 'database.sql' );
+		}
+		$config_file = $temp_dir . '/wp-config.php';
+		if ( file_exists( $config_file ) ) {
+			$special_files[] = array( 'path' => $config_file, 'relative' => 'wp-config.php' );
+		}
+
+		// Merge special files with regular files.
+		$all_files = array_merge( $special_files, $files );
+		$total_all = count( $all_files );
+
+		// Step 4: Create streaming tar archive.
+		$this->update_job_status( $job_id, 'processing', 15, 'Creating archive...' );
+
+		$site_name = sanitize_file_name( wp_parse_url( get_site_url(), PHP_URL_HOST ) );
+		$timestamp = gmdate( 'Y-m-d-His' );
+		$backup_filename = "{$site_name}-full-{$timestamp}.tar.gz";
+		$backup_path = $this->get_backup_directory() . '/' . $backup_filename;
+
+		// Progress callback.
+		$progress_callback = function ( float $progress, string $message, int $processed, int $total ) use ( $job_id ) {
+			// Map 0-100 to 15-90.
+			$job_progress = 15 + ( $progress * 0.75 );
+			$this->update_job_status( $job_id, 'processing', $job_progress, $message );
+		};
+
+		// Run streaming backup.
+		$streaming = $this->get_streaming_tar();
+		$result = $streaming->run_chunk( $job_id, $all_files, $backup_path, $progress_callback );
+
+		// Handle result.
+		if ( StreamingTarBackup::RESULT_ERROR === $result['result'] ) {
+			throw new \RuntimeException( $result['error'] ?? 'Streaming backup failed' );
+		}
+
+		if ( StreamingTarBackup::RESULT_CONTINUE === $result['result'] ) {
+			// Save checkpoint for file streaming continuation.
+			$checkpoint = array(
+				'phase'        => 'streaming_files',
+				'backup_path'  => $backup_path,
+				'temp_dir'     => $temp_dir,
+				'files'        => $all_files,
+				'total_files'  => $total_all,
+				'processed'    => $result['processed'],
+				'options'      => $options,
+				'metadata'     => $metadata,
+			);
+			$this->save_checkpoint( $job_id, $checkpoint );
+			$this->schedule_continuation( $job_id );
+
+			return;
+		}
+
+		// Backup complete!
+		$this->finalize_streaming_backup( $job_id, $backup_path, $backup_filename, $temp_dir, $options );
+	}
+
+	/**
+	 * Finalize a streaming backup after all chunks are done.
+	 *
+	 * @param string $job_id          Job ID.
+	 * @param string $backup_path     Path to backup file.
+	 * @param string $backup_filename Backup filename.
+	 * @param string $temp_dir        Temp directory path.
+	 * @param array  $options         Backup options.
+	 * @return void
+	 */
+	private function finalize_streaming_backup( string $job_id, string $backup_path, string $backup_filename, string $temp_dir, array $options ): void {
+		$this->update_job_status( $job_id, 'processing', 92, 'Finalizing backup...' );
+
+		$this->check_backup_size_limit( $backup_path, $job_id );
+
+		$this->update_job_status( $job_id, 'processing', 95, 'Uploading to storage...' );
+		$destinations = $options['storage_destinations'] ?? array( 'local' );
+		$this->storage_manager->store( $backup_path, $destinations );
+
+		$this->cleanup_temp_directory( $temp_dir );
+
+		$result = array(
+			'job_id'   => $job_id,
+			'filename' => $backup_filename,
+			'path'     => $backup_path,
+			'size'     => filesize( $backup_path ),
+			'checksum' => md5_file( $backup_path ),
+		);
+
+		$this->complete_job( $job_id, $result );
+
+		$this->logger->info( 'Full backup completed after continuation', array(
+			'filename' => $backup_filename,
+			'size'     => ServerLimits::format_bytes( $result['size'] ),
+		) );
 	}
 
 	/**
@@ -1061,6 +1412,8 @@ final class BackupManager {
 		// Log result.
 		if ( isset( $result['error'] ) ) {
 			$this->logger->error( 'Async backup failed', array( 'job_id' => $job_id, 'error' => $result['error'] ) );
+		} elseif ( ! empty( $result['needs_continuation'] ) ) {
+			$this->logger->info( 'Async backup chunk completed, continuation scheduled', array( 'job_id' => $job_id ) );
 		} else {
 			$this->logger->info( 'Async backup completed', array( 'job_id' => $job_id ) );
 		}
@@ -1301,17 +1654,77 @@ final class BackupManager {
 		try {
 			$temp_dir = $this->get_temp_directory( $job_id );
 
-			// Step 1: Backup database.
+			// Step 1: Backup database with chunked support for large sites.
 			if ( $options['backup_database'] ?? true ) {
 				$this->update_job_status( $job_id, 'processing', 5, 'Backing up database...' );
 				$db_file = $temp_dir . '/database.sql';
 
-				if ( ! $this->database_backup->backup( $db_file ) ) {
-					throw new \RuntimeException( 'Database backup failed' );
+				// Progress callback for database backup.
+				$db_progress = function ( int $progress, string $table, int $tables_done, int $total_tables ) use ( $job_id ) {
+					// Database is 0-10% of full backup progress.
+					$job_progress = (int) ( $progress * 0.1 );
+					$this->update_job_status(
+						$job_id,
+						'processing',
+						$job_progress,
+						sprintf( 'Backing up database... %d/%d tables', $tables_done, $total_tables )
+					);
+				};
+
+				// Use chunked backup with 10-second time slices.
+				$db_result = $this->database_backup->backup_chunked( $db_file, array(), $db_progress, 10 );
+
+				if ( isset( $db_result['error'] ) ) {
+					throw new \RuntimeException( 'Database backup failed: ' . $db_result['error'] );
+				}
+
+				if ( ! $db_result['completed'] ) {
+					// Database backup needs continuation - save checkpoint.
+					$this->logger->info( 'Database backup needs continuation', array(
+						'checkpoint' => $db_result['checkpoint'],
+						'progress'   => $db_result['progress'],
+					) );
+
+					// Update job status with row-level progress for large tables.
+					$tables_done = $db_result['progress']['tables_completed'] ?? 0;
+					$total_tables = $db_result['progress']['total_tables'] ?? 0;
+					$row_offset = $db_result['checkpoint']['row_offset'] ?? 0;
+					$total_rows_written = $db_result['checkpoint']['total_rows_written'] ?? 0;
+
+					// Show row progress if we're mid-table.
+					if ( $row_offset > 0 ) {
+						$this->update_job_status(
+							$job_id,
+							'processing',
+							(int) ( ( $tables_done / max( 1, $total_tables ) ) * 10 ),
+							sprintf( 'Backing up database... table %d/%d (%s rows written)', $tables_done + 1, $total_tables, number_format( $total_rows_written ) )
+						);
+					}
+
+					$checkpoint = array(
+						'phase'         => 'database',
+						'db_file'       => $db_file,
+						'db_checkpoint' => $db_result['checkpoint'],
+						'temp_dir'      => $temp_dir,
+						'options'       => $options,
+						'backup_type'   => 'full',
+						'processed'     => $db_result['progress']['tables_completed'] ?? 0,
+						'total'         => $db_result['progress']['total_tables'] ?? 0,
+					);
+					$this->save_checkpoint( $job_id, $checkpoint );
+					$this->schedule_continuation( $job_id );
+
+					return array(
+						'job_id'             => $job_id,
+						'status'             => 'processing',
+						'needs_continuation' => true,
+					);
 				}
 
 				$this->logger->info( 'Database backup completed', array(
-					'size' => ServerLimits::format_bytes( filesize( $db_file ) ),
+					'size'               => ServerLimits::format_bytes( filesize( $db_file ) ),
+					'tables'             => $db_result['tables'],
+					'total_rows_written' => $db_result['total_rows_written'],
 				) );
 			}
 
@@ -1880,12 +2293,55 @@ final class BackupManager {
 
 		try {
 			$backup_filename = $this->generate_backup_filename( 'db' );
-			$temp_file = $this->get_temp_directory( $job_id ) . '/database.sql';
+			$temp_dir = $this->get_temp_directory( $job_id );
+			$temp_file = $temp_dir . '/database.sql';
 
 			$this->update_job_status( $job_id, 'processing', 20, 'Backing up database...' );
 
-			if ( ! $this->database_backup->backup( $temp_file ) ) {
-				throw new \RuntimeException( 'Database backup failed' );
+			// Progress callback for database backup.
+			$db_progress = function ( int $progress, string $table, int $tables_done, int $total_tables ) use ( $job_id ) {
+				// Database is 20-70% of backup progress.
+				$job_progress = 20 + (int) ( $progress * 0.5 );
+				$this->update_job_status(
+					$job_id,
+					'processing',
+					$job_progress,
+					sprintf( 'Backing up database... %d/%d tables', $tables_done, $total_tables )
+				);
+			};
+
+			// Use chunked backup with 10-second time slices.
+			$db_result = $this->database_backup->backup_chunked( $temp_file, array(), $db_progress, 10 );
+
+			if ( isset( $db_result['error'] ) ) {
+				throw new \RuntimeException( 'Database backup failed: ' . $db_result['error'] );
+			}
+
+			if ( ! $db_result['completed'] ) {
+				// Database backup needs continuation - save checkpoint.
+				$this->logger->info( 'Database-only backup needs continuation', array(
+					'checkpoint' => $db_result['checkpoint'],
+					'progress'   => $db_result['progress'],
+				) );
+
+				$checkpoint = array(
+					'phase'         => 'database',
+					'db_file'       => $temp_file,
+					'db_checkpoint' => $db_result['checkpoint'],
+					'temp_dir'      => $temp_dir,
+					'options'       => $options,
+					'backup_type'   => 'database',
+					'processed'     => $db_result['progress']['tables_completed'] ?? 0,
+					'total'         => $db_result['progress']['total_tables'] ?? 0,
+				);
+				$this->save_checkpoint( $job_id, $checkpoint );
+				$this->schedule_continuation( $job_id );
+
+				return array(
+					'job_id'             => $job_id,
+					'status'             => 'processing',
+					'needs_continuation' => true,
+				);
 			}
 
 			$this->update_job_status( $job_id, 'processing', 70, 'Compressing...' );
@@ -2276,7 +2732,7 @@ final class BackupManager {
 	public function create_database_backup( array $options = array() ): ?array {
 		$job_id = $this->generate_job_id();
 		$this->logger->set_job_id( $job_id );
-		$this->logger->info( 'Starting database backup' );
+		$this->logger->info( 'Starting database backup (sync mode - use async for large sites)' );
 
 		// Configure batch sizes for shared hosting compatibility.
 		$this->configure_batch_sizes( $options );
