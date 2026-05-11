@@ -23,6 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Migration import rejecting .tar.gz and .swish files (now accepts ZIP, TAR.GZ, SWISH)
 - Migration analysis failing for .tar.gz backups (was only reading ZIP format)
 - Restore process failing for .tar.gz backups (added PharData extraction support)
+- **Files not being restored from streaming tar backups** - restore now handles direct file extraction (wp-content, wp-includes, etc. extracted directly instead of nested in files.tar.gz)
+- **Backup verification failing for renamed files** - WordPress may rename uploaded files (e.g., `.tar.gz` → `.tar-2.gz`), now uses magic byte detection for reliable format identification
+- **CRITICAL: Backups losing folder structure on Docker/symlink setups** - `get_relative_path()` now properly handles WP_CONTENT_DIR, WP_PLUGIN_DIR, theme root, and uploads when they resolve to different paths than ABSPATH (common in Docker, ddev, symlinked setups)
 
 ### Changed
 - Download handler now streams files in chunks instead of using `readfile()`

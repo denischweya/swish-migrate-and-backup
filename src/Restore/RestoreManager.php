@@ -96,6 +96,8 @@ final class RestoreManager {
 
 			// Restore files.
 			if ( $options['restore_files'] ?? true ) {
+				$files_restored = false;
+
 				// Check for tar.gz archive first (preferred, faster).
 				$tar_files = glob( $extract_dir . '/files*.tar.gz' );
 				if ( ! empty( $tar_files ) ) {
@@ -107,12 +109,14 @@ final class RestoreManager {
 							throw new \RuntimeException( 'File restore failed for: ' . basename( $tar_path ) );
 						}
 					}
+					$files_restored = true;
 				} elseif ( file_exists( $extract_dir . '/files.zip' ) ) {
 					// Check for single files.zip (legacy/small backups).
 					$this->logger->info( 'Restoring files...' );
 					if ( ! $this->restore_files( $extract_dir . '/files.zip', $options ) ) {
 						throw new \RuntimeException( 'File restore failed' );
 					}
+					$files_restored = true;
 				}
 
 				// Check for multiple batch parts (files-001.zip, files-002.zip, etc.).
@@ -126,6 +130,21 @@ final class RestoreManager {
 							throw new \RuntimeException( 'File restore failed for part: ' . basename( $part_path ) );
 						}
 					}
+					$files_restored = true;
+				}
+
+				// Handle streaming tar backup format: files are extracted directly to extract_dir.
+				// Check if wp-content exists directly (no nested archive).
+				if ( ! $files_restored && is_dir( $extract_dir . '/wp-content' ) ) {
+					$this->logger->info( 'Restoring files from direct extraction (streaming tar format)...' );
+					if ( ! $this->restore_files_direct( $extract_dir, $options ) ) {
+						throw new \RuntimeException( 'File restore failed (direct copy)' );
+					}
+					$files_restored = true;
+				}
+
+				if ( ! $files_restored ) {
+					$this->logger->warning( 'No files to restore - backup may be database-only' );
 				}
 			}
 
@@ -390,6 +409,116 @@ final class RestoreManager {
 	}
 
 	/**
+	 * Restore files directly from extracted backup directory.
+	 *
+	 * This handles streaming tar backups where files are extracted directly
+	 * to the extract directory (not nested in files.tar.gz or files.zip).
+	 *
+	 * @param string $extract_dir Directory containing extracted files.
+	 * @param array  $options     Restore options.
+	 * @return bool True if successful.
+	 */
+	private function restore_files_direct( string $extract_dir, array $options = array() ): bool {
+		try {
+			$destination = ABSPATH;
+
+			// Create backup of current files if requested.
+			if ( $options['backup_before_restore'] ?? false ) {
+				$this->create_pre_restore_backup();
+			}
+
+			// Directories to copy (standard WordPress structure).
+			$dirs_to_copy = array( 'wp-content', 'wp-includes', 'wp-admin' );
+
+			// Also check for any root PHP files (but exclude special ones we handle separately).
+			$exclude_files = array( 'manifest.json', 'database.sql', 'wp-config.php' );
+
+			$files_copied = 0;
+			$dirs_copied = 0;
+
+			// Copy directories.
+			foreach ( $dirs_to_copy as $dir ) {
+				$source = $extract_dir . '/' . $dir;
+				if ( is_dir( $source ) ) {
+					$this->logger->info( "Copying directory: {$dir}" );
+					$copied = $this->copy_directory_recursive( $source, $destination . '/' . $dir );
+					$files_copied += $copied;
+					++$dirs_copied;
+				}
+			}
+
+			// Copy root files (like index.php, wp-load.php, etc.) but not special backup files.
+			$root_files = glob( $extract_dir . '/*.php' );
+			if ( ! empty( $root_files ) ) {
+				foreach ( $root_files as $file ) {
+					$filename = basename( $file );
+					if ( in_array( $filename, $exclude_files, true ) ) {
+						continue;
+					}
+					$dest_file = $destination . '/' . $filename;
+					// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_copy
+					if ( copy( $file, $dest_file ) ) {
+						++$files_copied;
+					}
+				}
+			}
+
+			$this->logger->info( 'Direct file restore completed', array(
+				'directories' => $dirs_copied,
+				'files'       => $files_copied,
+			) );
+
+			return $dirs_copied > 0 || $files_copied > 0;
+		} catch ( \Exception $e ) {
+			$this->logger->error( 'Direct file restore failed: ' . $e->getMessage() );
+			return false;
+		}
+	}
+
+	/**
+	 * Recursively copy a directory.
+	 *
+	 * @param string $source      Source directory.
+	 * @param string $destination Destination directory.
+	 * @return int Number of files copied.
+	 */
+	private function copy_directory_recursive( string $source, string $destination ): int {
+		$count = 0;
+
+		if ( ! is_dir( $destination ) ) {
+			wp_mkdir_p( $destination );
+		}
+
+		$iterator = new \RecursiveIteratorIterator(
+			new \RecursiveDirectoryIterator( $source, \RecursiveDirectoryIterator::SKIP_DOTS ),
+			\RecursiveIteratorIterator::SELF_FIRST
+		);
+
+		foreach ( $iterator as $item ) {
+			$rel_path = substr( $item->getPathname(), strlen( $source ) + 1 );
+			$dest_path = $destination . '/' . $rel_path;
+
+			if ( $item->isDir() ) {
+				if ( ! is_dir( $dest_path ) ) {
+					wp_mkdir_p( $dest_path );
+				}
+			} else {
+				// Ensure parent directory exists.
+				$parent = dirname( $dest_path );
+				if ( ! is_dir( $parent ) ) {
+					wp_mkdir_p( $parent );
+				}
+				// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_copy
+				if ( copy( $item->getPathname(), $dest_path ) ) {
+					++$count;
+				}
+			}
+		}
+
+		return $count;
+	}
+
+	/**
 	 * Safely extract a ZIP archive with path traversal validation.
 	 *
 	 * Prevents Zip Slip attacks by ensuring all extracted files stay within the destination directory.
@@ -514,14 +643,19 @@ final class RestoreManager {
 		}
 
 		try {
-			// Get manifest using our format-aware method.
+			// Get manifest using format detection.
 			$manifest = null;
-			$filename = strtolower( basename( $backup_path ) );
 
-			if ( str_ends_with( $filename, '.tar.gz' ) || str_ends_with( $filename, '.tgz' ) || str_ends_with( $filename, '.swish' ) ) {
+			if ( $this->is_tar_archive( $backup_path ) ) {
 				$manifest = $this->get_manifest_from_tar( $backup_path );
-			} else {
+			} elseif ( $this->is_zip_archive( $backup_path ) ) {
 				$manifest = $this->get_manifest_from_zip( $backup_path );
+			} else {
+				// Unknown format - try both.
+				$manifest = $this->get_manifest_from_tar( $backup_path );
+				if ( null === $manifest ) {
+					$manifest = $this->get_manifest_from_zip( $backup_path );
+				}
 			}
 
 			if ( null === $manifest ) {
@@ -541,6 +675,84 @@ final class RestoreManager {
 	}
 
 	/**
+	 * Check if file is a tar/tar.gz archive.
+	 *
+	 * Handles WordPress filename mangling (e.g., .tar-2.gz instead of .tar.gz).
+	 *
+	 * @param string $backup_path Path to backup file.
+	 * @return bool True if tar archive.
+	 */
+	private function is_tar_archive( string $backup_path ): bool {
+		$filename = strtolower( basename( $backup_path ) );
+
+		// Standard extensions.
+		if ( str_ends_with( $filename, '.tar.gz' ) ||
+			str_ends_with( $filename, '.tgz' ) ||
+			str_ends_with( $filename, '.swish' ) ||
+			str_ends_with( $filename, '.tar' ) ) {
+			return true;
+		}
+
+		// Handle WordPress filename mangling: .tar-N.gz (e.g., file.tar-2.gz).
+		if ( preg_match( '/\.tar-\d+\.gz$/i', $filename ) ) {
+			return true;
+		}
+
+		// Any .gz file that contains 'tar' in filename is likely a tar.gz.
+		if ( str_ends_with( $filename, '.gz' ) && str_contains( $filename, 'tar' ) ) {
+			return true;
+		}
+
+		// Check by content - gzip magic bytes.
+		if ( str_ends_with( $filename, '.gz' ) ) {
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen
+			$handle = fopen( $backup_path, 'rb' );
+			if ( $handle ) {
+				// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fread
+				$magic = fread( $handle, 2 );
+				// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+				fclose( $handle );
+				// Gzip magic bytes: 1f 8b.
+				if ( "\x1f\x8b" === $magic ) {
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Check if file is a ZIP archive.
+	 *
+	 * @param string $backup_path Path to backup file.
+	 * @return bool True if ZIP archive.
+	 */
+	private function is_zip_archive( string $backup_path ): bool {
+		$filename = strtolower( basename( $backup_path ) );
+
+		if ( str_ends_with( $filename, '.zip' ) ) {
+			return true;
+		}
+
+		// Check by content - ZIP magic bytes.
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen
+		$handle = fopen( $backup_path, 'rb' );
+		if ( $handle ) {
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fread
+			$magic = fread( $handle, 4 );
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+			fclose( $handle );
+			// ZIP magic bytes: PK (50 4b 03 04).
+			if ( "PK\x03\x04" === $magic ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
 	 * Get backup information.
 	 *
 	 * @param string $backup_path Path to backup file.
@@ -548,21 +760,18 @@ final class RestoreManager {
 	 */
 	public function get_backup_info( string $backup_path ): ?array {
 		try {
-			$filename = strtolower( basename( $backup_path ) );
 			$manifest = null;
 
 			// Determine archive type and extract manifest accordingly.
-			if ( str_ends_with( $filename, '.zip' ) ) {
-				// ZIP archive.
-				$manifest = $this->get_manifest_from_zip( $backup_path );
-			} elseif ( str_ends_with( $filename, '.tar.gz' ) || str_ends_with( $filename, '.tgz' ) || str_ends_with( $filename, '.swish' ) ) {
-				// Tar.gz archive (including .swish format).
+			if ( $this->is_tar_archive( $backup_path ) ) {
 				$manifest = $this->get_manifest_from_tar( $backup_path );
-			} else {
-				// Try ZIP first, then tar.gz.
+			} elseif ( $this->is_zip_archive( $backup_path ) ) {
 				$manifest = $this->get_manifest_from_zip( $backup_path );
+			} else {
+				// Unknown format - try both.
+				$manifest = $this->get_manifest_from_tar( $backup_path );
 				if ( null === $manifest ) {
-					$manifest = $this->get_manifest_from_tar( $backup_path );
+					$manifest = $this->get_manifest_from_zip( $backup_path );
 				}
 			}
 
@@ -683,14 +892,20 @@ final class RestoreManager {
 				return false;
 			}
 
-			$filename = strtolower( basename( $backup_path ) );
-
 			// Determine archive type and extract accordingly.
-			if ( str_ends_with( $filename, '.tar.gz' ) || str_ends_with( $filename, '.tgz' ) || str_ends_with( $filename, '.swish' ) ) {
+			if ( $this->is_tar_archive( $backup_path ) ) {
 				return $this->extract_tar_backup( $backup_path, $output_dir );
 			}
 
-			// Default to ZIP extraction.
+			if ( $this->is_zip_archive( $backup_path ) ) {
+				return $this->extract_zip_backup( $backup_path, $output_dir );
+			}
+
+			// Unknown format - try tar first, then zip.
+			if ( $this->extract_tar_backup( $backup_path, $output_dir ) ) {
+				return true;
+			}
+
 			return $this->extract_zip_backup( $backup_path, $output_dir );
 		} catch ( \Exception $e ) {
 			$this->logger->error( 'Failed to extract backup: ' . $e->getMessage() );
