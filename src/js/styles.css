@@ -709,9 +709,7 @@
    Migration Page Styles
    ========================================================================== */
 
-.swish-backup-migration-wizard {
-	max-width: 900px;
-}
+
 
 .swish-backup-migration-wizard h1 {
 	margin-bottom: 24px;
@@ -2087,9 +2085,12 @@
 }
 
 @keyframes progressPulse {
-	0%, 100% {
+
+	0%,
+	100% {
 		stroke: #2271b1;
 	}
+
 	50% {
 		stroke: #135e96;
 	}
@@ -2213,10 +2214,13 @@
 }
 
 @keyframes statusPulse {
-	0%, 100% {
+
+	0%,
+	100% {
 		opacity: 1;
 		transform: scale(1);
 	}
+
 	50% {
 		opacity: 0.5;
 		transform: scale(1.2);
@@ -2246,9 +2250,12 @@
 }
 
 @keyframes stepPulse {
-	0%, 100% {
+
+	0%,
+	100% {
 		box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4);
 	}
+
 	50% {
 		box-shadow: 0 0 0 6px rgba(59, 130, 246, 0);
 	}
