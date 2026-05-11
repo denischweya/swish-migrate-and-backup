@@ -63,9 +63,10 @@ final class SettingsPage {
 		$active_tab = isset( $_GET['tab'] ) ? sanitize_text_field( wp_unslash( $_GET['tab'] ) ) : 'general';
 		?>
 		<div class="wrap swish-backup-wrap">
-			<?php AdminNav::render(); ?>
-
 			<h1><?php esc_html_e( 'Swish Backup Settings', 'swish-migrate-and-backup' ); ?></h1>
+			<hr class="wp-header-end">
+
+			<?php AdminNav::render(); ?>
 
 			<nav class="nav-tab-wrapper">
 				<a href="<?php echo esc_url( add_query_arg( 'tab', 'general' ) ); ?>" class="nav-tab <?php echo 'general' === $active_tab ? 'nav-tab-active' : ''; ?>">

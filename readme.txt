@@ -28,45 +28,20 @@ Swish Migrate and Backup is a powerful WordPress plugin that allows you to creat
 * **Encrypted Credentials** - Cloud storage credentials are encrypted using AES-256-CBC
 * **REST API** - Full REST API for integration with other tools
 
-= External Services =
+= Remote Backup Storage =
 
-This plugin connects to the following external services when configured by the user. No data is sent to any external service unless you explicitly configure and enable cloud storage in the plugin settings.
+* Amazon S3
+* Dropbox
+* Google Drive
 
-**Amazon S3**
+= Swish Backup & Migrate PRO =
 
-When you configure Amazon S3 storage, your backup files are uploaded to and stored on Amazon Web Services (AWS) S3 servers. The following data is sent:
+Upgrade to PRO for advanced features: [Get PRO](https://swishbackup.swishfolio.com/)
 
-* Your backup files (which may contain your WordPress database, themes, plugins, and uploads)
-* AWS access credentials are used for authentication (stored encrypted in your WordPress database)
-
-Data is transmitted whenever you create a backup with S3 storage enabled, or when you download/restore a backup from S3.
-
-* [AWS Service Terms](https://aws.amazon.com/service-terms/)
-* [AWS Privacy Policy](https://aws.amazon.com/privacy/)
-
-**Dropbox**
-
-When you configure Dropbox storage, your backup files are uploaded to and stored on Dropbox servers. The following data is sent:
-
-* Your backup files (which may contain your WordPress database, themes, plugins, and uploads)
-* Dropbox API credentials are used for authentication (stored encrypted in your WordPress database)
-
-Data is transmitted whenever you create a backup with Dropbox storage enabled, or when you download/restore a backup from Dropbox.
-
-* [Dropbox Terms of Service](https://www.dropbox.com/terms)
-* [Dropbox Privacy Policy](https://www.dropbox.com/privacy)
-
-**Google Drive**
-
-When you configure Google Drive storage, your backup files are uploaded to and stored on Google servers. The following data is sent:
-
-* Your backup files (which may contain your WordPress database, themes, plugins, and uploads)
-* Google API credentials are used for authentication (stored encrypted in your WordPress database)
-
-Data is transmitted whenever you create a backup with Google Drive storage enabled, or when you download/restore a backup from Google Drive.
-
-* [Google Terms of Service](https://policies.google.com/terms)
-* [Google Privacy Policy](https://policies.google.com/privacy)
+* **Multisite Support** - Full compatibility with WordPress multisite networks
+* **Multisite Clone Site** - Clone sites within your multisite network
+* **Unlimited Backup/Restore Size** - No file size limits on backups or restores
+* **Full Backups** - Complete backups including wp-core, wp-content, themes, plugins, uploads, and database
 
 = Requirements =
 
@@ -87,6 +62,7 @@ Data is transmitted whenever you create a backup with Google Drive storage enabl
 = How large of a site can this plugin handle? =
 
 The plugin uses chunked processing for both database and file operations, allowing it to handle sites of virtually any size without running into memory limits.
+The free plugin can only import up to 2GB backup, Pro version removed this limit [Get PRO](https://swishbackup.swishfolio.com/)
 
 = Where are backups stored by default? =
 
@@ -110,6 +86,10 @@ Yes, all cloud storage credentials are encrypted using AES-256-CBC encryption be
 = Can I restore a backup to a different site? =
 
 Yes, you can download a backup and upload it to any WordPress site with this plugin installed, then use the migration tool to update URLs.
+
+= Can I backup & migrate a multisite? =
+
+This feature is only available in the PRO version of this plugin [Get PRO](https://swishbackup.swishfolio.com/)
 
 == Screenshots ==
 

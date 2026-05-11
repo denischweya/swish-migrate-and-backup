@@ -64,87 +64,58 @@ const App = () => {
 		}
 	};
 
+	/**
+	 * Store active job in localStorage for persistence across page refreshes.
+	 */
+	const storeActiveJob = ( jobId, type ) => {
+		const jobs = JSON.parse( localStorage.getItem( 'swish_active_jobs' ) || '{}' );
+		jobs[ jobId ] = {
+			id: jobId,
+			type: type,
+			startedAt: Date.now(),
+			progress: 0,
+			status: 'pending',
+			step: 'Initializing...',
+		};
+		localStorage.setItem( 'swish_active_jobs', JSON.stringify( jobs ) );
+	};
+
 	const handleBackup = useCallback(
 		async ( type ) => {
-			// Use pipeline for full and files backups (more reliable for large sites).
-			// Database-only backups can use the original method.
-			const usePipeline = type !== 'database';
-
-			if ( usePipeline ) {
-				handlePipelineBackup( type );
-				return;
-			}
-
 			try {
-				setShowProgress( true );
-				setCurrentJob( {
-					status: 'starting',
-					progress: 0,
-					message: 'Initializing backup...',
-				} );
-
+				// Start the backup job
 				const result = await createBackup( type, {
 					db_batch_size: settings?.db_batch_size || 500,
 					file_batch_size: settings?.file_batch_size || 100,
 				} );
 
 				if ( result.job_id ) {
-					pollJobStatus( result.job_id );
-				} else {
-					setCurrentJob( {
-						status: 'completed',
-						progress: 100,
-						message: 'Backup completed successfully!',
-					} );
+					// Store job in localStorage for the backups page to pick up
+					storeActiveJob( result.job_id, type );
+
+					// Redirect to backups page to show progress
+					const backupsPageUrl = window.swishBackupData?.backupsPageUrl || 'admin.php?page=swish-backup-backups';
+					window.location.href = backupsPageUrl;
+				} else if ( result.success || result.filename ) {
+					// Synchronous backup completed immediately (rare)
 					loadDashboardData();
+				} else {
+					alert( 'Backup failed to start' );
 				}
 			} catch ( err ) {
-				setCurrentJob( {
-					status: 'failed',
-					progress: 0,
-					message: err.message || 'Backup failed',
-				} );
+				alert( err.message || 'Backup failed' );
 			}
 		},
 		[ settings ]
 	);
 
+	// Legacy pipeline backup - now redirects to backups page instead
 	const handlePipelineBackup = useCallback(
 		async ( type ) => {
-			try {
-				setShowProgress( true );
-				setCurrentJob( {
-					status: 'starting',
-					progress: 0,
-					message: 'Starting backup pipeline...',
-					stages: [],
-				} );
-
-				// Start the pipeline.
-				const startResult = await pipelineStart( type );
-
-				if ( ! startResult.success ) {
-					throw new Error( startResult.message || 'Failed to start backup' );
-				}
-
-				setCurrentJob( ( prev ) => ( {
-					...prev,
-					status: 'processing',
-					message: startResult.message,
-					stages: [ { name: 'Indexing files', status: 'in_progress' } ],
-				} ) );
-
-				// Continue the pipeline until complete.
-				await runPipeline( startResult.job_id );
-			} catch ( err ) {
-				setCurrentJob( {
-					status: 'failed',
-					progress: 0,
-					message: err.message || 'Backup failed',
-				} );
-			}
+			// Redirect to backups page - the new flow handles everything there
+			handleBackup( type );
 		},
-		[]
+		[ handleBackup ]
 	);
 
 	const runPipeline = useCallback(

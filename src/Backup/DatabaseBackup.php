@@ -43,6 +43,20 @@ final class DatabaseBackup {
 	private int $rows_per_batch = 200;
 
 	/**
+	 * Start time for timeout tracking.
+	 *
+	 * @var float
+	 */
+	private float $start_time = 0;
+
+	/**
+	 * Maximum execution time in seconds.
+	 *
+	 * @var int
+	 */
+	private int $max_execution_time = 25;
+
+	/**
 	 * Default rows per batch.
 	 */
 	private const DEFAULT_ROWS_PER_BATCH = 200;
@@ -56,6 +70,15 @@ final class DatabaseBackup {
 	 * Memory threshold for reducing batch size (32MB).
 	 */
 	private const MEMORY_THRESHOLD = 33554432;
+
+	/**
+	 * Default tables to exclude (transient/log tables that regenerate).
+	 */
+	private const DEFAULT_EXCLUDED_PATTERNS = array(
+		'actionscheduler_logs',
+		'actionscheduler_claims',
+		'wc_admin_note_actions', // WooCommerce admin notes - regenerates.
+	);
 
 	/**
 	 * Constructor.
@@ -98,6 +121,54 @@ final class DatabaseBackup {
 	}
 
 	/**
+	 * Set maximum execution time for the backup.
+	 *
+	 * @param int $seconds Maximum seconds (5-300).
+	 * @return self
+	 */
+	public function set_max_execution_time( int $seconds ): self {
+		$this->max_execution_time = max( 5, min( 300, $seconds ) );
+		return $this;
+	}
+
+	/**
+	 * Check if we're approaching the timeout limit.
+	 *
+	 * @param int $buffer_seconds Seconds to keep as buffer before timeout.
+	 * @return bool True if we should stop soon.
+	 */
+	private function is_approaching_timeout( int $buffer_seconds = 5 ): bool {
+		if ( 0 === $this->start_time ) {
+			return false;
+		}
+
+		$elapsed = microtime( true ) - $this->start_time;
+		return $elapsed >= ( $this->max_execution_time - $buffer_seconds );
+	}
+
+	/**
+	 * Check if a table should be excluded based on default patterns.
+	 *
+	 * @param string $table Table name.
+	 * @return bool True if table should be excluded.
+	 */
+	private function should_exclude_table( string $table ): bool {
+		// Check explicit exclusions first.
+		if ( in_array( $table, $this->excluded_tables, true ) ) {
+			return true;
+		}
+
+		// Check default exclusion patterns.
+		foreach ( self::DEFAULT_EXCLUDED_PATTERNS as $pattern ) {
+			if ( false !== strpos( $table, $pattern ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
 	 * Create a database backup.
 	 *
 	 * @param string        $output_path       Output file path.
@@ -107,12 +178,27 @@ final class DatabaseBackup {
 	public function backup( string $output_path, ?callable $progress_callback = null ): bool {
 		global $wpdb;
 
-		$this->logger->info( 'Starting database backup' );
+		// Initialize timeout tracking.
+		$this->start_time = microtime( true );
+
+		// Determine max execution time from server settings.
+		$server_timeout = (int) ini_get( 'max_execution_time' );
+		if ( $server_timeout > 0 ) {
+			// Leave 10 seconds buffer for cleanup.
+			$this->max_execution_time = max( 10, $server_timeout - 10 );
+		}
+
+		$this->logger->info( 'Starting database backup', array(
+			'output_path'        => $output_path,
+			'max_execution_time' => $this->max_execution_time,
+		) );
 
 		try {
 			// Get all tables.
 			$tables = $this->get_tables();
 			$total_tables = count( $tables );
+
+			$this->logger->info( 'Found tables to backup', array( 'count' => $total_tables ) );
 
 			if ( empty( $tables ) ) {
 				$this->logger->warning( 'No tables found to backup' );
@@ -127,20 +213,59 @@ final class DatabaseBackup {
 				return false;
 			}
 
+			$this->logger->info( 'Output file opened successfully' );
+
 			// Write header.
 			$this->write_header( $handle );
 
 			// Backup each table.
 			$table_num = 0;
+			$skipped_tables = array();
+			$timed_out = false;
+
 			foreach ( $tables as $table ) {
 				++$table_num;
+
+				// Check if we're approaching timeout before starting a new table.
+				if ( $this->is_approaching_timeout( 10 ) ) {
+					$this->logger->warning( 'Approaching timeout, skipping remaining tables', array(
+						'elapsed'          => round( microtime( true ) - $this->start_time, 2 ),
+						'remaining_tables' => $total_tables - $table_num + 1,
+					) );
+					$skipped_tables = array_slice( $tables, $table_num - 1 );
+					$timed_out = true;
+					break;
+				}
+
+				$this->logger->info( 'Backing up table', array(
+					'table'    => $table,
+					'progress' => sprintf( '%d/%d', $table_num, $total_tables ),
+					'elapsed'  => round( microtime( true ) - $this->start_time, 2 ),
+				) );
 
 				if ( $progress_callback ) {
 					$progress = (int) ( ( $table_num / $total_tables ) * 100 );
 					$progress_callback( $progress, $table, $table_num, $total_tables );
 				}
 
-				$this->backup_table( $handle, $table );
+				$table_result = $this->backup_table( $handle, $table );
+
+				// Check if table backup was truncated due to timeout.
+				if ( isset( $table_result['truncated'] ) && $table_result['truncated'] ) {
+					$this->logger->warning( 'Table backup truncated due to timeout', array(
+						'table'        => $table,
+						'rows_written' => $table_result['rows_written'] ?? 0,
+						'total_rows'   => $table_result['total_rows'] ?? 0,
+					) );
+				}
+			}
+
+			// Log summary of skipped tables.
+			if ( ! empty( $skipped_tables ) ) {
+				$this->logger->warning( 'Tables skipped due to timeout', array(
+					'count'  => count( $skipped_tables ),
+					'tables' => $skipped_tables,
+				) );
 			}
 
 			// Write footer.
@@ -149,9 +274,14 @@ final class DatabaseBackup {
 			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
 			fclose( $handle );
 
+			$elapsed = round( microtime( true ) - $this->start_time, 2 );
 			$this->logger->info( 'Database backup completed', array(
-				'tables' => $total_tables,
-				'size'   => filesize( $output_path ),
+				'tables'         => $total_tables,
+				'tables_backed'  => $table_num - count( $skipped_tables ),
+				'tables_skipped' => count( $skipped_tables ),
+				'size'           => filesize( $output_path ),
+				'elapsed'        => $elapsed,
+				'timed_out'      => $timed_out,
 			) );
 
 			return true;
@@ -172,11 +302,19 @@ final class DatabaseBackup {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$tables = $wpdb->get_col( 'SHOW TABLES' );
 
-		// Filter out excluded tables.
-		return array_filter(
+		// Filter out excluded tables (both explicit and default patterns).
+		$filtered = array_filter(
 			$tables,
-			fn( $table ) => ! in_array( $table, $this->excluded_tables, true )
+			fn( $table ) => ! $this->should_exclude_table( $table )
 		);
+
+		// Log excluded tables for debugging.
+		$excluded = array_diff( $tables, $filtered );
+		if ( ! empty( $excluded ) ) {
+			$this->logger->info( 'Excluding tables from backup', array( 'tables' => array_values( $excluded ) ) );
+		}
+
+		return array_values( $filtered );
 	}
 
 	/**
@@ -241,10 +379,16 @@ final class DatabaseBackup {
 	 *
 	 * @param resource $handle File handle.
 	 * @param string   $table  Table name.
-	 * @return void
+	 * @return array Result with 'truncated', 'rows_written', 'total_rows' keys.
 	 */
-	private function backup_table( $handle, string $table ): void {
+	private function backup_table( $handle, string $table ): array {
 		global $wpdb;
+
+		$result = array(
+			'truncated'    => false,
+			'rows_written' => 0,
+			'total_rows'   => 0,
+		);
 
 		$this->logger->debug( 'Backing up table', array( 'table' => $table ) );
 
@@ -270,9 +414,12 @@ final class DatabaseBackup {
 
 		// Get row count.
 		$row_count = $this->get_table_row_count( $table );
+		$result['total_rows'] = $row_count;
+
+		$this->logger->debug( 'Table row count', array( 'table' => $table, 'rows' => $row_count ) );
 
 		if ( 0 === $row_count ) {
-			return;
+			return $result;
 		}
 
 		// Dump data comment.
@@ -293,8 +440,26 @@ final class DatabaseBackup {
 		// Dump data in batches with adaptive batch sizing.
 		$offset = 0;
 		$current_batch_size = $this->rows_per_batch;
+		$batch_count = 0;
 
 		while ( $offset < $row_count ) {
+			// Check for timeout every 5 batches (to avoid overhead).
+			++$batch_count;
+			if ( $batch_count % 5 === 0 && $this->is_approaching_timeout( 5 ) ) {
+				$this->logger->warning( 'Table backup truncated due to timeout', array(
+					'table'        => $table,
+					'rows_written' => $result['rows_written'],
+					'total_rows'   => $row_count,
+					'elapsed'      => round( microtime( true ) - $this->start_time, 2 ),
+				) );
+				$result['truncated'] = true;
+
+				// Add comment about truncation.
+				// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite
+				fwrite( $handle, "-- WARNING: Table data truncated due to timeout. Rows written: {$result['rows_written']} of {$row_count}\n" );
+				break;
+			}
+
 			// Check memory and reduce batch size if needed.
 			$current_batch_size = $this->get_adaptive_batch_size( $current_batch_size );
 
@@ -314,6 +479,7 @@ final class DatabaseBackup {
 			}
 
 			$this->write_insert_statements( $handle, $table, $column_list, $rows, $columns );
+			$result['rows_written'] += count( $rows );
 
 			$offset += $current_batch_size;
 
@@ -329,6 +495,8 @@ final class DatabaseBackup {
 		// Re-enable keys.
 		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite
 		fwrite( $handle, "/*!40000 ALTER TABLE `{$table}` ENABLE KEYS */;\n\n" );
+
+		return $result;
 	}
 
 	/**

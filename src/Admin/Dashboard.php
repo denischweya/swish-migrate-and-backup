@@ -57,6 +57,9 @@ final class Dashboard {
 	public function render(): void {
 		?>
 		<div class="wrap swish-backup-wrap">
+			<h1 class="wp-heading-inline"><?php esc_html_e( 'Swish Backup', 'swish-migrate-and-backup' ); ?></h1>
+			<hr class="wp-header-end">
+
 			<?php AdminNav::render(); ?>
 
 			<div id="swish-backup-dashboard">

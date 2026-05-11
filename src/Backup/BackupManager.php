@@ -66,6 +66,13 @@ final class BackupManager {
 	private ?BackupState $backup_state = null;
 
 	/**
+	 * Streaming tar backup handler.
+	 *
+	 * @var StreamingTarBackup|null
+	 */
+	private ?StreamingTarBackup $streaming_tar = null;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param DatabaseBackup $database_backup Database backup handler.
@@ -98,6 +105,18 @@ final class BackupManager {
 			$this->backup_state = new BackupState();
 		}
 		return $this->backup_state;
+	}
+
+	/**
+	 * Get or create the streaming tar backup handler.
+	 *
+	 * @return StreamingTarBackup
+	 */
+	private function get_streaming_tar(): StreamingTarBackup {
+		if ( null === $this->streaming_tar ) {
+			$this->streaming_tar = new StreamingTarBackup( $this->logger );
+		}
+		return $this->streaming_tar;
 	}
 
 	/**
@@ -322,6 +341,24 @@ final class BackupManager {
 	}
 
 	/**
+	 * Disable Action Scheduler to prevent errors during backup.
+	 *
+	 * Action Scheduler can cause repeated database errors if its tables
+	 * are missing, which hangs the server during backup operations.
+	 *
+	 * @return void
+	 */
+	private function disable_action_scheduler(): void {
+		// Remove Action Scheduler's queue runner to prevent database errors.
+		remove_all_actions( 'action_scheduler_run_queue' );
+
+		// Prevent Action Scheduler from running via WP Cron.
+		if ( class_exists( 'ActionScheduler_QueueRunner' ) ) {
+			remove_action( 'init', array( 'ActionScheduler_QueueRunner', 'instance' ), 1 );
+		}
+	}
+
+	/**
 	 * Continue a backup from checkpoint.
 	 *
 	 * Called by cron to resume a backup that timed out.
@@ -330,6 +367,9 @@ final class BackupManager {
 	 * @return void
 	 */
 	public function continue_backup( string $job_id ): void {
+		// Disable Action Scheduler to prevent server hang from missing tables.
+		$this->disable_action_scheduler();
+
 		$checkpoint = $this->get_checkpoint( $job_id );
 
 		if ( ! $checkpoint ) {
@@ -360,7 +400,9 @@ final class BackupManager {
 		$this->configure_batch_sizes( $options );
 
 		try {
-			if ( 'files' === $phase ) {
+			if ( 'streaming_files' === $phase ) {
+				$this->continue_streaming_backup( $job_id, $checkpoint );
+			} elseif ( 'files' === $phase ) {
 				$this->continue_file_backup( $job_id, $checkpoint );
 			} elseif ( 'archiving' === $phase ) {
 				$this->continue_archiving( $job_id, $checkpoint );
@@ -403,16 +445,14 @@ final class BackupManager {
 		// Create SwishArchiver to continue from where we left off.
 		$swish_archiver = new SwishArchiver( $backup_path );
 
-		// Determine timeout.
-		$timeout = min( (int) ini_get( 'max_execution_time' ) - 5, 25 );
-		if ( $timeout <= 0 ) {
-			$timeout = 10;
-		}
+		// Use fixed 10-second time slices like Duplicator Pro.
+		$timeout = 10;
 
 		// Progress callback.
 		$archive_progress = function ( int $processed, int $total, string $current_file ) use ( $job_id ) {
-			$percent = $total > 0 ? (int) ( ( $processed / $total ) * 100 ) : 0;
-			$job_progress = 15 + (int) ( $percent * 0.75 );
+			$percent = $total > 0 ? ( $processed / $total ) * 100 : 0;
+			// Map 0-100 to 15-90.
+			$job_progress = 15 + ( $percent * 0.75 );
 			$this->update_job_status(
 				$job_id,
 				'processing',
@@ -469,8 +509,21 @@ final class BackupManager {
 
 		$this->logger->info( 'Archive creation completed after continuation' );
 
+		// Verify archive file exists before proceeding.
+		if ( ! file_exists( $backup_path ) ) {
+			throw new \RuntimeException( 'Archive file not created: ' . $backup_path );
+		}
+
 		// Check backup size limit.
 		$this->check_backup_size_limit( $backup_path, $job_id );
+
+		// Verify archive is valid (has EOF marker).
+		if ( ! $swish_archiver->is_valid() ) {
+			$this->logger->warning( 'Archive may be incomplete (no EOF marker)', array(
+				'path' => $backup_path,
+				'size' => filesize( $backup_path ),
+			) );
+		}
 
 		// Upload to storage.
 		$this->update_job_status( $job_id, 'processing', 92, 'Uploading to storage...' );
@@ -507,6 +560,88 @@ final class BackupManager {
 		$this->logger->info( 'Backup completed after archiving continuation', array(
 			'filename' => $backup_filename,
 			'size'     => ServerLimits::format_bytes( $backup_result['size'] ),
+		) );
+	}
+
+	/**
+	 * Continue streaming file backup from checkpoint.
+	 *
+	 * @param string $job_id     Job ID.
+	 * @param array  $checkpoint Checkpoint data.
+	 * @return void
+	 */
+	private function continue_streaming_backup( string $job_id, array $checkpoint ): void {
+		$backup_path  = $checkpoint['backup_path'] ?? '';
+		$temp_dir     = $checkpoint['temp_dir'] ?? '';
+		$files        = $checkpoint['files'] ?? array();
+		$total_files  = $checkpoint['total_files'] ?? count( $files );
+		$options      = $checkpoint['options'] ?? array();
+		$metadata     = $checkpoint['metadata'] ?? array();
+
+		$this->logger->info( 'Continuing streaming backup', array(
+			'processed'   => $checkpoint['processed'] ?? 0,
+			'total_files' => $total_files,
+		) );
+
+		// Progress callback.
+		$progress_callback = function ( float $progress, string $message, int $processed, int $total ) use ( $job_id ) {
+			// Map 0-100 to 15-90.
+			$job_progress = 15 + ( $progress * 0.75 );
+			$this->update_job_status( $job_id, 'processing', $job_progress, $message );
+		};
+
+		// Continue streaming backup.
+		$streaming = $this->get_streaming_tar();
+		$result = $streaming->run_chunk( $job_id, $files, $backup_path, $progress_callback );
+
+		// Handle result.
+		if ( StreamingTarBackup::RESULT_ERROR === $result['result'] ) {
+			$this->fail_job( $job_id, $result['error'] ?? 'Streaming backup failed' );
+			$this->cleanup_temp_directory( $temp_dir );
+			$this->delete_checkpoint( $job_id );
+			return;
+		}
+
+		if ( StreamingTarBackup::RESULT_CONTINUE === $result['result'] ) {
+			// Update checkpoint and schedule next chunk.
+			$checkpoint['processed'] = $result['processed'];
+			$this->save_checkpoint( $job_id, $checkpoint );
+			$this->schedule_continuation( $job_id );
+
+			$this->logger->info( 'Streaming backup chunk complete, scheduling next', array(
+				'processed' => $result['processed'],
+				'total'     => $total_files,
+				'progress'  => round( $result['progress'], 2 ),
+			) );
+
+			return;
+		}
+
+		// Backup complete!
+		$this->update_job_status( $job_id, 'processing', 92, 'Finalizing backup...' );
+
+		// Store to configured destinations.
+		$this->update_job_status( $job_id, 'processing', 95, 'Uploading to storage...' );
+		$destinations = $options['storage_destinations'] ?? array( 'local' );
+		$this->storage_manager->store( $backup_path, $destinations );
+
+		// Complete the job.
+		$this->complete_job( $job_id, array(
+			'path'     => $backup_path,
+			'size'     => filesize( $backup_path ),
+			'checksum' => md5_file( $backup_path ),
+			'manifest' => $metadata,
+		) );
+
+		// Clean up.
+		$this->cleanup_temp_directory( $temp_dir );
+		$this->delete_checkpoint( $job_id );
+
+		do_action( 'swish_backup_after', $job_id, $options, $backup_path );
+
+		$this->logger->info( 'Streaming backup completed after continuation', array(
+			'path' => $backup_path,
+			'size' => ServerLimits::format_bytes( filesize( $backup_path ) ),
 		) );
 	}
 
@@ -559,13 +694,13 @@ final class BackupManager {
 			) );
 
 			// Progress callback for continuation.
-			$progress_callback = function ( int $progress, string $file, int $chunk_processed, int $chunk_total, int $eta_seconds = 0 ) use ( $job_id, $processed, $total ) {
+			$progress_callback = function ( float $progress, string $file, int $chunk_processed, int $chunk_total, int $eta_seconds = 0 ) use ( $job_id, $processed, $total ) {
 				$actual_processed = $processed + $chunk_processed;
-				$actual_progress = $total > 0 ? (int) ( ( $actual_processed / $total ) * 100 ) : 0;
-				$job_progress = 40 + (int) ( $actual_progress * 0.4 );
+				$actual_progress = $total > 0 ? ( $actual_processed / $total ) * 100 : 0;
+				$job_progress = 40 + ( $actual_progress * 0.4 );
 
 				$message = sprintf(
-					'Backing up files... %d/%d (%d%%) [resumed]',
+					'Backing up files... %d/%d (%.2f%%) [resumed]',
 					$actual_processed,
 					$total,
 					$actual_progress
@@ -643,13 +778,13 @@ final class BackupManager {
 			}
 
 			// Progress callback for continuation.
-			$progress_callback = function ( int $progress, string $file, int $chunk_processed, int $chunk_total, int $eta_seconds = 0 ) use ( $job_id, $processed, $total ) {
+			$progress_callback = function ( float $progress, string $file, int $chunk_processed, int $chunk_total, int $eta_seconds = 0 ) use ( $job_id, $processed, $total ) {
 				$actual_processed = $processed + $chunk_processed;
-				$actual_progress = $total > 0 ? (int) ( ( $actual_processed / $total ) * 100 ) : 0;
-				$job_progress = 40 + (int) ( $actual_progress * 0.4 );
+				$actual_progress = $total > 0 ? ( $actual_processed / $total ) * 100 : 0;
+				$job_progress = 40 + ( $actual_progress * 0.4 );
 
 				$message = sprintf(
-					'Backing up files... %d/%d (%d%%) [resumed/legacy]',
+					'Backing up files... %d/%d (%.2f%%) [resumed/legacy]',
 					$actual_processed,
 					$total,
 					$actual_progress
@@ -804,12 +939,12 @@ final class BackupManager {
 	 * @return callable Progress callback function.
 	 */
 	private function create_file_progress_callback( string $job_id ): callable {
-		return function ( int $progress, string $file, int $processed, int $total, int $eta_seconds = 0 ) use ( $job_id ) {
+		return function ( float $progress, string $file, int $processed, int $total, int $eta_seconds = 0 ) use ( $job_id ) {
 			// Map file backup progress (0-100%) to job progress (40-80%).
-			$job_progress = 40 + (int) ( $progress * 0.4 );
+			$job_progress = 40 + ( $progress * 0.4 );
 
 			$message = sprintf(
-				'Backing up files... %d/%d (%d%%)',
+				'Backing up files... %d/%d (%.2f%%)',
 				$processed,
 				$total,
 				$progress
@@ -859,6 +994,32 @@ final class BackupManager {
 	 * @return void
 	 */
 	public function process_async_backup( string $job_id ): void {
+		// Disable Action Scheduler to prevent server hang from missing tables.
+		$this->disable_action_scheduler();
+
+		// Clean up any orphaned temp files from previous failed backups.
+		$cleaned = $this->cleanup_orphaned_files();
+
+		$this->logger->set_job_id( $job_id );
+		$this->logger->info( 'process_async_backup starting', array(
+			'job_id'         => $job_id,
+			'orphans_cleaned' => $cleaned,
+		) );
+
+		// Register shutdown handler to catch fatal errors.
+		$logger = $this->logger;
+		register_shutdown_function( function () use ( $job_id, $logger ) {
+			$error = error_get_last();
+			if ( $error && in_array( $error['type'], array( E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR ), true ) ) {
+				$logger->error( 'Fatal error during backup', array(
+					'job_id'  => $job_id,
+					'error'   => $error['message'],
+					'file'    => $error['file'],
+					'line'    => $error['line'],
+				) );
+			}
+		} );
+
 		// Get stored options.
 		$options = get_transient( 'swish_backup_job_' . $job_id );
 
@@ -867,12 +1028,26 @@ final class BackupManager {
 			return;
 		}
 
+		$this->logger->info( 'Backup options retrieved', array( 'type' => $options['type'] ?? 'full' ) );
+
 		// Delete transient to prevent re-processing.
 		delete_transient( 'swish_backup_job_' . $job_id );
+
+		// Immediately update status to processing so frontend sees the change.
+		$this->update_job_status( $job_id, 'processing', 5, 'Starting backup...' );
 
 		// Increase time limit for the backup process.
 		// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
 		@set_time_limit( 300 );
+
+		// Also try to increase memory limit.
+		// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+		@ini_set( 'memory_limit', '512M' );
+
+		$this->logger->info( 'Server limits set', array(
+			'time_limit'   => ini_get( 'max_execution_time' ),
+			'memory_limit' => ini_get( 'memory_limit' ),
+		) );
 
 		// Run the actual backup.
 		$type = $options['type'] ?? 'full';
@@ -923,16 +1098,11 @@ final class BackupManager {
 		// Initialize timing for this backup request.
 		ServerLimits::init_timing();
 
-		// Initialize timing for this backup request.
-		ServerLimits::init_timing();
-
 		do_action( 'swish_backup_before', $job_id, $options );
 
-		// Check if we should use optimized tar.gz flow.
-		// This creates the final backup in one step instead of wrapping tar.gz in zip.
-		if ( ServerLimits::should_use_tar() ) {
-			return $this->run_full_backup_tar( $job_id, $options );
-		}
+		// Always use streaming tar backup - it works in all environments,
+		// uses 10-second time slices, and never exhausts memory.
+		return $this->run_full_backup_streaming( $job_id, $options );
 
 		try {
 			$temp_dir = $this->get_temp_directory( $job_id );
@@ -1115,6 +1285,180 @@ final class BackupManager {
 	}
 
 	/**
+	 * Run full backup using streaming tar.gz with 10-second chunks.
+	 *
+	 * This method uses StreamingTarBackup for reliable, memory-efficient backups
+	 * that work in all environments (including Docker/ddev). It processes files
+	 * in 10-second time slices and never loads more than 1MB at a time.
+	 *
+	 * @param string $job_id  Job ID.
+	 * @param array  $options Backup options.
+	 * @return array Backup result.
+	 */
+	private function run_full_backup_streaming( string $job_id, array $options ): array {
+		$this->logger->info( 'Starting streaming backup', array( 'job_id' => $job_id ) );
+
+		try {
+			$temp_dir = $this->get_temp_directory( $job_id );
+
+			// Step 1: Backup database.
+			if ( $options['backup_database'] ?? true ) {
+				$this->update_job_status( $job_id, 'processing', 5, 'Backing up database...' );
+				$db_file = $temp_dir . '/database.sql';
+
+				if ( ! $this->database_backup->backup( $db_file ) ) {
+					throw new \RuntimeException( 'Database backup failed' );
+				}
+
+				$this->logger->info( 'Database backup completed', array(
+					'size' => ServerLimits::format_bytes( filesize( $db_file ) ),
+				) );
+			}
+
+			// Step 2: Prepare file list - write directly to disk, not memory.
+			$this->update_job_status( $job_id, 'processing', 10, 'Scanning files...' );
+
+			$file_list = $this->file_backup->prepare_file_list( $options );
+			$files = $file_list['files'] ?? array();
+			$total_files = count( $files );
+
+			if ( 0 === $total_files ) {
+				throw new \RuntimeException( 'No files found to backup' );
+			}
+
+			$this->logger->info( 'File list prepared', array( 'count' => $total_files ) );
+
+			// Step 3: Add special files (wp-config, manifest).
+			$this->update_job_status( $job_id, 'processing', 12, 'Adding configuration files...' );
+			$this->file_backup->backup_wp_config( $temp_dir );
+
+			// Create manifest.
+			$metadata = $this->create_backup_manifest( $job_id, 'full', $options, array(
+				'count' => $total_files,
+			) );
+			$manifest_path = $temp_dir . '/manifest.json';
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+			file_put_contents( $manifest_path, wp_json_encode( $metadata, JSON_PRETTY_PRINT ) );
+
+			// Add special files to the beginning of the file list.
+			$special_files = array();
+			if ( file_exists( $manifest_path ) ) {
+				$special_files[] = array( 'path' => $manifest_path, 'relative' => 'manifest.json' );
+			}
+			$db_file = $temp_dir . '/database.sql';
+			if ( file_exists( $db_file ) ) {
+				$special_files[] = array( 'path' => $db_file, 'relative' => 'database.sql' );
+			}
+			$config_file = $temp_dir . '/wp-config.php';
+			if ( file_exists( $config_file ) ) {
+				$special_files[] = array( 'path' => $config_file, 'relative' => 'wp-config.php' );
+			}
+
+			// Merge special files with regular files.
+			$all_files = array_merge( $special_files, $files );
+			$total_all = count( $all_files );
+
+			// Step 4: Create streaming tar archive.
+			$this->update_job_status( $job_id, 'processing', 15, 'Creating archive...' );
+
+			// Generate filename without extension, then add .tar.gz.
+			$site_name = sanitize_file_name( wp_parse_url( get_site_url(), PHP_URL_HOST ) );
+			$timestamp = gmdate( 'Y-m-d-His' );
+			$backup_filename = "{$site_name}-full-{$timestamp}.tar.gz";
+			$backup_path = $this->get_backup_directory() . '/' . $backup_filename;
+
+			// Progress callback.
+			$progress_callback = function ( float $progress, string $message, int $processed, int $total ) use ( $job_id ) {
+				// Map 0-100 to 15-90.
+				$job_progress = 15 + ( $progress * 0.75 );
+				$this->update_job_status( $job_id, 'processing', $job_progress, $message );
+			};
+
+			// Run streaming backup chunk.
+			$streaming = $this->get_streaming_tar();
+			$result = $streaming->run_chunk( $job_id, $all_files, $backup_path, $progress_callback );
+
+			// Handle result.
+			if ( StreamingTarBackup::RESULT_ERROR === $result['result'] ) {
+				throw new \RuntimeException( $result['error'] ?? 'Streaming backup failed' );
+			}
+
+			if ( StreamingTarBackup::RESULT_CONTINUE === $result['result'] ) {
+				// Save checkpoint for continuation.
+				$checkpoint = array(
+					'phase'         => 'streaming_files',
+					'backup_path'   => $backup_path,
+					'temp_dir'      => $temp_dir,
+					'files'         => $all_files,
+					'total_files'   => $total_all,
+					'processed'     => $result['processed'],
+					'options'       => $options,
+					'metadata'      => $metadata,
+				);
+				$this->save_checkpoint( $job_id, $checkpoint );
+				$this->schedule_continuation( $job_id );
+
+				$this->logger->info( 'Streaming backup chunk complete, scheduling continuation', array(
+					'processed' => $result['processed'],
+					'total'     => $total_all,
+					'progress'  => round( $result['progress'], 2 ),
+				) );
+
+				return array(
+					'status'  => 'continuing',
+					'job_id'  => $job_id,
+					'message' => 'Backup in progress (streaming)...',
+				);
+			}
+
+			// Backup complete!
+			$this->update_job_status( $job_id, 'processing', 92, 'Finalizing backup...' );
+
+			// Store to configured destinations.
+			$this->update_job_status( $job_id, 'processing', 95, 'Uploading to storage...' );
+			$destinations = $options['storage_destinations'] ?? array( 'local' );
+			$this->storage_manager->store( $backup_path, $destinations );
+
+			// Complete the job.
+			$this->complete_job( $job_id, array(
+				'path'     => $backup_path,
+				'size'     => filesize( $backup_path ),
+				'checksum' => md5_file( $backup_path ),
+				'manifest' => $metadata,
+			) );
+
+			// Clean up temp directory.
+			$this->cleanup_temp_directory( $temp_dir );
+
+			$this->delete_checkpoint( $job_id );
+
+			do_action( 'swish_backup_after', $job_id, $options, $backup_path );
+
+			$this->logger->info( 'Streaming backup completed successfully', array(
+				'path' => $backup_path,
+				'size' => ServerLimits::format_bytes( filesize( $backup_path ) ),
+			) );
+
+			return array(
+				'path'     => $backup_path,
+				'size'     => filesize( $backup_path ),
+				'checksum' => md5_file( $backup_path ),
+				'manifest' => $metadata,
+			);
+
+		} catch ( \Exception $e ) {
+			$this->logger->error( 'Streaming backup failed', array( 'error' => $e->getMessage() ) );
+			$this->fail_job( $job_id, $e->getMessage() );
+
+			if ( isset( $temp_dir ) ) {
+				$this->cleanup_temp_directory( $temp_dir );
+			}
+
+			return array( 'error' => $e->getMessage() );
+		}
+	}
+
+	/**
 	 * Run full backup using optimized tar.gz format.
 	 *
 	 * This method creates the final backup directly as a tar.gz without
@@ -1192,11 +1536,9 @@ final class BackupManager {
 			// Use SwishArchiver for true incremental archive creation.
 			$swish_archiver = new SwishArchiver( $backup_path );
 
-			// Determine timeout based on server limits (use 10 seconds as default).
-			$timeout = min( (int) ini_get( 'max_execution_time' ) - 5, 25 );
-			if ( $timeout <= 0 ) {
-				$timeout = 10;
-			}
+			// Use fixed 10-second time slices like Duplicator Pro.
+			// This is more reliable than trying to calculate from max_execution_time.
+			$timeout = 10;
 
 			$this->logger->info( 'Creating .swish archive', array(
 				'timeout'     => $timeout,
@@ -1227,9 +1569,9 @@ final class BackupManager {
 
 			// Progress callback for archive creation.
 			$archive_progress = function ( int $processed, int $total, string $current_file ) use ( $job_id ) {
-				$percent = $total > 0 ? (int) ( ( $processed / $total ) * 100 ) : 0;
+				$percent = $total > 0 ? ( $processed / $total ) * 100 : 0;
 				// Map 0-100 to 15-90.
-				$job_progress = 15 + (int) ( $percent * 0.75 );
+				$job_progress = 15 + ( $percent * 0.75 );
 				$this->update_job_status(
 					$job_id,
 					'processing',
@@ -1293,8 +1635,21 @@ final class BackupManager {
 				'total'     => $result['total'],
 			) );
 
+			// Verify archive file exists before proceeding.
+			if ( ! file_exists( $backup_path ) ) {
+				throw new \RuntimeException( 'Archive file not created: ' . $backup_path );
+			}
+
 			// Check backup size limit.
 			$this->check_backup_size_limit( $backup_path, $job_id );
+
+			// Verify archive is valid (has EOF marker).
+			if ( ! $swish_archiver->is_valid() ) {
+				$this->logger->warning( 'Archive may be incomplete (no EOF marker)', array(
+					'path' => $backup_path,
+					'size' => filesize( $backup_path ),
+				) );
+			}
 
 			// Step 6: Upload to storage.
 			$this->update_job_status( $job_id, 'processing', 92, 'Uploading to storage...' );
@@ -1591,45 +1946,77 @@ final class BackupManager {
 		$this->logger->set_job_id( $job_id );
 		$this->configure_batch_sizes( $options );
 
+		// Initialize timing.
+		ServerLimits::init_timing();
+
 		try {
-			$backup_filename = $this->generate_backup_filename( 'files' );
+			// Generate filename without extension, then add .tar.gz.
+			$site_name = sanitize_file_name( wp_parse_url( get_site_url(), PHP_URL_HOST ) );
+			$timestamp = gmdate( 'Y-m-d-His' );
+			$backup_filename = "{$site_name}-files-{$timestamp}.tar.gz";
 			$backup_path = $this->get_backup_directory() . '/' . $backup_filename;
 
 			$this->update_job_status( $job_id, 'processing', 10, 'Preparing file list...' );
 			$file_list = $this->file_backup->prepare_file_list( $options );
 
-			$file_count = count( $file_list['files'] );
+			$files = $file_list['files'] ?? array();
+			$file_count = count( $files );
+
+			if ( 0 === $file_count ) {
+				throw new \RuntimeException( 'No files found to backup' );
+			}
+
 			$this->update_job_status(
 				$job_id,
 				'processing',
 				15,
-				sprintf( 'Backing up files... 0/%d (calculating...)', $file_count )
+				sprintf( 'Backing up files... 0/%d', $file_count )
 			);
 
-			// For files-only backup, map 0-100% to 15-85% of total progress.
-			$progress_callback = function ( int $progress, string $file, int $processed, int $total, int $eta_seconds = 0 ) use ( $job_id ) {
-				$job_progress = 15 + (int) ( $progress * 0.7 );
-				$message = sprintf(
-					'Backing up files... %d/%d (%d%%)',
-					$processed,
-					$total,
-					$progress
-				);
+			// Progress callback.
+			$progress_callback = function ( float $progress, string $message, int $processed, int $total ) use ( $job_id ) {
+				// Map 0-100 to 15-85.
+				$job_progress = 15 + ( $progress * 0.7 );
 				$this->update_job_status( $job_id, 'processing', $job_progress, $message );
 			};
 
-			$backup_result = $this->file_backup->backup( $file_list['files'], $backup_path, $progress_callback );
+			// Use streaming tar backup.
+			$streaming = $this->get_streaming_tar();
+			$result = $streaming->run_chunk( $job_id, $files, $backup_path, $progress_callback );
 
-			if ( ! $backup_result ) {
-				throw new \RuntimeException( 'File backup failed' );
+			// Handle result.
+			if ( StreamingTarBackup::RESULT_ERROR === $result['result'] ) {
+				throw new \RuntimeException( $result['error'] ?? 'File backup failed' );
 			}
 
-			// Handle tar.gz format - the actual path may be different.
-			if ( is_array( $backup_result ) && ! empty( $backup_result['format'] ) && in_array( $backup_result['format'], array( 'tar.gz', 'swish' ), true ) ) {
-				$backup_path = $backup_result['path'];
-				$backup_filename = basename( $backup_path );
+			if ( StreamingTarBackup::RESULT_CONTINUE === $result['result'] ) {
+				// Save checkpoint for continuation.
+				$checkpoint = array(
+					'phase'       => 'streaming_files',
+					'backup_path' => $backup_path,
+					'temp_dir'    => '',
+					'files'       => $files,
+					'total_files' => $file_count,
+					'processed'   => $result['processed'],
+					'options'     => $options,
+					'metadata'    => array( 'type' => 'files' ),
+				);
+				$this->save_checkpoint( $job_id, $checkpoint );
+				$this->schedule_continuation( $job_id );
+
+				$this->logger->info( 'Files backup chunk complete, scheduling continuation', array(
+					'processed' => $result['processed'],
+					'total'     => $file_count,
+				) );
+
+				return array(
+					'status'  => 'continuing',
+					'job_id'  => $job_id,
+					'message' => 'File backup in progress (streaming)...',
+				);
 			}
 
+			// Backup complete!
 			$this->check_backup_size_limit( $backup_path, $job_id );
 
 			$this->update_job_status( $job_id, 'processing', 90, 'Uploading to storage...' );
@@ -1640,19 +2027,20 @@ final class BackupManager {
 				$destinations
 			);
 
-			$result = array(
-				'job_id'      => $job_id,
-				'filename'    => $backup_filename,
-				'path'        => $backup_path,
-				'size'        => filesize( $backup_path ),
-				'checksum'    => hash_file( 'sha256', $backup_path ),
-				'file_count'  => $file_list['count'],
+			$backup_result = array(
+				'job_id'       => $job_id,
+				'filename'     => $backup_filename,
+				'path'         => $backup_path,
+				'size'         => filesize( $backup_path ),
+				'checksum'     => hash_file( 'sha256', $backup_path ),
+				'file_count'   => $file_count,
 				'destinations' => $upload_results,
 			);
 
-			$this->complete_job( $job_id, $result );
+			$this->complete_job( $job_id, $backup_result );
 
-			return $result;
+			return $backup_result;
+
 		} catch ( \Exception $e ) {
 			$this->fail_job( $job_id, $e->getMessage() );
 			return array( 'error' => $e->getMessage() );
@@ -1990,10 +2378,10 @@ final class BackupManager {
 			);
 
 			// For files-only backup, map 0-100% to 15-85% of total progress.
-			$progress_callback = function ( int $progress, string $file, int $processed, int $total, int $eta_seconds = 0 ) use ( $job_id ) {
-				$job_progress = 15 + (int) ( $progress * 0.7 );
+			$progress_callback = function ( float $progress, string $file, int $processed, int $total, int $eta_seconds = 0 ) use ( $job_id ) {
+				$job_progress = 15 + ( $progress * 0.7 );
 				$message = sprintf(
-					'Backing up files... %d/%d (%d%%)',
+					'Backing up files... %d/%d (%.2f%%)',
 					$processed,
 					$total,
 					$progress
@@ -2190,7 +2578,7 @@ final class BackupManager {
 			'id'           => $job['job_id'],
 			'type'         => $job['type'],
 			'status'       => $job['status'],
-			'progress'     => (int) $job['progress'],
+			'progress'     => (float) $job['progress'],
 			'filename'     => basename( $job['file_path'] ?? '' ),
 			'path'         => $job['file_path'],
 			'size'         => (int) $job['file_size'],
@@ -2272,27 +2660,111 @@ final class BackupManager {
 
 		$table = $wpdb->prefix . 'swish_backup_jobs';
 
+		// Clear any object cache to ensure fresh data.
+		wp_cache_delete( $job_id, 'swish_backup_jobs' );
+
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Table name from $wpdb->prefix is safe.
 		$job = $wpdb->get_row(
 			$wpdb->prepare(
 				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-				"SELECT status, progress, error_message, file_path, file_size FROM {$table} WHERE job_id = %s",
+				"SELECT status, progress, error_message, file_path, file_size, steps_log FROM {$table} WHERE job_id = %s",
 				$job_id
 			),
 			ARRAY_A
 		);
 
 		if ( ! $job ) {
+			// Log for debugging - check if table exists.
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$table_exists = $wpdb->get_var(
+				$wpdb->prepare( 'SHOW TABLES LIKE %s', $table )
+			);
+
+			if ( ! $table_exists ) {
+				$this->logger->error( 'Jobs table does not exist', array(
+					'table'  => $table,
+					'job_id' => $job_id,
+				) );
+			}
+
 			return null;
+		}
+
+		// Parse steps log.
+		$steps = array();
+		if ( ! empty( $job['steps_log'] ) ) {
+			$steps = json_decode( $job['steps_log'], true ) ?: array();
 		}
 
 		return array(
 			'status'   => $job['status'],
-			'progress' => (int) $job['progress'],
+			'progress' => (float) $job['progress'],
 			'message'  => $job['error_message'] ?? '',
 			'path'     => $job['file_path'] ?? '',
 			'size'     => (int) ( $job['file_size'] ?? 0 ),
+			'steps'    => $steps,
 		);
+	}
+
+	/**
+	 * Cancel a backup job.
+	 *
+	 * @param string $job_id Job ID.
+	 * @return bool True if cancelled successfully.
+	 */
+	public function cancel_job( string $job_id ): bool {
+		global $wpdb;
+
+		$table = $wpdb->prefix . 'swish_backup_jobs';
+
+		// Get job details first to find any backup file to delete.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$job = $wpdb->get_row(
+			$wpdb->prepare(
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				"SELECT file_path FROM {$table} WHERE job_id = %s",
+				$job_id
+			),
+			ARRAY_A
+		);
+
+		// Update job status to cancelled.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$result = $wpdb->update(
+			$table,
+			array(
+				'status'        => 'cancelled',
+				'error_message' => __( 'Job cancelled by user.', 'swish-migrate-and-backup' ),
+			),
+			array( 'job_id' => $job_id ),
+			array( '%s', '%s' ),
+			array( '%s' )
+		);
+
+		if ( $result === false ) {
+			$this->logger->error( 'Failed to cancel job', array( 'job_id' => $job_id ) );
+			return false;
+		}
+
+		// Delete the backup file if it exists.
+		if ( ! empty( $job['file_path'] ) && file_exists( $job['file_path'] ) ) {
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink
+			@unlink( $job['file_path'] );
+			$this->logger->info( 'Deleted partial backup file', array( 'path' => $job['file_path'] ) );
+		}
+
+		// Clean up any temporary files for this job.
+		$temp_dir = $this->get_temp_directory( $job_id );
+		if ( is_dir( $temp_dir ) ) {
+			$this->cleanup_temp_directory( $temp_dir );
+		}
+
+		// Also clean up any backup state for this job.
+		$this->get_backup_state()->cleanup( $job_id );
+
+		$this->logger->info( 'Job cancelled', array( 'job_id' => $job_id ) );
+
+		return true;
 	}
 
 	/**
@@ -2378,6 +2850,73 @@ final class BackupManager {
 	}
 
 	/**
+	 * Clean up orphaned temp directories and batch parts.
+	 *
+	 * Removes temp directories older than 1 hour and any orphaned batch ZIP parts.
+	 *
+	 * @return int Number of items cleaned up.
+	 */
+	public function cleanup_orphaned_files(): int {
+		$backup_dir = $this->get_backup_directory();
+		$cleaned = 0;
+		$max_age = 3600; // 1 hour.
+
+		try {
+			// Clean up orphaned temp directories (swish-batch-temp-*, swish-tar-temp-*, swish-combine-*).
+			$items = glob( $backup_dir . '/swish-*-temp-*' );
+			$combine_items = glob( $backup_dir . '/swish-combine-*' );
+			$all_temp_items = array_merge( $items ?: array(), $combine_items ?: array() );
+
+			foreach ( $all_temp_items as $item ) {
+				if ( is_dir( $item ) ) {
+					$mtime = filemtime( $item );
+					if ( $mtime && ( time() - $mtime ) > $max_age ) {
+						$this->cleanup_temp_directory( $item );
+						++$cleaned;
+						$this->logger->info( 'Cleaned up orphaned temp directory', array( 'path' => $item ) );
+					}
+				}
+			}
+
+			// Clean up orphaned batch ZIP parts (-part-XXX.zip files older than 1 hour).
+			$part_files = glob( $backup_dir . '/*-part-[0-9][0-9][0-9].zip' );
+			if ( $part_files ) {
+				foreach ( $part_files as $part_file ) {
+					$mtime = filemtime( $part_file );
+					if ( $mtime && ( time() - $mtime ) > $max_age ) {
+						// phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink
+						if ( @unlink( $part_file ) ) {
+							++$cleaned;
+							$this->logger->info( 'Cleaned up orphaned batch part', array( 'path' => $part_file ) );
+						}
+					}
+				}
+			}
+
+			// Clean up old temp subdirectory.
+			$temp_subdir = $backup_dir . '/temp';
+			if ( is_dir( $temp_subdir ) ) {
+				$temp_jobs = glob( $temp_subdir . '/*' );
+				if ( $temp_jobs ) {
+					foreach ( $temp_jobs as $temp_job ) {
+						if ( is_dir( $temp_job ) ) {
+							$mtime = filemtime( $temp_job );
+							if ( $mtime && ( time() - $mtime ) > $max_age ) {
+								$this->cleanup_temp_directory( $temp_job );
+								++$cleaned;
+							}
+						}
+					}
+				}
+			}
+		} catch ( \Exception $e ) {
+			$this->logger->warning( 'Error during orphan cleanup: ' . $e->getMessage() );
+		}
+
+		return $cleaned;
+	}
+
+	/**
 	 * Create job record in database.
 	 *
 	 * @param string $job_id Job ID.
@@ -2389,8 +2928,11 @@ final class BackupManager {
 
 		$table = $wpdb->prefix . 'swish_backup_jobs';
 
+		// Ensure table exists (in case activation hook didn't run).
+		$this->ensure_jobs_table_exists();
+
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
-		$wpdb->insert(
+		$result = $wpdb->insert(
 			$table,
 			array(
 				'job_id'     => $job_id,
@@ -2401,6 +2943,61 @@ final class BackupManager {
 				'created_at' => current_time( 'mysql', true ),
 			)
 		);
+
+		if ( false === $result ) {
+			$this->logger->error( 'Failed to create job record', array(
+				'error' => $wpdb->last_error,
+				'table' => $table,
+			) );
+		}
+	}
+
+	/**
+	 * Ensure the jobs table exists.
+	 *
+	 * @return void
+	 */
+	private function ensure_jobs_table_exists(): void {
+		global $wpdb;
+
+		$table = $wpdb->prefix . 'swish_backup_jobs';
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$table_exists = $wpdb->get_var(
+			$wpdb->prepare( 'SHOW TABLES LIKE %s', $table )
+		);
+
+		if ( ! $table_exists ) {
+			$this->logger->warning( 'Jobs table does not exist, creating it now' );
+
+			$charset_collate = $wpdb->get_charset_collate();
+
+			$sql = "CREATE TABLE {$table} (
+				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+				job_id varchar(64) NOT NULL,
+				type varchar(32) NOT NULL DEFAULT 'full',
+				status varchar(32) NOT NULL DEFAULT 'pending',
+				progress decimal(5,2) NOT NULL DEFAULT 0.00,
+				started_at datetime DEFAULT NULL,
+				completed_at datetime DEFAULT NULL,
+				file_path varchar(512) DEFAULT NULL,
+				file_size bigint(20) unsigned DEFAULT 0,
+				checksum varchar(64) DEFAULT NULL,
+				manifest longtext DEFAULT NULL,
+				error_message text DEFAULT NULL,
+				steps_log longtext DEFAULT NULL,
+				size_limit_exceeded tinyint(1) DEFAULT 0,
+				created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				PRIMARY KEY (id),
+				UNIQUE KEY job_id (job_id),
+				KEY status (status),
+				KEY type (type),
+				KEY created_at (created_at)
+			) {$charset_collate};";
+
+			require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+			dbDelta( $sql );
+		}
 	}
 
 	/**
@@ -2408,14 +3005,14 @@ final class BackupManager {
 	 *
 	 * @param string $job_id   Job ID.
 	 * @param string $status   Status.
-	 * @param int    $progress Progress percentage.
+	 * @param float  $progress Progress percentage (supports decimals like 10.29).
 	 * @param string $message  Optional status message.
 	 * @return void
 	 */
 	private function update_job_status(
 		string $job_id,
 		string $status,
-		int $progress,
+		float $progress,
 		string $message = ''
 	): void {
 		global $wpdb;
@@ -2424,12 +3021,15 @@ final class BackupManager {
 
 		$data = array(
 			'status'   => $status,
-			'progress' => $progress,
+			'progress' => round( $progress, 2 ),
 		);
 
 		// Store status message for API retrieval.
 		if ( $message ) {
 			$data['error_message'] = $message; // Reuse error_message for status messages during processing.
+
+			// Add step to steps log.
+			$this->add_step_to_log( $job_id, $message, $progress );
 		}
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -2442,6 +3042,55 @@ final class BackupManager {
 		if ( $message ) {
 			$this->logger->info( $message );
 		}
+	}
+
+	/**
+	 * Add a step to the job's steps log.
+	 *
+	 * @param string $job_id   Job ID.
+	 * @param string $message  Step message.
+	 * @param float  $progress Progress at this step.
+	 * @return void
+	 */
+	private function add_step_to_log( string $job_id, string $message, float $progress ): void {
+		global $wpdb;
+
+		$table = $wpdb->prefix . 'swish_backup_jobs';
+
+		// Get current steps log.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$current = $wpdb->get_var(
+			$wpdb->prepare(
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				"SELECT steps_log FROM {$table} WHERE job_id = %s",
+				$job_id
+			)
+		);
+
+		$steps = array();
+		if ( $current ) {
+			$steps = json_decode( $current, true ) ?: array();
+		}
+
+		// Add new step.
+		$steps[] = array(
+			'time'     => current_time( 'mysql', true ),
+			'message'  => $message,
+			'progress' => round( $progress, 2 ),
+		);
+
+		// Keep only last 50 steps to avoid bloat.
+		if ( count( $steps ) > 50 ) {
+			$steps = array_slice( $steps, -50 );
+		}
+
+		// Update steps log.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->update(
+			$table,
+			array( 'steps_log' => wp_json_encode( $steps ) ),
+			array( 'job_id' => $job_id )
+		);
 	}
 
 	/**

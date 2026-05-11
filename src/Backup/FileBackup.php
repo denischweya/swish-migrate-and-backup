@@ -545,9 +545,22 @@ final class FileBackup {
 			// For small file counts, skip batching entirely.
 			$use_batching = $total_files > $files_per_batch;
 
+			// Create temp directory for batch parts (only needed for batching).
+			$temp_parts_dir = null;
+			if ( $use_batching ) {
+				$temp_parts_dir = $output_dir . '/swish-batch-temp-' . uniqid();
+				if ( ! wp_mkdir_p( $temp_parts_dir ) ) {
+					$this->logger->error( 'Failed to create temp directory for batch parts', array(
+						'path' => $temp_parts_dir,
+					) );
+					return false;
+				}
+			}
+
 			$this->logger->debug( 'Batch backup settings', array(
 				'files_per_batch' => $files_per_batch,
 				'use_batching'    => $use_batching,
+				'temp_dir'        => $temp_parts_dir,
 				'timeout_check'   => $timeout_check_interval,
 				'timeout_threshold' => $timeout_threshold,
 			) );
@@ -573,8 +586,8 @@ final class FileBackup {
 						// Single batch - use output path directly.
 						$part_path = $output_path;
 					} else {
-						// Multiple batches - use numbered part files.
-						$part_path = $output_dir . '/' . $base_name . '-part-' . sprintf( '%03d', $part_num ) . '.zip';
+						// Multiple batches - use temp directory for part files.
+						$part_path = $temp_parts_dir . '/' . $base_name . '-part-' . sprintf( '%03d', $part_num ) . '.zip';
 					}
 
 					$batch_result = $this->create_batch_zip( $part_path, $batch_files );
@@ -616,13 +629,18 @@ final class FileBackup {
 							'elapsed'        => ServerLimits::get_elapsed_time(),
 						) );
 
+						// Clean up temp parts directory on timeout (parts are incomplete).
+						if ( $temp_parts_dir && is_dir( $temp_parts_dir ) ) {
+							$this->recursive_delete( $temp_parts_dir );
+						}
+
 						// Return timeout state for resumable processing.
 						return array(
 							'timeout'         => true,
 							'processed'       => $processed,
 							'total'           => $total_files,
 							'output_path'     => $output_path,
-							'created_parts'   => $created_parts,
+							'created_parts'   => array(), // Don't return temp parts.
 							'remaining_files' => array_slice( $files, $processed ),
 						);
 					}
@@ -648,20 +666,38 @@ final class FileBackup {
 				'files_per_sec' => round( $total_files / max( $elapsed, 0.001 ), 1 ),
 			) );
 
-			// Return the created parts for BackupManager to include in final archive.
 			// For single part, just return true (backward compatible).
-			// For multiple parts, return array with parts list.
 			if ( ! $use_batching ) {
 				return true;
 			}
 
-			return array(
-				'success' => true,
-				'parts'   => $created_parts,
-				'total'   => $total_files,
-			);
+			// For multiple parts, combine them into the final archive.
+			$this->logger->info( 'Combining batch parts into final archive', array(
+				'parts'       => count( $created_parts ),
+				'output_path' => $output_path,
+			) );
+
+			$combine_result = $this->combine_batch_zips( $created_parts, $output_path );
+
+			// Clean up temp parts directory.
+			if ( $temp_parts_dir && is_dir( $temp_parts_dir ) ) {
+				$this->recursive_delete( $temp_parts_dir );
+			}
+
+			if ( ! $combine_result ) {
+				$this->logger->error( 'Failed to combine batch parts' );
+				return false;
+			}
+
+			return true;
 		} catch ( \Exception $e ) {
 			$this->logger->error( 'File backup failed: ' . $e->getMessage() );
+
+			// Clean up temp parts directory on error.
+			if ( isset( $temp_parts_dir ) && $temp_parts_dir && is_dir( $temp_parts_dir ) ) {
+				$this->recursive_delete( $temp_parts_dir );
+			}
+
 			return false;
 		}
 	}

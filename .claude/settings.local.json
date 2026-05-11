@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(ddev exec:*)"
+      "Bash(ddev exec:*)",
+      "Bash(git push)"
     ]
   }
 }

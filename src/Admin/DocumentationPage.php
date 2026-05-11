@@ -99,14 +99,16 @@ final class DocumentationPage {
 		$sections = $this->get_sections();
 		?>
 		<div class="wrap swish-backup-wrap">
+			<h1>
+				<span class="dashicons dashicons-book"></span>
+				<?php esc_html_e( 'Documentation', 'swish-migrate-and-backup' ); ?>
+			</h1>
+			<hr class="wp-header-end">
+
 			<?php AdminNav::render(); ?>
 
 			<div class="swish-docs-page">
 				<div class="swish-docs-header">
-					<h1>
-						<span class="dashicons dashicons-book"></span>
-						<?php esc_html_e( 'Documentation', 'swish-migrate-and-backup' ); ?>
-					</h1>
 					<p class="swish-docs-intro">
 						<?php esc_html_e( 'Learn how to use Swish Backup to protect your WordPress site with easy-to-follow guides.', 'swish-migrate-and-backup' ); ?>
 					</p>

@@ -46,9 +46,10 @@ final class MigrationPage {
 		$current_url = get_site_url();
 		?>
 		<div class="wrap swish-backup-wrap">
-			<?php AdminNav::render(); ?>
-
 			<h1><?php esc_html_e( 'Site Migration', 'swish-migrate-and-backup' ); ?></h1>
+			<hr class="wp-header-end">
+
+			<?php AdminNav::render(); ?>
 
 			<div class="swish-backup-migration-wizard">
 				<!-- Step 1: Choose Method -->

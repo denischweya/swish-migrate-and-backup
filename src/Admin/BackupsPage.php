@@ -70,13 +70,16 @@ final class BackupsPage {
 		$backups = $this->backup_manager->get_backups( 50 );
 		?>
 		<div class="wrap swish-backup-wrap">
-			<?php AdminNav::render(); ?>
-
 			<h1 class="wp-heading-inline"><?php esc_html_e( 'Backups', 'swish-migrate-and-backup' ); ?></h1>
 			<button type="button" class="page-title-action" id="swish-backup-now">
 				<?php esc_html_e( 'Create Backup', 'swish-migrate-and-backup' ); ?>
 			</button>
 			<hr class="wp-header-end">
+
+			<?php AdminNav::render(); ?>
+
+			<!-- Active Backup Jobs Container (populated by JavaScript) -->
+			<div id="swish-active-jobs-container"></div>
 
 			<!-- Backup Type Selector -->
 			<div class="swish-backup-card swish-backup-type-selector" id="swish-backup-type-selector" style="display:none;">

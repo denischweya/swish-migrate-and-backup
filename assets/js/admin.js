@@ -7,10 +7,16 @@
 
 	const SwishBackup = {
 		/**
+		 * Active jobs being tracked.
+		 */
+		activeJobs: {},
+
+		/**
 		 * Initialize.
 		 */
 		init: function() {
 			this.bindEvents();
+			this.checkForActiveJobs();
 		},
 
 		/**
@@ -32,6 +38,9 @@
 			$(document).on('change', '.swish-backup-checkbox', this.updateBulkSelection);
 			$(document).on('click', '#swish-backup-bulk-download', this.bulkDownload);
 			$(document).on('click', '#swish-backup-bulk-delete', this.bulkDelete);
+
+			// Cancel job
+			$(document).on('click', '.swish-cancel-job-btn', this.cancelJob);
 
 			// Modal
 			$(document).on('click', '.swish-backup-modal-cancel', this.hideModals);
@@ -100,19 +109,510 @@
 			$('.swish-backup-type-option').removeClass('selected');
 			$(this).addClass('selected');
 
-			SwishBackup.showProgressModal(swishBackup.i18n.backupStarted);
+			// Hide the backup type selector
+			$('#swish-backup-type-selector').slideUp();
 
+			// Start the backup job
 			wp.apiFetch({
 				path: '/swish-backup/v1/backup',
 				method: 'POST',
 				data: { type: type }
 			}).then(function(response) {
-				SwishBackup.updateProgress(100, swishBackup.i18n.backupComplete);
-				setTimeout(function() {
+				if (response.job_id) {
+					// Store job in localStorage for persistence across page refreshes
+					SwishBackup.storeActiveJob(response.job_id, type);
+
+					// Redirect to backups page if not already there
+					const backupsPageUrl = swishBackup.backupsPageUrl || 'admin.php?page=swish-backup-backups';
+					if (window.location.href.indexOf('swish-backup-backups') === -1) {
+						window.location.href = backupsPageUrl;
+					} else {
+						// Already on backups page, render the active job
+						SwishBackup.renderActiveJobs();
+						SwishBackup.startJobPolling(response.job_id);
+					}
+				} else if (response.success || response.filename) {
+					// Synchronous backup completed immediately
 					location.reload();
-				}, 1500);
+				} else {
+					alert(swishBackup.i18n.backupFailed);
+				}
 			}).catch(function(error) {
-				SwishBackup.showError(swishBackup.i18n.backupFailed);
+				alert(error.message || swishBackup.i18n.backupFailed);
+			});
+		},
+
+		/**
+		 * Store active job in localStorage.
+		 */
+		storeActiveJob: function(jobId, type) {
+			const jobs = JSON.parse(localStorage.getItem('swish_active_jobs') || '{}');
+			jobs[jobId] = {
+				id: jobId,
+				type: type,
+				startedAt: Date.now(),
+				progress: 0,
+				status: 'pending',
+				step: 'Initializing...'
+			};
+			localStorage.setItem('swish_active_jobs', JSON.stringify(jobs));
+		},
+
+		/**
+		 * Get active jobs from localStorage.
+		 */
+		getActiveJobs: function() {
+			return JSON.parse(localStorage.getItem('swish_active_jobs') || '{}');
+		},
+
+		/**
+		 * Remove job from localStorage.
+		 */
+		removeActiveJob: function(jobId) {
+			const jobs = this.getActiveJobs();
+			delete jobs[jobId];
+			localStorage.setItem('swish_active_jobs', JSON.stringify(jobs));
+		},
+
+		/**
+		 * Check for active jobs on page load.
+		 */
+		checkForActiveJobs: function() {
+			// Clean up stale jobs first (older than 1 hour)
+			this.cleanupStaleJobs();
+
+			const jobs = this.getActiveJobs();
+			const jobIds = Object.keys(jobs);
+
+			if (jobIds.length > 0) {
+				this.renderActiveJobs();
+
+				// Start polling for each active job
+				jobIds.forEach(function(jobId) {
+					SwishBackup.startJobPolling(jobId);
+				});
+			}
+		},
+
+		/**
+		 * Clean up stale jobs from localStorage.
+		 * Jobs older than 1 hour are considered stale.
+		 */
+		cleanupStaleJobs: function() {
+			const jobs = this.getActiveJobs();
+			const jobIds = Object.keys(jobs);
+			const oneHourAgo = Date.now() - (60 * 60 * 1000);
+			let cleaned = false;
+
+			jobIds.forEach(function(jobId) {
+				const job = jobs[jobId];
+				if (job.startedAt && job.startedAt < oneHourAgo) {
+					console.log('Removing stale job:', jobId);
+					delete jobs[jobId];
+					cleaned = true;
+				}
+			});
+
+			if (cleaned) {
+				localStorage.setItem('swish_active_jobs', JSON.stringify(jobs));
+			}
+		},
+
+		/**
+		 * Render active jobs UI.
+		 */
+		renderActiveJobs: function() {
+			const container = $('#swish-active-jobs-container');
+			if (container.length === 0) return;
+
+			const jobs = this.getActiveJobs();
+			const jobIds = Object.keys(jobs);
+
+			if (jobIds.length === 0) {
+				container.empty();
+				return;
+			}
+
+			let html = '<div class="swish-active-jobs">';
+			html += '<h2 class="swish-active-jobs-title">Active Backups</h2>';
+
+			jobIds.forEach(function(jobId) {
+				const job = jobs[jobId];
+				const progress = job.progress || 0;
+				const progressDisplay = progress.toFixed(2);
+
+				html += '<div class="swish-active-job-card" data-job-id="' + jobId + '">';
+				html += '  <div class="swish-job-progress-circle">';
+				html += '    <svg class="swish-progress-ring" viewBox="0 0 120 120">';
+				html += '      <circle class="swish-progress-ring-bg" cx="60" cy="60" r="52" />';
+				html += '      <circle class="swish-progress-ring-fill" cx="60" cy="60" r="52" stroke-dasharray="326.73" stroke-dashoffset="' + (326.73 - (326.73 * progress / 100)) + '" />';
+				html += '    </svg>';
+				html += '    <div class="swish-progress-text">';
+				html += '      <span class="swish-progress-percent">' + progressDisplay + '%</span>';
+				html += '    </div>';
+				html += '  </div>';
+				html += '  <div class="swish-job-details">';
+				html += '    <div class="swish-job-header">';
+				html += '      <span class="swish-job-type-badge swish-backup-type-' + (job.type || 'full') + '">' + (job.type || 'Full').charAt(0).toUpperCase() + (job.type || 'full').slice(1) + ' Backup</span>';
+				html += '      <span class="swish-job-status swish-job-status-' + (job.status || 'pending') + '">' + SwishBackup.formatJobStatus(job.status) + '</span>';
+				html += '    </div>';
+				html += '    <div class="swish-job-step">';
+				html += '      <span class="swish-job-step-icon"></span>';
+				html += '      <span class="swish-job-step-text">' + (job.step || 'Initializing...') + '</span>';
+				html += '    </div>';
+				html += '    <div class="swish-job-meta">';
+				html += '      <span class="swish-job-started">Started: ' + SwishBackup.formatTimeAgo(job.startedAt) + '</span>';
+				if (job.filesProcessed) {
+					html += '      <span class="swish-job-files">' + job.filesProcessed + ' files processed</span>';
+				}
+				if (job.currentSize) {
+					html += '      <span class="swish-job-size">' + SwishBackup.formatFileSize(job.currentSize) + '</span>';
+				}
+				html += '    </div>';
+				html += '    <div class="swish-job-steps-log" id="swish-job-log-' + jobId + '">';
+				if (job.steps && job.steps.length > 0) {
+					job.steps.forEach(function(step) {
+						html += '<div class="swish-step-entry swish-step-' + step.status + '">';
+						html += '  <span class="swish-step-icon"></span>';
+						html += '  <span class="swish-step-name">' + step.name + '</span>';
+						if (step.detail) {
+							html += '  <span class="swish-step-detail">' + step.detail + '</span>';
+						}
+						html += '</div>';
+					});
+				}
+				html += '    </div>';
+				html += '    <div class="swish-job-actions">';
+				html += '      <button type="button" class="button swish-cancel-job-btn" data-job-id="' + jobId + '">';
+				html += '        <span class="dashicons dashicons-no-alt"></span> Cancel';
+				html += '      </button>';
+				html += '    </div>';
+				html += '  </div>';
+				html += '</div>';
+			});
+
+			html += '</div>';
+			container.html(html);
+		},
+
+		/**
+		 * Update active job UI.
+		 */
+		updateActiveJobUI: function(jobId, jobData) {
+			const jobs = this.getActiveJobs();
+			if (!jobs[jobId]) return;
+
+			// Update stored job data
+			jobs[jobId] = Object.assign(jobs[jobId], jobData);
+			localStorage.setItem('swish_active_jobs', JSON.stringify(jobs));
+
+			// Update UI
+			const card = $('.swish-active-job-card[data-job-id="' + jobId + '"]');
+			if (card.length === 0) {
+				this.renderActiveJobs();
+				return;
+			}
+
+			const progress = jobData.progress || 0;
+			const progressDisplay = progress.toFixed(2);
+
+			// Update progress circle
+			const circumference = 326.73;
+			const offset = circumference - (circumference * progress / 100);
+			card.find('.swish-progress-ring-fill').attr('stroke-dashoffset', offset);
+			card.find('.swish-progress-percent').text(progressDisplay + '%');
+
+			// Update status
+			card.find('.swish-job-status')
+				.removeClass('swish-job-status-pending swish-job-status-processing swish-job-status-completed swish-job-status-failed')
+				.addClass('swish-job-status-' + jobData.status)
+				.text(this.formatJobStatus(jobData.status));
+
+			// Update current step
+			if (jobData.step) {
+				card.find('.swish-job-step-text').text(jobData.step);
+			}
+
+			// Update meta info
+			if (jobData.filesProcessed) {
+				let filesSpan = card.find('.swish-job-files');
+				if (filesSpan.length === 0) {
+					card.find('.swish-job-meta').append('<span class="swish-job-files">' + jobData.filesProcessed + ' files processed</span>');
+				} else {
+					filesSpan.text(jobData.filesProcessed + ' files processed');
+				}
+			}
+
+			if (jobData.currentSize) {
+				let sizeSpan = card.find('.swish-job-size');
+				if (sizeSpan.length === 0) {
+					card.find('.swish-job-meta').append('<span class="swish-job-size">' + this.formatFileSize(jobData.currentSize) + '</span>');
+				} else {
+					sizeSpan.text(this.formatFileSize(jobData.currentSize));
+				}
+			}
+
+			// Update steps log
+			if (jobData.steps) {
+				const log = card.find('.swish-job-steps-log');
+				let stepsHtml = '';
+				jobData.steps.forEach(function(step) {
+					stepsHtml += '<div class="swish-step-entry swish-step-' + step.status + '">';
+					stepsHtml += '  <span class="swish-step-icon"></span>';
+					stepsHtml += '  <span class="swish-step-name">' + step.name + '</span>';
+					if (step.detail) {
+						stepsHtml += '  <span class="swish-step-detail">' + step.detail + '</span>';
+					}
+					stepsHtml += '</div>';
+				});
+				log.html(stepsHtml);
+			}
+		},
+
+		/**
+		 * Start polling for job status.
+		 */
+		startJobPolling: function(jobId) {
+			if (this.activeJobs[jobId]) return; // Already polling
+
+			this.activeJobs[jobId] = {
+				pollCount: 0,
+				processTried: false
+			};
+
+			this.pollJobStatusNew(jobId);
+		},
+
+		/**
+		 * Poll job status (new implementation with detailed progress).
+		 */
+		pollJobStatusNew: function(jobId) {
+			const self = this;
+			const jobState = this.activeJobs[jobId];
+			if (!jobState) return;
+
+			jobState.pollCount++;
+
+			wp.apiFetch({
+				path: '/swish-backup/v1/job/' + jobId,
+				method: 'GET'
+			}).then(function(job) {
+				const jobData = {
+					status: job.status,
+					progress: job.progress || 0,
+					step: self.getStepDescription(job),
+					filesProcessed: job.files_processed || job.processed_files,
+					currentSize: job.current_size || job.size,
+					steps: self.buildStepsList(job)
+				};
+
+				self.updateActiveJobUI(jobId, jobData);
+
+				if (job.status === 'completed') {
+					// Mark as completed and reload after a short delay
+					setTimeout(function() {
+						self.removeActiveJob(jobId);
+						delete self.activeJobs[jobId];
+						location.reload();
+					}, 2000);
+				} else if (job.status === 'failed') {
+					jobData.step = job.error || 'Backup failed';
+					self.updateActiveJobUI(jobId, jobData);
+					self.removeActiveJob(jobId);
+					delete self.activeJobs[jobId];
+				} else if (job.status === 'pending' && !jobState.processTried && jobState.pollCount >= 3) {
+					// Try to process directly (fallback for slow cron)
+					jobState.processTried = true;
+					wp.apiFetch({
+						path: '/swish-backup/v1/job/' + jobId + '/process',
+						method: 'POST'
+					}).then(function(result) {
+						// Continue polling regardless of result
+						setTimeout(function() {
+							self.pollJobStatusNew(jobId);
+						}, 1000);
+					}).catch(function() {
+						setTimeout(function() {
+							self.pollJobStatusNew(jobId);
+						}, 1000);
+					});
+				} else {
+					// Continue polling
+					setTimeout(function() {
+						self.pollJobStatusNew(jobId);
+					}, 1000);
+				}
+			}).catch(function(error) {
+				// Check if job not found (404) - clean up immediately
+				if (error && error.code === 'job_not_found') {
+					console.log('Job not found, cleaning up:', jobId);
+					self.removeActiveJob(jobId);
+					delete self.activeJobs[jobId];
+					return;
+				}
+
+				// For other errors, retry with a limit
+				if (jobState.pollCount < 30) { // Max 30 seconds for transient errors
+					setTimeout(function() {
+						self.pollJobStatusNew(jobId);
+					}, 1000);
+				} else {
+					// Give up after 30 seconds of errors
+					console.log('Giving up on job after too many errors:', jobId);
+					self.removeActiveJob(jobId);
+					delete self.activeJobs[jobId];
+				}
+			});
+		},
+
+		/**
+		 * Get step description from job data.
+		 */
+		getStepDescription: function(job) {
+			if (job.current_step) return job.current_step;
+			if (job.message) return job.message;
+
+			switch (job.phase || job.status) {
+				case 'pending':
+					return 'Waiting to start...';
+				case 'initializing':
+					return 'Initializing backup environment...';
+				case 'database':
+					return 'Backing up database tables...';
+				case 'files':
+					return 'Archiving files...';
+				case 'uploading':
+					return 'Uploading to storage...';
+				case 'finalizing':
+					return 'Finalizing backup archive...';
+				case 'completed':
+					return 'Backup completed successfully!';
+				case 'failed':
+					return job.error || 'Backup failed';
+				default:
+					return 'Processing...';
+			}
+		},
+
+		/**
+		 * Build steps list for display.
+		 */
+		buildStepsList: function(job) {
+			const steps = [];
+			const currentPhase = job.phase || '';
+			const phases = ['initializing', 'database', 'files', 'finalizing'];
+			const phaseNames = {
+				'initializing': 'Initialize',
+				'database': 'Database backup',
+				'files': 'File archiving',
+				'finalizing': 'Finalize archive'
+			};
+
+			let reachedCurrent = false;
+
+			phases.forEach(function(phase) {
+				let status = 'pending';
+				let detail = '';
+
+				if (job.status === 'completed') {
+					status = 'completed';
+				} else if (job.status === 'failed' && currentPhase === phase) {
+					status = 'failed';
+					detail = job.error || '';
+				} else if (currentPhase === phase) {
+					status = 'in-progress';
+					reachedCurrent = true;
+
+					// Add details based on phase
+					if (phase === 'database' && job.tables_processed) {
+						detail = job.tables_processed + ' tables';
+					} else if (phase === 'files' && job.files_processed) {
+						detail = job.files_processed + ' files';
+					}
+				} else if (!reachedCurrent && currentPhase) {
+					// Phases before current are completed
+					const phaseOrder = phases.indexOf(phase);
+					const currentOrder = phases.indexOf(currentPhase);
+					if (phaseOrder < currentOrder) {
+						status = 'completed';
+					}
+				}
+
+				steps.push({
+					name: phaseNames[phase] || phase,
+					status: status,
+					detail: detail
+				});
+			});
+
+			return steps;
+		},
+
+		/**
+		 * Format job status for display.
+		 */
+		formatJobStatus: function(status) {
+			const statusMap = {
+				'pending': 'Queued',
+				'processing': 'In Progress',
+				'completed': 'Completed',
+				'failed': 'Failed'
+			};
+			return statusMap[status] || status;
+		},
+
+		/**
+		 * Format time ago.
+		 */
+		formatTimeAgo: function(timestamp) {
+			if (!timestamp) return 'Just now';
+
+			const seconds = Math.floor((Date.now() - timestamp) / 1000);
+
+			if (seconds < 60) return seconds + 's ago';
+			if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
+			if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
+			return Math.floor(seconds / 86400) + 'd ago';
+		},
+
+		/**
+		 * Cancel a backup job.
+		 */
+		cancelJob: function() {
+			const jobId = $(this).data('job-id');
+
+			if (!confirm('Are you sure you want to cancel this backup?')) {
+				return;
+			}
+
+			const btn = $(this);
+			btn.prop('disabled', true).text('Cancelling...');
+
+			wp.apiFetch({
+				path: '/swish-backup/v1/job/' + jobId + '/cancel',
+				method: 'POST'
+			}).then(function(response) {
+				if (response.success) {
+					// Remove job from localStorage and stop polling
+					SwishBackup.removeActiveJob(jobId);
+					delete SwishBackup.activeJobs[jobId];
+
+					// Remove the job card from UI
+					$('.swish-active-job-card[data-job-id="' + jobId + '"]').fadeOut(300, function() {
+						$(this).remove();
+
+						// If no more jobs, remove the container
+						if ($('.swish-active-job-card').length === 0) {
+							$('#swish-active-jobs-container').empty();
+						}
+					});
+				} else {
+					alert(response.message || 'Failed to cancel job');
+					btn.prop('disabled', false).html('<span class="dashicons dashicons-no-alt"></span> Cancel');
+				}
+			}).catch(function(error) {
+				alert(error.message || 'Failed to cancel job');
+				btn.prop('disabled', false).html('<span class="dashicons dashicons-no-alt"></span> Cancel');
 			});
 		},
 

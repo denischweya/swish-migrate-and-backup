@@ -51,13 +51,13 @@ final class SchedulesPage {
 		$schedules = $this->scheduler->get_schedules();
 		?>
 		<div class="wrap swish-backup-wrap">
-			<?php AdminNav::render(); ?>
-
 			<h1 class="wp-heading-inline"><?php esc_html_e( 'Backup Schedules', 'swish-migrate-and-backup' ); ?></h1>
 			<button type="button" class="page-title-action" id="swish-backup-add-schedule">
 				<?php esc_html_e( 'Add Schedule', 'swish-migrate-and-backup' ); ?>
 			</button>
 			<hr class="wp-header-end">
+
+			<?php AdminNav::render(); ?>
 
 			<!-- Schedule Form -->
 			<div id="swish-backup-schedule-form" class="swish-backup-card" style="display:none;">

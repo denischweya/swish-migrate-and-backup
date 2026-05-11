@@ -131,6 +131,9 @@ final class ProPage {
 		$features = $this->get_features();
 		?>
 		<div class="wrap swish-backup-wrap">
+			<h1 class="screen-reader-text"><?php esc_html_e( 'Swish Backup Pro', 'swish-migrate-and-backup' ); ?></h1>
+			<hr class="wp-header-end">
+
 			<?php AdminNav::render(); ?>
 
 			<div class="swish-pro-page">
@@ -138,7 +141,7 @@ final class ProPage {
 				<div class="swish-pro-hero">
 					<div class="swish-pro-hero-content">
 						<span class="swish-pro-badge"><?php esc_html_e( 'PRO', 'swish-migrate-and-backup' ); ?></span>
-						<h1><?php esc_html_e( 'Unlock the Full Power of Swish Backup', 'swish-migrate-and-backup' ); ?></h1>
+						<h2><?php esc_html_e( 'Unlock the Full Power of Swish Backup', 'swish-migrate-and-backup' ); ?></h2>
 						<p class="swish-pro-tagline">
 							<?php esc_html_e( 'Remove size limits, backup entire multisite networks, and get premium features designed for professionals.', 'swish-migrate-and-backup' ); ?>
 						</p>

@@ -341,6 +341,105 @@ final class Plugin {
 
 		// Register export AJAX handlers (new streaming architecture).
 		add_action( 'init', array( $this->container->get( ExportAjaxHandler::class ), 'register' ) );
+
+		// AJAX handler for non-blocking backup processing.
+		add_action( 'wp_ajax_swish_process_backup', array( $this, 'ajax_process_backup' ) );
+		add_action( 'wp_ajax_nopriv_swish_process_backup', array( $this, 'ajax_process_backup' ) );
+	}
+
+	/**
+	 * Disable Action Scheduler to prevent errors during backup.
+	 *
+	 * Action Scheduler can cause repeated database errors if its tables
+	 * are missing, which hangs the server during backup operations.
+	 *
+	 * @return void
+	 */
+	private function disable_action_scheduler(): void {
+		// Remove Action Scheduler's queue runner to prevent database errors.
+		// This is safe because we don't need Action Scheduler during backups.
+		remove_all_actions( 'action_scheduler_run_queue' );
+
+		// Also prevent Action Scheduler from being initialized.
+		if ( class_exists( 'ActionScheduler_QueueRunner' ) ) {
+			remove_action( 'init', array( 'ActionScheduler_QueueRunner', 'instance' ), 1 );
+		}
+
+		// Prevent Action Scheduler from running via WP Cron.
+		remove_action( 'action_scheduler_run_queue', array( 'ActionScheduler_QueueRunner', 'instance' ) );
+	}
+
+	/**
+	 * AJAX handler for non-blocking backup processing.
+	 *
+	 * This is called via a loopback request from the REST API
+	 * to process backups asynchronously without blocking the frontend.
+	 *
+	 * @return void
+	 */
+	public function ajax_process_backup(): void {
+		// Disable Action Scheduler to prevent server hang from missing tables.
+		$this->disable_action_scheduler();
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Nonce verified below.
+		$job_id = isset( $_REQUEST['job_id'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['job_id'] ) ) : '';
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Nonce verified below.
+		$process_key = isset( $_REQUEST['process_key'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['process_key'] ) ) : '';
+
+		if ( empty( $job_id ) || empty( $process_key ) ) {
+			wp_die( 'Invalid request', 400 );
+		}
+
+		// Verify the nonce.
+		if ( ! wp_verify_nonce( $process_key, 'swish_process_' . $job_id ) ) {
+			wp_die( 'Invalid nonce', 403 );
+		}
+
+		// Get the backup manager and check job status.
+		$backup_manager = $this->container->get( BackupManager::class );
+		$job = $backup_manager->get_job_status( $job_id );
+
+		// Only process if job is still pending.
+		if ( ! $job || $job['status'] !== 'pending' ) {
+			wp_die( 'Job not pending', 200 );
+		}
+
+		// Ensure the script continues running even if the connection is closed.
+		// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+		@ignore_user_abort( true );
+
+		// Increase time limit for the backup.
+		// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+		@set_time_limit( 300 );
+
+		// Close the connection to the client immediately so they can continue polling.
+		// This allows the backup to run in the background.
+		if ( function_exists( 'fastcgi_finish_request' ) ) {
+			// Send response headers.
+			header( 'Content-Type: text/plain' );
+			header( 'Connection: close' );
+			echo 'OK';
+
+			// Flush and close the connection.
+			fastcgi_finish_request();
+		} else {
+			// Fallback for non-FastCGI servers.
+			header( 'Content-Type: text/plain' );
+			header( 'Connection: close' );
+			header( 'Content-Length: 2' );
+			echo 'OK';
+
+			// Flush output buffers.
+			if ( ob_get_level() > 0 ) {
+				ob_end_flush();
+			}
+			flush();
+		}
+
+		// Now process the backup in the background.
+		$backup_manager->process_async_backup( $job_id );
+
+		exit;
 	}
 
 	/**
@@ -561,10 +660,11 @@ final class Plugin {
 				'swish-backup-dashboard',
 				'swishBackupData',
 				array(
-					'apiUrl'      => rest_url( 'swish-backup/v1' ),
-					'nonce'       => wp_create_nonce( 'wp_rest' ),
-					'proUrl'      => SWISH_BACKUP_PRO_URL,
-					'isProActive' => apply_filters( 'swish_backup_is_pro', false ),
+					'apiUrl'         => rest_url( 'swish-backup/v1' ),
+					'nonce'          => wp_create_nonce( 'wp_rest' ),
+					'proUrl'         => SWISH_BACKUP_PRO_URL,
+					'isProActive'    => apply_filters( 'swish_backup_is_pro', false ),
+					'backupsPageUrl' => admin_url( 'admin.php?page=swish-backup-backups' ),
 				)
 			);
 		} else {
@@ -602,6 +702,7 @@ final class Plugin {
 				'nonce'          => wp_create_nonce( 'wp_rest' ),
 				'proUrl'         => SWISH_BACKUP_PRO_URL,
 				'isProActive'    => apply_filters( 'swish_backup_is_pro', false ),
+				'backupsPageUrl' => admin_url( 'admin.php?page=swish-backup-backups' ),
 				'maxUploadSize'  => wp_max_upload_size(),
 				'maxUploadSizeFormatted' => size_format( wp_max_upload_size() ),
 				'postMaxSize'    => $this->get_post_max_size(),

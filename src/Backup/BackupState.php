@@ -161,6 +161,31 @@ final class BackupState {
 	}
 
 	/**
+	 * Delete state metadata from database.
+	 *
+	 * @param string $job_id Job ID.
+	 * @param string $key    State key.
+	 * @return bool True on success.
+	 */
+	public function delete_meta( string $job_id, string $key ): bool {
+		global $wpdb;
+
+		$table = $wpdb->prefix . self::TABLE_NAME;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$result = $wpdb->delete(
+			$table,
+			array(
+				'job_id'    => $job_id,
+				'state_key' => $key,
+			),
+			array( '%s', '%s' )
+		);
+
+		return false !== $result;
+	}
+
+	/**
 	 * Get all state for a job.
 	 *
 	 * @param string $job_id Job ID.

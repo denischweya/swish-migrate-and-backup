@@ -295,6 +295,19 @@ final class RestController extends WP_REST_Controller {
 			)
 		);
 
+		// Cancel a running or pending job.
+		register_rest_route(
+			$this->namespace,
+			'/job/(?P<id>[a-zA-Z0-9_-]+)/cancel',
+			array(
+				array(
+					'methods'             => WP_REST_Server::CREATABLE,
+					'callback'            => array( $this, 'cancel_job' ),
+					'permission_callback' => array( $this, 'check_admin_permission' ),
+				),
+			)
+		);
+
 		// Settings routes.
 		register_rest_route(
 			$this->namespace,
@@ -878,14 +891,96 @@ final class RestController extends WP_REST_Controller {
 			) );
 		}
 
-		// Process the backup synchronously in this request.
-		// This works because the frontend is already prepared to wait.
-		$this->backup_manager->process_async_backup( $job_id );
+		// Spawn a non-blocking loopback request to process the backup.
+		// This allows the frontend to continue polling for updates.
+		$this->spawn_backup_process( $job_id );
 
-		// Return the updated job status.
-		$updated_job = $this->backup_manager->get_job_status( $job_id );
+		// Return immediately so frontend can poll for updates.
+		return rest_ensure_response( array(
+			'status'  => 'processing',
+			'message' => 'Backup processing started',
+			'job_id'  => $job_id,
+		) );
+	}
 
-		return rest_ensure_response( $updated_job );
+	/**
+	 * Spawn a non-blocking request to process a backup job.
+	 *
+	 * @param string $job_id Job ID.
+	 * @return void
+	 */
+	private function spawn_backup_process( string $job_id ): void {
+		// Build the URL to our internal processing endpoint.
+		$process_url = add_query_arg(
+			array(
+				'action'       => 'swish_process_backup',
+				'job_id'       => $job_id,
+				'process_key'  => wp_create_nonce( 'swish_process_' . $job_id ),
+			),
+			admin_url( 'admin-ajax.php' )
+		);
+
+		// Send a non-blocking request.
+		wp_remote_post(
+			$process_url,
+			array(
+				'timeout'   => 0.01,
+				'blocking'  => false,
+				'sslverify' => apply_filters( 'https_local_ssl_verify', false ),
+				'cookies'   => $_COOKIE,
+			)
+		);
+	}
+
+	/**
+	 * Cancel a running or pending job.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function cancel_job( WP_REST_Request $request ) {
+		$job_id = $request->get_param( 'id' );
+		$job    = $this->backup_manager->get_job_status( $job_id );
+
+		if ( ! $job ) {
+			return new WP_Error(
+				'job_not_found',
+				__( 'Job not found.', 'swish-migrate-and-backup' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		// Only cancel if the job is pending or processing.
+		if ( ! in_array( $job['status'], array( 'pending', 'processing' ), true ) ) {
+			return rest_ensure_response(
+				array(
+					'success' => false,
+					'message' => sprintf(
+						/* translators: %s: job status */
+						__( 'Cannot cancel job with status: %s', 'swish-migrate-and-backup' ),
+						$job['status']
+					),
+				)
+			);
+		}
+
+		// Cancel the job.
+		$result = $this->backup_manager->cancel_job( $job_id );
+
+		if ( $result ) {
+			return rest_ensure_response(
+				array(
+					'success' => true,
+					'message' => __( 'Job cancelled successfully.', 'swish-migrate-and-backup' ),
+				)
+			);
+		}
+
+		return new WP_Error(
+			'cancel_failed',
+			__( 'Failed to cancel job.', 'swish-migrate-and-backup' ),
+			array( 'status' => 500 )
+		);
 	}
 
 	/**
