@@ -69,6 +69,13 @@ final class AdminMenu {
 	private DocumentationPage $docs_page;
 
 	/**
+	 * Logs page.
+	 *
+	 * @var LogsPage
+	 */
+	private LogsPage $logs_page;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param Dashboard         $dashboard      Dashboard page.
@@ -78,6 +85,7 @@ final class AdminMenu {
 	 * @param MigrationPage     $migration_page Migration page.
 	 * @param ProPage           $pro_page       Pro page.
 	 * @param DocumentationPage $docs_page      Documentation page.
+	 * @param LogsPage          $logs_page      Logs page.
 	 */
 	public function __construct(
 		Dashboard $dashboard,
@@ -86,7 +94,8 @@ final class AdminMenu {
 		SchedulesPage $schedules_page,
 		MigrationPage $migration_page,
 		ProPage $pro_page,
-		DocumentationPage $docs_page
+		DocumentationPage $docs_page,
+		LogsPage $logs_page
 	) {
 		$this->dashboard      = $dashboard;
 		$this->backups_page   = $backups_page;
@@ -95,6 +104,7 @@ final class AdminMenu {
 		$this->migration_page = $migration_page;
 		$this->pro_page       = $pro_page;
 		$this->docs_page      = $docs_page;
+		$this->logs_page      = $logs_page;
 	}
 
 	/**
@@ -162,6 +172,16 @@ final class AdminMenu {
 			'manage_options',
 			'swish-backup-settings',
 			array( $this->settings_page, 'render' )
+		);
+
+		// Logs.
+		add_submenu_page(
+			'swish-backup',
+			__( 'Logs', 'swish-migrate-and-backup' ),
+			__( 'Logs', 'swish-migrate-and-backup' ),
+			'manage_options',
+			'swish-backup-logs',
+			array( $this->logs_page, 'render' )
 		);
 
 		// Documentation.

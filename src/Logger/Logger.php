@@ -79,6 +79,16 @@ final class Logger {
 	}
 
 	/**
+	 * Check if logging is enabled.
+	 *
+	 * @return bool True if logging is enabled.
+	 */
+	public static function is_enabled(): bool {
+		$settings = get_option( 'swish_backup_settings', array() );
+		return ! empty( $settings['logging_enabled'] );
+	}
+
+	/**
 	 * Set the current job ID for contextual logging.
 	 *
 	 * @param string|null $job_id Job ID.
@@ -186,6 +196,11 @@ final class Logger {
 	 * @return void
 	 */
 	public function log( string $level, string $message, array $context = array() ): void {
+		// Check if logging is enabled.
+		if ( ! self::is_enabled() ) {
+			return;
+		}
+
 		// Check if we should log this level.
 		if ( ! $this->should_log( $level ) ) {
 			return;

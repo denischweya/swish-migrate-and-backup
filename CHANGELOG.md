@@ -11,14 +11,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - HTTP Range request support for resumable backup downloads (4GB+ files)
 - Chunked file streaming for downloads (8MB chunks) to avoid memory exhaustion
 - `Accept-Ranges: bytes` header for browser download resume support
+- New "Logs" admin page for viewing and managing backup logs
+- Logging toggle (default: OFF) to enable/disable log collection
+- Log level filter (All, Error, Warning, Info, Debug)
+- Delete all logs functionality with file and database cleanup
+- `Logger::is_enabled()` static method to check logging status
 
 ### Fixed
 - Large backup downloads (4GB+) failing due to memory exhaustion or timeout
 - Browser unable to resume interrupted backup downloads
+- Migration import rejecting .tar.gz and .swish files (now accepts ZIP, TAR.GZ, SWISH)
 
 ### Changed
 - Download handler now streams files in chunks instead of using `readfile()`
 - Download token preserved until full download completes (allows resume)
+- Logger now checks if logging is enabled before writing entries
 
 ## [1.1.3] - 2026-05-11
 

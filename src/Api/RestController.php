@@ -657,12 +657,19 @@ final class RestController extends WP_REST_Controller {
 			);
 		}
 
-		// Validate file type.
-		$file_type = wp_check_filetype( $file['name'], array( 'zip' => 'application/zip' ) );
+		// Validate file type - allow ZIP, tar.gz, and .swish (our custom format).
+		$allowed_types = array(
+			'zip'    => 'application/zip',
+			'tar.gz' => 'application/gzip',
+			'tgz'    => 'application/gzip',
+			'gz'     => 'application/gzip',
+			'swish'  => 'application/gzip',
+		);
+		$file_type = wp_check_filetype( $file['name'], $allowed_types );
 		if ( ! $file_type['ext'] ) {
 			return new WP_Error(
 				'invalid_file_type',
-				__( 'Invalid file type. Only ZIP files are allowed.', 'swish-migrate-and-backup' ),
+				__( 'Invalid file type. Allowed types: ZIP, TAR.GZ, SWISH.', 'swish-migrate-and-backup' ),
 				array( 'status' => 400 )
 			);
 		}
@@ -685,11 +692,17 @@ final class RestController extends WP_REST_Controller {
 		// Add filter temporarily to redirect upload to our backup imports directory.
 		add_filter( 'upload_dir', $upload_dir_filter );
 
-		// Allow ZIP files for this upload.
+		// Allow backup archive files for this upload.
 		$upload_overrides = array(
 			'test_form'                => false,
 			'test_type'                => true,
-			'mimes'                    => array( 'zip' => 'application/zip' ),
+			'mimes'                    => array(
+				'zip'    => 'application/zip',
+				'tar.gz' => 'application/gzip',
+				'tgz'    => 'application/gzip',
+				'gz'     => 'application/gzip',
+				'swish'  => 'application/gzip',
+			),
 			'unique_filename_callback' => null,
 		);
 

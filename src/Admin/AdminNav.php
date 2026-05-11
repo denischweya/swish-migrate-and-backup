@@ -53,6 +53,11 @@ final class AdminNav {
 				'class' => 'swish-nav-settings',
 			),
 			array(
+				'slug'  => 'swish-backup-logs',
+				'label' => __( 'Logs', 'swish-migrate-and-backup' ),
+				'icon'  => 'dashicons-list-view',
+			),
+			array(
 				'slug'  => 'swish-backup-docs',
 				'label' => __( 'Documentation', 'swish-migrate-and-backup' ),
 				'icon'  => 'dashicons-book',
