@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Large backup downloads (4GB+) failing due to memory exhaustion or timeout
 - Browser unable to resume interrupted backup downloads
 - Migration import rejecting .tar.gz and .swish files (now accepts ZIP, TAR.GZ, SWISH)
+- Migration analysis failing for .tar.gz backups (was only reading ZIP format)
+- Restore process failing for .tar.gz backups (added PharData extraction support)
 
 ### Changed
 - Download handler now streams files in chunks instead of using `readfile()`

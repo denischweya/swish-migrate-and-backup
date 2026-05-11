@@ -514,28 +514,25 @@ final class RestoreManager {
 		}
 
 		try {
-			$zip = new ZipArchive();
-			$result = $zip->open( $backup_path, ZipArchive::RDONLY );
+			// Get manifest using our format-aware method.
+			$manifest = null;
+			$filename = strtolower( basename( $backup_path ) );
 
-			if ( true !== $result ) {
-				return false;
+			if ( str_ends_with( $filename, '.tar.gz' ) || str_ends_with( $filename, '.tgz' ) || str_ends_with( $filename, '.swish' ) ) {
+				$manifest = $this->get_manifest_from_tar( $backup_path );
+			} else {
+				$manifest = $this->get_manifest_from_zip( $backup_path );
 			}
 
-			// Check for manifest.
-			$manifest = $zip->getFromName( 'manifest.json' );
-			if ( false === $manifest ) {
-				$zip->close();
+			if ( null === $manifest ) {
 				return false;
 			}
 
 			// Validate manifest.
 			$manifest_data = json_decode( $manifest, true );
 			if ( ! is_array( $manifest_data ) || empty( $manifest_data['version'] ) ) {
-				$zip->close();
 				return false;
 			}
-
-			$zip->close();
 
 			return true;
 		} catch ( \Exception $e ) {
@@ -551,8 +548,53 @@ final class RestoreManager {
 	 */
 	public function get_backup_info( string $backup_path ): ?array {
 		try {
-			$zip = new ZipArchive();
-			$result = $zip->open( $backup_path, ZipArchive::RDONLY );
+			$filename = strtolower( basename( $backup_path ) );
+			$manifest = null;
+
+			// Determine archive type and extract manifest accordingly.
+			if ( str_ends_with( $filename, '.zip' ) ) {
+				// ZIP archive.
+				$manifest = $this->get_manifest_from_zip( $backup_path );
+			} elseif ( str_ends_with( $filename, '.tar.gz' ) || str_ends_with( $filename, '.tgz' ) || str_ends_with( $filename, '.swish' ) ) {
+				// Tar.gz archive (including .swish format).
+				$manifest = $this->get_manifest_from_tar( $backup_path );
+			} else {
+				// Try ZIP first, then tar.gz.
+				$manifest = $this->get_manifest_from_zip( $backup_path );
+				if ( null === $manifest ) {
+					$manifest = $this->get_manifest_from_tar( $backup_path );
+				}
+			}
+
+			if ( null === $manifest ) {
+				return null;
+			}
+
+			$data = json_decode( $manifest, true );
+			if ( ! is_array( $data ) ) {
+				return null;
+			}
+
+			$data['file_size'] = filesize( $backup_path );
+			$data['filename'] = basename( $backup_path );
+
+			return $data;
+		} catch ( \Exception $e ) {
+			$this->logger->error( 'Failed to get backup info: ' . $e->getMessage() );
+			return null;
+		}
+	}
+
+	/**
+	 * Extract manifest.json from a ZIP archive.
+	 *
+	 * @param string $backup_path Path to ZIP file.
+	 * @return string|null Manifest contents or null on error.
+	 */
+	private function get_manifest_from_zip( string $backup_path ): ?string {
+		try {
+			$zip = new \ZipArchive();
+			$result = $zip->open( $backup_path, \ZipArchive::RDONLY );
 
 			if ( true !== $result ) {
 				return null;
@@ -561,15 +603,35 @@ final class RestoreManager {
 			$manifest = $zip->getFromName( 'manifest.json' );
 			$zip->close();
 
-			if ( false === $manifest ) {
-				return null;
+			return false !== $manifest ? $manifest : null;
+		} catch ( \Exception $e ) {
+			return null;
+		}
+	}
+
+	/**
+	 * Extract manifest.json from a tar.gz archive.
+	 *
+	 * @param string $backup_path Path to tar.gz file.
+	 * @return string|null Manifest contents or null on error.
+	 */
+	private function get_manifest_from_tar( string $backup_path ): ?string {
+		try {
+			$phar = new \PharData( $backup_path );
+
+			// Try to get manifest.json directly.
+			if ( isset( $phar['manifest.json'] ) ) {
+				return $phar['manifest.json']->getContent();
 			}
 
-			$data = json_decode( $manifest, true );
-			$data['file_size'] = filesize( $backup_path );
-			$data['filename'] = basename( $backup_path );
+			// Some archives may have it in a subdirectory, iterate to find it.
+			foreach ( new \RecursiveIteratorIterator( $phar ) as $file ) {
+				if ( basename( $file->getPathname() ) === 'manifest.json' ) {
+					return $file->getContent();
+				}
+			}
 
-			return $data;
+			return null;
 		} catch ( \Exception $e ) {
 			return null;
 		}
@@ -609,30 +671,69 @@ final class RestoreManager {
 	/**
 	 * Extract backup to temporary directory.
 	 *
+	 * Supports both ZIP and tar.gz (including .swish) formats.
+	 *
 	 * @param string $backup_path Path to backup file.
 	 * @param string $output_dir  Output directory.
 	 * @return bool True if successful.
 	 */
 	private function extract_backup( string $backup_path, string $output_dir ): bool {
 		try {
-			$zip = new ZipArchive();
-			$result = $zip->open( $backup_path );
-
-			if ( true !== $result ) {
-				return false;
-			}
-
 			if ( ! is_dir( $output_dir ) && ! wp_mkdir_p( $output_dir ) ) {
-				$zip->close();
 				return false;
 			}
 
-			// Use safe extraction to prevent Zip Slip attacks.
-			$extracted = $this->safe_extract_zip( $zip, $output_dir );
-			$zip->close();
+			$filename = strtolower( basename( $backup_path ) );
 
-			return $extracted;
+			// Determine archive type and extract accordingly.
+			if ( str_ends_with( $filename, '.tar.gz' ) || str_ends_with( $filename, '.tgz' ) || str_ends_with( $filename, '.swish' ) ) {
+				return $this->extract_tar_backup( $backup_path, $output_dir );
+			}
+
+			// Default to ZIP extraction.
+			return $this->extract_zip_backup( $backup_path, $output_dir );
 		} catch ( \Exception $e ) {
+			$this->logger->error( 'Failed to extract backup: ' . $e->getMessage() );
+			return false;
+		}
+	}
+
+	/**
+	 * Extract ZIP backup to directory.
+	 *
+	 * @param string $backup_path Path to ZIP file.
+	 * @param string $output_dir  Output directory.
+	 * @return bool True if successful.
+	 */
+	private function extract_zip_backup( string $backup_path, string $output_dir ): bool {
+		$zip = new \ZipArchive();
+		$result = $zip->open( $backup_path );
+
+		if ( true !== $result ) {
+			return false;
+		}
+
+		// Use safe extraction to prevent Zip Slip attacks.
+		$extracted = $this->safe_extract_zip( $zip, $output_dir );
+		$zip->close();
+
+		return $extracted;
+	}
+
+	/**
+	 * Extract tar.gz backup to directory.
+	 *
+	 * @param string $backup_path Path to tar.gz file.
+	 * @param string $output_dir  Output directory.
+	 * @return bool True if successful.
+	 */
+	private function extract_tar_backup( string $backup_path, string $output_dir ): bool {
+		try {
+			$phar = new \PharData( $backup_path );
+			$phar->extractTo( $output_dir, null, true ); // true = overwrite existing files.
+			return true;
+		} catch ( \Exception $e ) {
+			$this->logger->error( 'Failed to extract tar.gz: ' . $e->getMessage() );
 			return false;
 		}
 	}
