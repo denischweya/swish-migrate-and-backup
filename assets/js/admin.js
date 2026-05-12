@@ -31,6 +31,8 @@
 			$(document).on('click', '.swish-backup-restore', this.showRestoreModal);
 			$(document).on('click', '#swish-backup-restore-confirm', this.confirmRestore);
 			$(document).on('click', '.swish-backup-download', this.downloadBackup);
+			$(document).on('click', '.swish-backup-cli-download', this.showCliDownload);
+			$(document).on('click', '#swish-backup-cli-copy', this.copyCliCommand);
 			$(document).on('click', '.swish-backup-delete', this.deleteBackup);
 
 			// Bulk selection
@@ -671,6 +673,71 @@
 				if (response.url) {
 					window.location.href = response.url;
 				}
+			});
+		},
+
+		/**
+		 * Show CLI download modal with curl command.
+		 */
+		showCliDownload: function() {
+			const backupId = $(this).data('backup-id');
+			const filename = $(this).data('filename');
+			const $modal = $('#swish-backup-cli-modal');
+			const $command = $('#swish-backup-cli-command');
+
+			$command.text('Loading...');
+			$modal.show();
+
+			wp.apiFetch({
+				path: `/swish-backup/v1/backup/${backupId}/download`,
+				method: 'GET'
+			}).then(function(response) {
+				if (response.url) {
+					const curlCommand = `curl -L -C - \\
+  --retry 100 \\
+  --retry-delay 5 \\
+  --retry-all-errors \\
+  --connect-timeout 30 \\
+  --max-time 0 \\
+  -o "${filename}" \\
+  "${response.url}"`;
+					$command.text(curlCommand);
+				} else {
+					$command.text('Error: Could not generate download URL');
+				}
+			}).catch(function(error) {
+				$command.text('Error: ' + (error.message || 'Could not generate download URL'));
+			});
+		},
+
+		/**
+		 * Copy CLI command to clipboard.
+		 */
+		copyCliCommand: function() {
+			const $command = $('#swish-backup-cli-command');
+			const $button = $(this);
+			const text = $command.text();
+
+			navigator.clipboard.writeText(text).then(function() {
+				const originalHtml = $button.html();
+				$button.html('<span class="dashicons dashicons-yes"></span> Copied!');
+				setTimeout(function() {
+					$button.html(originalHtml);
+				}, 2000);
+			}).catch(function() {
+				// Fallback for older browsers
+				const textarea = document.createElement('textarea');
+				textarea.value = text;
+				document.body.appendChild(textarea);
+				textarea.select();
+				document.execCommand('copy');
+				document.body.removeChild(textarea);
+
+				const originalHtml = $button.html();
+				$button.html('<span class="dashicons dashicons-yes"></span> Copied!');
+				setTimeout(function() {
+					$button.html(originalHtml);
+				}, 2000);
 			});
 		},
 

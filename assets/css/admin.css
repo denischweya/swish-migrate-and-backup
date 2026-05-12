@@ -206,6 +206,73 @@
 	margin-top: 20px;
 }
 
+/* CLI Download Modal */
+.swish-backup-cli-modal-content {
+	max-width: 700px;
+}
+
+.swish-backup-cli-description {
+	color: #666;
+	margin-bottom: 15px;
+}
+
+.swish-backup-cli-command-wrapper {
+	position: relative;
+	background: #1e1e1e;
+	border-radius: 4px;
+	padding: 15px;
+	margin-bottom: 15px;
+}
+
+.swish-backup-cli-command {
+	background: transparent;
+	color: #d4d4d4;
+	font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+	font-size: 13px;
+	line-height: 1.6;
+	margin: 0;
+	padding: 0;
+	padding-right: 80px;
+	white-space: pre-wrap;
+	word-break: break-all;
+	overflow-x: auto;
+}
+
+.swish-backup-cli-copy {
+	position: absolute;
+	top: 10px;
+	right: 10px;
+	background: #333 !important;
+	border-color: #555 !important;
+	color: #fff !important;
+}
+
+.swish-backup-cli-copy:hover {
+	background: #444 !important;
+}
+
+.swish-backup-cli-copy .dashicons {
+	font-size: 14px;
+	width: 14px;
+	height: 14px;
+	vertical-align: middle;
+	margin-right: 3px;
+}
+
+.swish-backup-cli-note {
+	background: #f0f6fc;
+	border: 1px solid #c8e1ff;
+	color: #0366d6;
+	padding: 10px 15px;
+	border-radius: 4px;
+	font-size: 13px;
+	margin-bottom: 15px;
+}
+
+.swish-backup-cli-note strong {
+	color: #24292e;
+}
+
 .swish-backup-warning {
 	background: #fff3cd;
 	border: 1px solid #ffc107;

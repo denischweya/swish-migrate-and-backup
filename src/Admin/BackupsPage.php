@@ -177,6 +177,9 @@ final class BackupsPage {
 									<button type="button" class="button button-small swish-backup-download" data-backup-id="<?php echo esc_attr( $backup['id'] ); ?>">
 										<?php esc_html_e( 'Download', 'swish-migrate-and-backup' ); ?>
 									</button>
+									<button type="button" class="button button-small swish-backup-cli-download" data-backup-id="<?php echo esc_attr( $backup['id'] ); ?>" data-filename="<?php echo esc_attr( $backup['filename'] ); ?>">
+										<?php esc_html_e( 'CLI', 'swish-migrate-and-backup' ); ?>
+									</button>
 									<button type="button" class="button button-small button-link-delete swish-backup-delete" data-backup-id="<?php echo esc_attr( $backup['id'] ); ?>">
 										<?php esc_html_e( 'Delete', 'swish-migrate-and-backup' ); ?>
 									</button>
@@ -224,6 +227,31 @@ final class BackupsPage {
 						</button>
 						<button type="button" class="button swish-backup-modal-cancel">
 							<?php esc_html_e( 'Cancel', 'swish-migrate-and-backup' ); ?>
+						</button>
+					</div>
+				</div>
+			</div>
+
+			<div id="swish-backup-cli-modal" class="swish-backup-modal" style="display:none;">
+				<div class="swish-backup-modal-content swish-backup-cli-modal-content">
+					<h3><?php esc_html_e( 'CLI Download Command', 'swish-migrate-and-backup' ); ?></h3>
+					<p class="swish-backup-cli-description">
+						<?php esc_html_e( 'Use this command to download the backup via command line. Supports resume on failure.', 'swish-migrate-and-backup' ); ?>
+					</p>
+					<div class="swish-backup-cli-command-wrapper">
+						<pre id="swish-backup-cli-command" class="swish-backup-cli-command"></pre>
+						<button type="button" class="button button-small swish-backup-cli-copy" id="swish-backup-cli-copy">
+							<span class="dashicons dashicons-clipboard"></span>
+							<?php esc_html_e( 'Copy', 'swish-migrate-and-backup' ); ?>
+						</button>
+					</div>
+					<p class="swish-backup-cli-note">
+						<strong><?php esc_html_e( 'Note:', 'swish-migrate-and-backup' ); ?></strong>
+						<?php esc_html_e( 'The download link expires in 1 hour. If interrupted, re-run the same command to resume.', 'swish-migrate-and-backup' ); ?>
+					</p>
+					<div class="swish-backup-modal-actions">
+						<button type="button" class="button swish-backup-modal-cancel">
+							<?php esc_html_e( 'Close', 'swish-migrate-and-backup' ); ?>
 						</button>
 					</div>
 				</div>
