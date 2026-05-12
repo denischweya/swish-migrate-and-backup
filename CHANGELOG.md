@@ -5,6 +5,30 @@ All notable changes to Swish Migrate and Backup will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.7] - 2026-05-12
+
+### Fixed
+- **Large file downloads now work with curl/wget** - moved download handler outside wp-admin
+- Download URLs now use token-based authentication without requiring WordPress login
+- Downloads support resumable transfers (`curl -C -` flag works correctly)
+
+### Changed
+- Download hook changed from `admin_init` to `init` (runs before WordPress admin auth)
+- Download URLs changed from `/wp-admin/admin.php?...` to `/?swish_download=...`
+- Removed `current_user_can()` check from download handler (token IS the authentication)
+
+## [1.1.6] - 2026-05-12
+
+### Added
+- REST API endpoints for schedule management (`/schedule/{id}/toggle`, `/schedule/{id}/run`, `/schedule/{id}/delete`)
+- "Schedule Backup" button to empty state on Schedules page
+- Scheduler dependency injection into RestController
+
+### Fixed
+- **Scheduled backups UI now fully functional** - toggle, run, and delete buttons work
+- Backup job step indicators now show progress correctly (phase derived from progress percentage)
+- JavaScript handlers now call actual API endpoints instead of stub implementations
+
 ## [1.1.5] - 2026-05-11
 
 ### Added
