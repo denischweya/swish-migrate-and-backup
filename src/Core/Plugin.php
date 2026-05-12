@@ -557,6 +557,12 @@ final class Plugin {
 			return false; // No sendfile support, fall back to PHP.
 		}
 
+		// LiteSpeed X-LiteSpeed-Location doesn't reliably handle Range requests
+		// through Cloudflare/proxies. Fall back to PHP streaming for reliability.
+		if ( 'x-litespeed-location' === $method ) {
+			return false;
+		}
+
 		// Send common headers.
 		nocache_headers();
 		header( 'Content-Type: application/octet-stream' );
@@ -582,17 +588,12 @@ final class Plugin {
 				}
 				break;
 
-			case 'x-litespeed-location':
-				// LiteSpeed - built-in support.
-				header( 'X-LiteSpeed-Location: ' . $file_path );
-				break;
-
 			default:
 				return false;
 		}
 
-		// Delete transient after successful sendfile (full download assumed).
-		delete_transient( $transient_key );
+		// Note: Don't delete transient here - we can't know if download completed.
+		// Transient will expire naturally (default 1 hour).
 
 		return true;
 	}
@@ -831,10 +832,8 @@ final class Plugin {
 		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
 		fclose( $handle );
 
-		// Only delete transient if full download completed.
-		if ( $bytes_sent >= $length && 0 === $start ) {
-			delete_transient( $transient_key );
-		}
+		// Don't delete transient - allow resumption if download fails.
+		// Transient will expire naturally (default 1 hour).
 	}
 
 	/**

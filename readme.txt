@@ -4,7 +4,7 @@ Tags: backup, migration, restore, database, cloud storage
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.1.7
+Stable tag: 1.1.8
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -100,6 +100,11 @@ This feature is only available in the PRO version of this plugin [Get PRO](https
 5. Schedules - Set up automatic scheduled backups
 
 == Changelog ==
+
+= 1.1.8 =
+* Disabled LiteSpeed X-LiteSpeed-Location for downloads (falls back to PHP streaming)
+* Fixed resumable downloads on GoDaddy/LiteSpeed + Cloudflare setups
+* Download tokens no longer deleted prematurely - allows proper resume after failure
 
 = 1.1.7 =
 * Fixed large file downloads for curl/wget - moved download handler outside wp-admin
