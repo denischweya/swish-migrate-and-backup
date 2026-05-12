@@ -1473,6 +1473,15 @@ final class BackupManager {
 			$this->logger->info( 'Async backup chunk completed, continuation scheduled', array( 'job_id' => $job_id ) );
 		} else {
 			$this->logger->info( 'Async backup completed', array( 'job_id' => $job_id ) );
+
+			// Apply retention policy for scheduled backups.
+			if ( ! empty( $options['scheduled'] ) && ! empty( $options['retention_count'] ) ) {
+				$this->logger->info( 'Applying retention policy for scheduled backup', array(
+					'schedule_id'     => $options['schedule_id'] ?? 0,
+					'retention_count' => $options['retention_count'],
+				) );
+				$this->apply_retention_policy( (int) $options['retention_count'] );
+			}
 		}
 	}
 

@@ -249,24 +249,25 @@ final class Scheduler {
 			'schedule_name' => $schedule['name'],
 		) );
 
+		// Use async backup to avoid timeouts in WP Cron context.
 		$options = array(
+			'type'                 => $schedule['backup_type'] ?? 'full',
 			'storage_destinations' => $schedule['storage_destinations'],
+			'scheduled'            => true,
+			'schedule_id'          => $schedule['id'],
+			'retention_count'      => $schedule['retention_count'] ?? 5,
 		);
 
-		// Run the appropriate backup type.
-		$result = match ( $schedule['backup_type'] ) {
-			'database' => $this->backup_manager->create_database_backup( $options ),
-			'files'    => $this->backup_manager->create_files_backup( $options ),
-			default    => $this->backup_manager->create_full_backup( $options ),
-		};
+		// Start async backup - this queues the job and returns immediately.
+		$result = $this->backup_manager->start_async_backup( $options );
 
 		// Update last run time and calculate next run.
 		$this->update_after_run( (int) $schedule['id'], $schedule['frequency'] );
 
-		// Apply retention policy.
-		$this->backup_manager->apply_retention_policy( $schedule['retention_count'] );
+		// Note: Retention policy will be applied when the backup completes,
+		// not here, since the backup runs asynchronously.
 
-		return null !== $result;
+		return ! empty( $result['job_id'] );
 	}
 
 	/**
