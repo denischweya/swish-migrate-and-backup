@@ -4,7 +4,7 @@ Tags: backup, migration, restore, database, cloud storage
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.1.8
+Stable tag: 1.1.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -101,15 +101,12 @@ This feature is only available in the PRO version of this plugin [Get PRO](https
 
 == Changelog ==
 
-= 1.1.8 =
-* Disabled LiteSpeed X-LiteSpeed-Location for downloads (falls back to PHP streaming)
-* Fixed resumable downloads on GoDaddy/LiteSpeed + Cloudflare setups
-* Download tokens no longer deleted prematurely - allows proper resume after failure
-
 = 1.1.7 =
 * Fixed large file downloads for curl/wget - moved download handler outside wp-admin
 * Download URLs now use token-based auth without requiring WordPress login
 * Downloads now support resumable transfers with curl -C flag
+* Disabled LiteSpeed X-LiteSpeed-Location for downloads (falls back to PHP streaming)
+* Fixed resumable downloads on GoDaddy/LiteSpeed + Cloudflare setups
 
 = 1.1.6 =
 * Added working scheduled backups UI with REST API endpoints
