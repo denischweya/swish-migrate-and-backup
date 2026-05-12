@@ -70,7 +70,8 @@
 			});
 			$(document).on('change', '#backup_file', this.handleFileSelect);
 			$(document).on('click', '#swish-backup-continue-import', this.uploadAndAnalyzeBackup);
-			$(document).on('click', '#swish-backup-import-server-path', this.importFromServerPath);
+			$(document).on('click', '#swish-backup-browse-server', this.browseServerFiles);
+			$(document).on('click', '.swish-backup-select-server-file', this.selectServerFile);
 			$(document).on('click', '#swish-backup-preview-url', this.previewUrlReplacement);
 			$(document).on('click', '#swish-backup-start-migration', this.startMigration);
 			$(document).on('click', '#swish-backup-start-export', this.startExport);
@@ -1250,20 +1251,66 @@
 		},
 
 		/**
-		 * Import backup from server path.
+		 * Browse server files for import.
 		 */
-		importFromServerPath: function() {
-			const serverPath = $('#swish-backup-server-path').val().trim();
+		browseServerFiles: function() {
+			const $button = $('#swish-backup-browse-server');
+			const $table = $('#swish-backup-server-files-table');
+			const $tbody = $('#swish-backup-server-files-tbody');
+			const originalHtml = $button.html();
 
-			if (!serverPath) {
-				alert('Please enter a server path.');
-				return;
-			}
+			$button.prop('disabled', true).html('<span class="dashicons dashicons-update spin" style="vertical-align: middle;"></span> Loading...');
 
-			const $button = $('#swish-backup-import-server-path');
+			wp.apiFetch({
+				path: '/swish-backup/v1/import/list',
+				method: 'GET'
+			}).then(function(response) {
+				$tbody.empty();
+
+				if (response.files && response.files.length > 0) {
+					response.files.forEach(function(file) {
+						const date = new Date(file.modified * 1000);
+						const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+						const typeLabel = file.type.charAt(0).toUpperCase() + file.type.slice(1);
+
+						$tbody.append(
+							'<tr>' +
+							'<td><strong>' + file.filename + '</strong></td>' +
+							'<td><span class="swish-backup-type-badge swish-backup-type-' + file.type + '">' + typeLabel + '</span></td>' +
+							'<td>' + SwishBackup.formatFileSize(file.size) + '</td>' +
+							'<td>' + dateStr + '</td>' +
+							'<td><button type="button" class="button button-small swish-backup-select-server-file" data-path="' + file.path + '">Select</button></td>' +
+							'</tr>'
+						);
+					});
+					$table.show();
+				} else {
+					$tbody.append(
+						'<tr><td colspan="5" style="text-align: center; padding: 20px;">' +
+						'<em>No backup files found. Upload files via FTP/SFTP to wp-content/swish-backups/</em>' +
+						'</td></tr>'
+					);
+					$table.show();
+				}
+
+				$button.prop('disabled', false).html(originalHtml);
+			}).catch(function(error) {
+				alert('Failed to load files: ' + (error.message || 'Unknown error'));
+				$button.prop('disabled', false).html(originalHtml);
+			});
+		},
+
+		/**
+		 * Select a server file for import.
+		 */
+		selectServerFile: function() {
+			const serverPath = $(this).data('path');
+			const $button = $(this);
 			const originalText = $button.text();
 
-			$button.prop('disabled', true).text('Analyzing...');
+			// Disable all select buttons.
+			$('.swish-backup-select-server-file').prop('disabled', true);
+			$button.text('Analyzing...');
 
 			wp.apiFetch({
 				path: '/swish-backup/v1/import',
@@ -1314,11 +1361,13 @@
 					$('#migration-step-url').show();
 				} else {
 					alert('Import failed: ' + (response.message || 'Unknown error'));
+					$('.swish-backup-select-server-file').prop('disabled', false);
+					$button.text(originalText);
 				}
-				$button.prop('disabled', false).text(originalText);
 			}).catch(function(error) {
 				alert('Import failed: ' + (error.message || 'Unknown error'));
-				$button.prop('disabled', false).text(originalText);
+				$('.swish-backup-select-server-file').prop('disabled', false);
+				$button.text(originalText);
 			});
 		},
 

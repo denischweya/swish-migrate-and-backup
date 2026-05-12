@@ -225,6 +225,18 @@ final class RestController extends WP_REST_Controller {
 
 		register_rest_route(
 			$this->namespace,
+			'/import/list',
+			array(
+				array(
+					'methods'             => WP_REST_Server::READABLE,
+					'callback'            => array( $this, 'list_importable_backups' ),
+					'permission_callback' => array( $this, 'check_admin_permission' ),
+				),
+			)
+		);
+
+		register_rest_route(
+			$this->namespace,
 			'/migrate',
 			array(
 				array(
@@ -925,6 +937,122 @@ final class RestController extends WP_REST_Controller {
 			'analysis'     => $analysis,
 			'source'       => 'server_path',
 		) );
+	}
+
+	/**
+	 * List importable backup files from swish-backups directory.
+	 *
+	 * @return WP_REST_Response List of backup files.
+	 */
+	public function list_importable_backups(): WP_REST_Response {
+		$backup_dir = WP_CONTENT_DIR . '/swish-backups';
+		$files = array();
+
+		// Scan main backups directory.
+		$files = array_merge( $files, $this->scan_backup_directory( $backup_dir ) );
+
+		// Also scan imports subdirectory.
+		$imports_dir = $backup_dir . '/imports';
+		if ( is_dir( $imports_dir ) ) {
+			$files = array_merge( $files, $this->scan_backup_directory( $imports_dir ) );
+		}
+
+		// Sort by modification time (newest first).
+		usort( $files, function ( $a, $b ) {
+			return $b['modified'] - $a['modified'];
+		} );
+
+		return rest_ensure_response( array(
+			'success' => true,
+			'files'   => $files,
+		) );
+	}
+
+	/**
+	 * Scan a directory for backup files.
+	 *
+	 * @param string $directory Directory to scan.
+	 * @return array List of backup files with metadata.
+	 */
+	private function scan_backup_directory( string $directory ): array {
+		$files = array();
+
+		if ( ! is_dir( $directory ) ) {
+			return $files;
+		}
+
+		$valid_extensions = array( 'zip', 'gz', 'tgz', 'swish' );
+
+		// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+		$dir_handle = @opendir( $directory );
+		if ( ! $dir_handle ) {
+			return $files;
+		}
+
+		// phpcs:ignore WordPress.CodeAnalysis.AssignmentInCondition.FoundInWhileCondition
+		while ( false !== ( $filename = readdir( $dir_handle ) ) ) {
+			if ( '.' === $filename || '..' === $filename ) {
+				continue;
+			}
+
+			$filepath = $directory . '/' . $filename;
+
+			// Skip directories.
+			if ( is_dir( $filepath ) ) {
+				continue;
+			}
+
+			// Check extension.
+			$extension = strtolower( pathinfo( $filename, PATHINFO_EXTENSION ) );
+
+			// Handle .tar.gz double extension.
+			if ( 'gz' === $extension && preg_match( '/\.tar\.gz$/i', $filename ) ) {
+				$extension = 'tar.gz';
+			}
+
+			if ( ! in_array( $extension, $valid_extensions, true ) && 'tar.gz' !== $extension ) {
+				continue;
+			}
+
+			// Skip temp files.
+			if ( strpos( $filename, '.part' ) !== false || strpos( $filename, '.tmp' ) !== false ) {
+				continue;
+			}
+
+			$files[] = array(
+				'filename' => $filename,
+				'path'     => $filepath,
+				'size'     => filesize( $filepath ),
+				'modified' => filemtime( $filepath ),
+				'type'     => $this->guess_backup_type( $filename ),
+			);
+		}
+
+		closedir( $dir_handle );
+
+		return $files;
+	}
+
+	/**
+	 * Guess backup type from filename.
+	 *
+	 * @param string $filename Filename.
+	 * @return string Backup type (full, database, files, unknown).
+	 */
+	private function guess_backup_type( string $filename ): string {
+		$filename_lower = strtolower( $filename );
+
+		if ( strpos( $filename_lower, '-full-' ) !== false ) {
+			return 'full';
+		}
+		if ( strpos( $filename_lower, '-database-' ) !== false || strpos( $filename_lower, '-db-' ) !== false ) {
+			return 'database';
+		}
+		if ( strpos( $filename_lower, '-files-' ) !== false ) {
+			return 'files';
+		}
+
+		return 'unknown';
 	}
 
 	/**
