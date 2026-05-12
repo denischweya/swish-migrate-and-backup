@@ -4,7 +4,7 @@ Tags: backup, migration, restore, database, cloud storage
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.1.0
+Stable tag: 1.1.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -101,6 +101,40 @@ This feature is only available in the PRO version of this plugin [Get PRO](https
 
 == Changelog ==
 
+= 1.1.7 =
+* Fixed large file downloads for curl/wget - moved download handler outside wp-admin
+* Download URLs now use token-based auth without requiring WordPress login
+* Downloads now support resumable transfers with curl -C flag
+
+= 1.1.6 =
+* Added working scheduled backups UI with REST API endpoints
+* Fixed backup job step indicators to show progress correctly
+* Added Schedule Backup button to empty state on Schedules page
+
+= 1.1.5 =
+* Made X-Sendfile opt-in to improve PHP streaming reliability
+* Enhanced fallback for servers without X-Sendfile support
+
+= 1.1.4 =
+* Added X-Sendfile/X-Accel-Redirect support for reliable large file downloads
+* Improved download performance on Apache, Nginx, and LiteSpeed servers
+
+= 1.1.3 =
+* Fixed critical backup/restore issues for Docker and symlink environments
+* Improved path handling for various hosting configurations
+
+= 1.1.2 =
+* Added support for tar.gz backup analysis and restore
+* Improved backup file format detection
+
+= 1.1.1 =
+* Minor bug fixes and stability improvements
+
+= 1.1.0 =
+* Major architecture improvements for large site support
+* Enhanced chunked processing for database and file backups
+* Improved memory management during backup operations
+
 = 1.0.9 =
 * Added async backup processing to prevent timeouts on managed hosting (WP Engine, etc.)
 * Added background job processing via WP Cron with automatic fallback
@@ -164,6 +198,9 @@ This feature is only available in the PRO version of this plugin [Get PRO](https
 * REST API endpoints
 
 == Upgrade Notice ==
+
+= 1.1.7 =
+Fixes large file downloads for external tools like curl and wget. Downloads no longer require WordPress login - token-based authentication enables resumable transfers.
 
 = 1.0.9 =
 Major update: Async backup processing prevents timeouts on managed hosting like WP Engine. Also fixes backup download issues. Recommended for all users.

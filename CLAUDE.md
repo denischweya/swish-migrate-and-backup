@@ -61,5 +61,6 @@ For multi-step tasks, state a brief plan:
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
 ---
-
+**Never Include your self in any commit.**
+Never include yourself as a contributor in git such as, Co-Authored-By: Claude
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
