@@ -70,6 +70,7 @@
 			});
 			$(document).on('change', '#backup_file', this.handleFileSelect);
 			$(document).on('click', '#swish-backup-continue-import', this.uploadAndAnalyzeBackup);
+			$(document).on('click', '#swish-backup-import-server-path', this.importFromServerPath);
 			$(document).on('click', '#swish-backup-preview-url', this.previewUrlReplacement);
 			$(document).on('click', '#swish-backup-start-migration', this.startMigration);
 			$(document).on('click', '#swish-backup-start-export', this.startExport);
@@ -1245,6 +1246,79 @@
 
 					$button.prop('disabled', false).text(originalText);
 				}
+			});
+		},
+
+		/**
+		 * Import backup from server path.
+		 */
+		importFromServerPath: function() {
+			const serverPath = $('#swish-backup-server-path').val().trim();
+
+			if (!serverPath) {
+				alert('Please enter a server path.');
+				return;
+			}
+
+			const $button = $('#swish-backup-import-server-path');
+			const originalText = $button.text();
+
+			$button.prop('disabled', true).text('Analyzing...');
+
+			wp.apiFetch({
+				path: '/swish-backup/v1/import',
+				method: 'POST',
+				data: {
+					server_path: serverPath
+				}
+			}).then(function(response) {
+				if (response.success) {
+					// Store backup path for migration.
+					SwishBackup.importedBackupPath = response.backup_path;
+
+					// Show analysis.
+					let analysisHtml = '<div class="swish-backup-analysis-results">';
+					analysisHtml += '<p><strong>File:</strong> ' + response.filename + ' (' + SwishBackup.formatFileSize(response.size) + ')</p>';
+
+					if (response.analysis && response.analysis.backup) {
+						const backup = response.analysis.backup;
+						analysisHtml += '<p><strong>Backup Type:</strong> ' + (backup.type || 'Full') + '</p>';
+						analysisHtml += '<p><strong>Created:</strong> ' + (backup.created_at || 'Unknown') + '</p>';
+						if (backup.wordpress_version) {
+							analysisHtml += '<p><strong>WordPress Version:</strong> ' + backup.wordpress_version + '</p>';
+						}
+					}
+
+					if (response.analysis && response.analysis.backup_url) {
+						analysisHtml += '<p><strong>Original Site URL:</strong> ' + response.analysis.backup_url + '</p>';
+						$('#old_url').val(response.analysis.backup_url);
+						$('#old_url').closest('td').find('.swish-auto-detected').remove();
+						$('#old_url').after('<span class="swish-auto-detected"><span class="dashicons dashicons-yes-alt"></span> Auto-detected from backup</span>');
+					}
+
+					if (response.analysis && response.analysis.warnings && response.analysis.warnings.length) {
+						analysisHtml += '<div class="swish-backup-warning"><span class="dashicons dashicons-warning"></span><ul>';
+						response.analysis.warnings.forEach(function(warning) {
+							analysisHtml += '<li>' + warning + '</li>';
+						});
+						analysisHtml += '</ul></div>';
+					}
+
+					analysisHtml += '</div>';
+
+					$('#swish-backup-analysis-content').html(analysisHtml);
+					$('#swish-backup-import-analysis').show();
+
+					// Navigate to URL step.
+					$('.swish-backup-migration-step').hide();
+					$('#migration-step-url').show();
+				} else {
+					alert('Import failed: ' + (response.message || 'Unknown error'));
+				}
+				$button.prop('disabled', false).text(originalText);
+			}).catch(function(error) {
+				alert('Import failed: ' + (error.message || 'Unknown error'));
+				$button.prop('disabled', false).text(originalText);
 			});
 		},
 

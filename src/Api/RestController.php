@@ -673,6 +673,12 @@ final class RestController extends WP_REST_Controller {
 			return $memory_check;
 		}
 
+		// Check for server path import (for large files uploaded via FTP/SFTP).
+		$server_path = $request->get_param( 'server_path' );
+		if ( ! empty( $server_path ) ) {
+			return $this->import_from_server_path( $server_path );
+		}
+
 		$files = $request->get_file_params();
 
 		if ( empty( $files['backup_file'] ) ) {
@@ -793,9 +799,21 @@ final class RestController extends WP_REST_Controller {
 
 		// Check for upload errors.
 		if ( isset( $upload_result['error'] ) ) {
+			$error_message = $upload_result['error'];
+
+			// Add helpful suggestions for common large file issues.
+			if ( strpos( $error_message, 'could not be moved' ) !== false ) {
+				$upload_limit = size_format( wp_max_upload_size() );
+				$error_message .= "\n\n" . sprintf(
+					/* translators: %s: upload limit */
+					__( 'Current upload limit: %s. For large backups (1GB+), upload via FTP/SFTP to wp-content/swish-backups/ then use the "Import from Server Path" option.', 'swish-migrate-and-backup' ),
+					$upload_limit
+				);
+			}
+
 			return new WP_Error(
 				'upload_failed',
-				$upload_result['error'],
+				$error_message,
 				array( 'status' => 500 )
 			);
 		}
@@ -822,6 +840,90 @@ final class RestController extends WP_REST_Controller {
 			'filename'     => $filename,
 			'size'         => filesize( $destination ),
 			'analysis'     => $analysis,
+		) );
+	}
+
+	/**
+	 * Import backup from a server path (for large files uploaded via FTP/SFTP).
+	 *
+	 * @param string $server_path Path to the backup file on the server.
+	 * @return WP_REST_Response|WP_Error Response or error.
+	 */
+	private function import_from_server_path( string $server_path ) {
+		// Sanitize and validate path.
+		$server_path = wp_normalize_path( $server_path );
+
+		// Security: Only allow paths within specific directories.
+		$allowed_dirs = array(
+			wp_normalize_path( WP_CONTENT_DIR . '/swish-backups' ),
+			wp_normalize_path( WP_CONTENT_DIR . '/uploads' ),
+			wp_normalize_path( ABSPATH . 'wp-content' ),
+		);
+
+		$is_allowed = false;
+		foreach ( $allowed_dirs as $allowed_dir ) {
+			if ( strpos( $server_path, $allowed_dir ) === 0 ) {
+				$is_allowed = true;
+				break;
+			}
+		}
+
+		if ( ! $is_allowed ) {
+			return new WP_Error(
+				'invalid_path',
+				__( 'Server path must be within wp-content directory for security.', 'swish-migrate-and-backup' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		// Check if file exists.
+		if ( ! file_exists( $server_path ) ) {
+			return new WP_Error(
+				'file_not_found',
+				sprintf(
+					/* translators: %s: file path */
+					__( 'File not found at path: %s', 'swish-migrate-and-backup' ),
+					$server_path
+				),
+				array( 'status' => 404 )
+			);
+		}
+
+		// Validate file extension.
+		$filename = strtolower( basename( $server_path ) );
+		$valid_extension = (
+			str_ends_with( $filename, '.zip' ) ||
+			str_ends_with( $filename, '.tar.gz' ) ||
+			str_ends_with( $filename, '.tgz' ) ||
+			str_ends_with( $filename, '.swish' )
+		);
+
+		if ( ! $valid_extension ) {
+			return new WP_Error(
+				'invalid_type',
+				__( 'Invalid file type. Only ZIP, TAR.GZ, and SWISH files are supported.', 'swish-migrate-and-backup' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		// Analyze the backup.
+		$analysis = $this->migrator->analyze_backup( $server_path );
+
+		if ( null === $analysis ) {
+			return new WP_Error(
+				'analysis_failed',
+				__( 'Failed to analyze backup. The file may be corrupted or not a valid Swish backup.', 'swish-migrate-and-backup' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		return rest_ensure_response( array(
+			'success'      => true,
+			'backup_path'  => $server_path,
+			'filename'     => basename( $server_path ),
+			'size'         => filesize( $server_path ),
+			'analysis'     => $analysis,
+			'source'       => 'server_path',
 		) );
 	}
 

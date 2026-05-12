@@ -82,15 +82,38 @@ final class MigrationPage {
 						<div class="swish-backup-upload-area" id="swish-backup-drop-zone">
 							<span class="dashicons dashicons-cloud-upload"></span>
 							<p><?php esc_html_e( 'Drag and drop a backup file here, or click to select', 'swish-migrate-and-backup' ); ?></p>
-							<input type="file" name="backup_file" id="backup_file" accept=".zip" style="display:none;">
+							<input type="file" name="backup_file" id="backup_file" accept=".zip,.tar.gz,.tgz,.swish" style="display:none;">
 							<button type="button" class="button" id="swish-backup-select-file">
 								<?php esc_html_e( 'Select File', 'swish-migrate-and-backup' ); ?>
 							</button>
+							<p class="description" style="margin-top: 10px;">
+								<?php
+								printf(
+									/* translators: %s: upload limit */
+									esc_html__( 'Max upload size: %s', 'swish-migrate-and-backup' ),
+									esc_html( size_format( wp_max_upload_size() ) )
+								);
+								?>
+							</p>
 						</div>
 						<div id="swish-backup-file-info" style="display:none;">
 							<p><strong><?php esc_html_e( 'Selected file:', 'swish-migrate-and-backup' ); ?></strong> <span id="selected-file-name"></span></p>
 						</div>
 					</form>
+
+					<!-- Server Path Import (for large files) -->
+					<div class="swish-backup-server-path-section" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
+						<h3><?php esc_html_e( 'Large File? Use Server Path', 'swish-migrate-and-backup' ); ?></h3>
+						<p class="description">
+							<?php esc_html_e( 'For large backups (1GB+), upload via FTP/SFTP to wp-content/swish-backups/ then enter the path below.', 'swish-migrate-and-backup' ); ?>
+						</p>
+						<div style="display: flex; gap: 10px; margin-top: 10px;">
+							<input type="text" id="swish-backup-server-path" class="regular-text" placeholder="<?php esc_attr_e( 'e.g., /var/www/html/wp-content/swish-backups/backup.tar.gz', 'swish-migrate-and-backup' ); ?>" style="flex: 1;">
+							<button type="button" class="button" id="swish-backup-import-server-path">
+								<?php esc_html_e( 'Import from Path', 'swish-migrate-and-backup' ); ?>
+							</button>
+						</div>
+					</div>
 					<div id="swish-backup-import-analysis" style="display:none;">
 						<h3><?php esc_html_e( 'Backup Analysis', 'swish-migrate-and-backup' ); ?></h3>
 						<div id="swish-backup-analysis-content"></div>
