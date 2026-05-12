@@ -346,8 +346,8 @@ final class Plugin {
 		// Register storage adapters.
 		add_action( 'init', array( $this, 'register_storage_adapters' ) );
 
-		// Handle backup file downloads.
-		add_action( 'admin_init', array( $this, 'handle_backup_download' ) );
+		// Handle backup file downloads (must run on init to work outside wp-admin).
+		add_action( 'init', array( $this, 'handle_backup_download' ) );
 
 		// Register export AJAX handlers (new streaming architecture).
 		add_action( 'init', array( $this->container->get( ExportAjaxHandler::class ), 'register' ) );
@@ -467,11 +467,6 @@ final class Plugin {
 			return;
 		}
 
-		// Check user capabilities.
-		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'You do not have permission to download backups.', 'swish-migrate-and-backup' ), 403 );
-		}
-
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 		$token = sanitize_text_field( wp_unslash( $_GET['swish_download'] ) );
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
@@ -485,7 +480,8 @@ final class Plugin {
 			wp_die( esc_html__( 'Download link has expired. Please generate a new one.', 'swish-migrate-and-backup' ), 403 );
 		}
 
-		// Validate the token.
+		// Validate the token - this IS the authentication.
+		// The token was generated when an admin requested the download URL.
 		if ( ! hash_equals( $download_data['token'], $token ) ) {
 			wp_die( esc_html__( 'Invalid download token.', 'swish-migrate-and-backup' ), 403 );
 		}

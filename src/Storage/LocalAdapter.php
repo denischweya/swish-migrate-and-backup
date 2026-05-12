@@ -452,7 +452,7 @@ final class LocalAdapter extends AbstractStorageAdapter {
 				'swish_download' => $token,
 				'file'           => urlencode( $remote_path ),
 			),
-			admin_url( 'admin.php' )
+			home_url()
 		);
 	}
 

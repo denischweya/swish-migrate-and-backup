@@ -241,7 +241,6 @@ final class LogsPage {
 			}
 			.swish-logs-delete-form .button .dashicons {
 				margin-right: 4px;
-				vertical-align: middle;
 				line-height: 1.4;
 			}
 			.swish-logs-table-wrapper {
