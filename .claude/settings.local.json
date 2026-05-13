@@ -6,7 +6,8 @@
       "Bash(xargs:*)",
       "Bash(php -l:*)",
       "Bash(node --check:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }

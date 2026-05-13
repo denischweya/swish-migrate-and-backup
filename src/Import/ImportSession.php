@@ -59,6 +59,10 @@ final class ImportSession {
 	/**
 	 * Option names that must be preserved during database restore.
 	 * These are saved before restore and restored immediately after.
+	 *
+	 * NOTE: active_plugins is NOT included here because we want the backup's
+	 * plugin list, not the current site's. Swish plugin activation is handled
+	 * separately via '_swish_plugin_file'.
 	 */
 	private const CRITICAL_OPTIONS = array(
 		'siteurl',
@@ -67,7 +71,6 @@ final class ImportSession {
 		'swish_import_state',
 		'swish_import_preserved_options',
 		'swish_backup_settings',
-		'active_plugins', // Will be handled specially.
 	);
 
 	/**

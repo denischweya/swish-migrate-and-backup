@@ -1257,11 +1257,12 @@ final class ImportPipeline {
 		$total_size = $state['total_files_size'] ?? 0;
 
 		// Delegate to restore manager for file restoration.
-		// File restoration is already efficient (uses tar/rsync).
+		// Use the already-extracted directory from the extract phase.
 		// Files are restored BEFORE database to ensure plugins/themes are available.
 		$result = $this->restore_manager->restore( $state['backup_path'], array(
 			'restore_database' => false, // Database is restored in the next phase.
 			'restore_files'    => true,
+			'extract_dir'      => $extract_dir, // Use pre-extracted directory.
 		) );
 
 		if ( $result ) {

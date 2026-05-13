@@ -56,6 +56,9 @@ final class RestoreManager {
 	 *
 	 * @param string $backup_path Path to backup file.
 	 * @param array  $options     Restore options.
+	 *                            - restore_database: bool (default true)
+	 *                            - restore_files: bool (default true)
+	 *                            - extract_dir: string (optional) Pre-extracted directory to use.
 	 * @return bool True if successful.
 	 */
 	public function restore( string $backup_path, array $options = array() ): bool {
@@ -70,15 +73,24 @@ final class RestoreManager {
 		do_action( 'swish_backup_restore_before', $backup_path, $options );
 
 		try {
-			// Verify backup file.
-			if ( ! $this->verify_backup( $backup_path ) ) {
-				throw new \RuntimeException( 'Backup verification failed' );
-			}
+			// Use pre-extracted directory if provided, otherwise extract.
+			$extract_dir = $options['extract_dir'] ?? null;
+			$should_cleanup = false;
 
-			// Extract backup.
-			$extract_dir = $this->get_extract_directory();
-			if ( ! $this->extract_backup( $backup_path, $extract_dir ) ) {
-				throw new \RuntimeException( 'Failed to extract backup' );
+			if ( $extract_dir && is_dir( $extract_dir ) ) {
+				$this->logger->info( 'Using pre-extracted directory', array( 'extract_dir' => $extract_dir ) );
+			} else {
+				// Verify backup file.
+				if ( ! $this->verify_backup( $backup_path ) ) {
+					throw new \RuntimeException( 'Backup verification failed' );
+				}
+
+				// Extract backup.
+				$extract_dir = $this->get_extract_directory();
+				if ( ! $this->extract_backup( $backup_path, $extract_dir ) ) {
+					throw new \RuntimeException( 'Failed to extract backup' );
+				}
+				$should_cleanup = true;
 			}
 
 			// Get manifest.
@@ -188,8 +200,10 @@ final class RestoreManager {
 				copy( $extract_dir . '/.htaccess', ABSPATH . '.htaccess' );
 			}
 
-			// Clean up.
-			$this->cleanup_extract_directory( $extract_dir );
+			// Clean up only if we extracted (not using pre-extracted dir).
+			if ( $should_cleanup ) {
+				$this->cleanup_extract_directory( $extract_dir );
+			}
 
 			// Flush caches and rewrite rules.
 			$this->flush_caches();
@@ -208,7 +222,8 @@ final class RestoreManager {
 		} catch ( \Exception $e ) {
 			$this->logger->error( 'Restore failed: ' . $e->getMessage() );
 
-			if ( isset( $extract_dir ) ) {
+			// Clean up only if we extracted (not using pre-extracted dir).
+			if ( isset( $should_cleanup ) && $should_cleanup && isset( $extract_dir ) ) {
 				$this->cleanup_extract_directory( $extract_dir );
 			}
 
