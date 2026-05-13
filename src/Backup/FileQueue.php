@@ -75,7 +75,8 @@ final class FileQueue {
 			PRIMARY KEY (id),
 			INDEX idx_job_status (job_id, status),
 			INDEX idx_job_id (job_id),
-			INDEX idx_status (status)
+			INDEX idx_status (status),
+			INDEX idx_updated_at (updated_at)
 		) {$charset_collate};";
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
@@ -237,6 +238,9 @@ final class FileQueue {
 	/**
 	 * Mark a file as processing.
 	 *
+	 * Uses a single atomic query to update status and increment attempts,
+	 * preventing race conditions if the process crashes between operations.
+	 *
 	 * @param int $file_id File queue ID.
 	 * @return bool
 	 */
@@ -244,23 +248,12 @@ final class FileQueue {
 		global $wpdb;
 		$table_name = self::get_table_name();
 
+		// Use single atomic query to update status and increment attempts.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$result = $wpdb->update(
-			$table_name,
-			array(
-				'status'   => self::STATUS_PROCESSING,
-				'attempts' => $wpdb->prepare( 'attempts + 1' ),
-			),
-			array( 'id' => $file_id ),
-			array( '%s' ),
-			array( '%d' )
-		);
-
-		// Increment attempts separately since update() doesn't support expressions.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->query(
+		$result = $wpdb->query(
 			$wpdb->prepare(
-				"UPDATE {$table_name} SET attempts = attempts + 1 WHERE id = %d",
+				"UPDATE {$table_name} SET status = %s, attempts = attempts + 1 WHERE id = %d",
+				self::STATUS_PROCESSING,
 				$file_id
 			)
 		);

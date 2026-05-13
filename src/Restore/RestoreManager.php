@@ -18,6 +18,7 @@ use SwishMigrateAndBackup\Logger\Logger;
 use SwishMigrateAndBackup\Storage\StorageManager;
 use SwishMigrateAndBackup\Backup\TarArchiver;
 use SwishMigrateAndBackup\Core\ServerLimits;
+use SwishMigrateAndBackup\Core\CacheManager;
 use ZipArchive;
 
 /**
@@ -98,6 +99,13 @@ final class RestoreManager {
 			if ( $options['restore_files'] ?? true ) {
 				$files_restored = false;
 
+				// Log what we find in the extract directory for debugging.
+				$extract_contents = is_dir( $extract_dir ) ? scandir( $extract_dir ) : array();
+				$this->logger->info( 'Checking extract directory for files to restore', array(
+					'extract_dir' => $extract_dir,
+					'contents'    => array_values( array_diff( $extract_contents, array( '.', '..' ) ) ),
+				) );
+
 				// Check for tar.gz archive first (preferred, faster).
 				$tar_files = glob( $extract_dir . '/files*.tar.gz' );
 				if ( ! empty( $tar_files ) ) {
@@ -135,7 +143,13 @@ final class RestoreManager {
 
 				// Handle streaming tar backup format: files are extracted directly to extract_dir.
 				// Check if wp-content exists directly (no nested archive).
-				if ( ! $files_restored && is_dir( $extract_dir . '/wp-content' ) ) {
+				$wp_content_path = $extract_dir . '/wp-content';
+				$this->logger->debug( 'Checking for direct wp-content', array(
+					'path'   => $wp_content_path,
+					'exists' => is_dir( $wp_content_path ),
+				) );
+
+				if ( ! $files_restored && is_dir( $wp_content_path ) ) {
 					$this->logger->info( 'Restoring files from direct extraction (streaming tar format)...' );
 					if ( ! $this->restore_files_direct( $extract_dir, $options ) ) {
 						throw new \RuntimeException( 'File restore failed (direct copy)' );
@@ -144,8 +158,15 @@ final class RestoreManager {
 				}
 
 				if ( ! $files_restored ) {
-					$this->logger->warning( 'No files to restore - backup may be database-only' );
+					$this->logger->warning( 'No files to restore - backup may be database-only', array(
+						'tar_files'       => $tar_files,
+						'files_zip'       => file_exists( $extract_dir . '/files.zip' ),
+						'file_parts'      => $file_parts,
+						'wp_content_dir'  => is_dir( $wp_content_path ),
+					) );
 				}
+			} else {
+				$this->logger->info( 'File restoration skipped (restore_files=false)' );
 			}
 
 			// Restore wp-config if present and requested.
@@ -427,6 +448,14 @@ final class RestoreManager {
 				$this->create_pre_restore_backup();
 			}
 
+			// Try CLI-based copy first (much faster for large file sets).
+			if ( $this->restore_files_direct_cli( $extract_dir, $destination ) ) {
+				return true;
+			}
+
+			$this->logger->info( 'CLI copy not available, falling back to PHP copy' );
+
+			// Fallback to PHP copy for systems without rsync/cp.
 			// Directories to copy (standard WordPress structure).
 			$dirs_to_copy = array( 'wp-content', 'wp-includes', 'wp-admin' );
 
@@ -473,6 +502,87 @@ final class RestoreManager {
 			$this->logger->error( 'Direct file restore failed: ' . $e->getMessage() );
 			return false;
 		}
+	}
+
+	/**
+	 * Restore files using CLI tools (rsync or cp).
+	 *
+	 * Much faster and more memory-efficient than PHP copy for large file sets.
+	 *
+	 * @param string $extract_dir Source directory with extracted files.
+	 * @param string $destination Destination directory (ABSPATH).
+	 * @return bool True if successful.
+	 */
+	private function restore_files_direct_cli( string $extract_dir, string $destination ): bool {
+		// Check if shell_exec is available.
+		if ( ! function_exists( 'shell_exec' ) ) {
+			$this->logger->debug( 'shell_exec not available for file copy' );
+			return false;
+		}
+
+		// phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_shell_exec
+		$disabled = explode( ',', ini_get( 'disable_functions' ) );
+		if ( in_array( 'shell_exec', array_map( 'trim', $disabled ), true ) ) {
+			$this->logger->debug( 'shell_exec is disabled' );
+			return false;
+		}
+
+		$dirs_to_copy = array( 'wp-content' );
+		$dirs_copied = 0;
+
+		// Check for rsync first (preferred), then fall back to cp.
+		// phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_shell_exec
+		$has_rsync = ! empty( shell_exec( 'which rsync 2>/dev/null' ) );
+
+		foreach ( $dirs_to_copy as $dir ) {
+			$source = $extract_dir . '/' . $dir;
+			if ( ! is_dir( $source ) ) {
+				continue;
+			}
+
+			$dest = $destination . '/' . $dir;
+
+			$this->logger->info( "Copying directory using CLI: {$dir}" );
+
+			if ( $has_rsync ) {
+				// rsync is preferred - it's faster and handles permissions better.
+				$command = sprintf(
+					'rsync -a %s/ %s/ 2>&1',
+					escapeshellarg( $source ),
+					escapeshellarg( $dest )
+				);
+			} else {
+				// Fall back to cp -r.
+				$command = sprintf(
+					'cp -rf %s/* %s/ 2>&1',
+					escapeshellarg( $source ),
+					escapeshellarg( $dest )
+				);
+			}
+
+			$this->logger->debug( 'Running copy command', array( 'command' => $command ) );
+
+			// phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_shell_exec
+			$output = shell_exec( $command );
+
+			// Verify files were copied.
+			if ( is_dir( $dest ) ) {
+				++$dirs_copied;
+				$this->logger->info( "Successfully copied {$dir} using " . ( $has_rsync ? 'rsync' : 'cp' ) );
+			} else {
+				$this->logger->error( "Failed to copy {$dir}", array( 'output' => $output ) );
+			}
+		}
+
+		if ( $dirs_copied > 0 ) {
+			$this->logger->info( 'CLI file restore completed', array(
+				'directories' => $dirs_copied,
+				'method'      => $has_rsync ? 'rsync' : 'cp',
+			) );
+			return true;
+		}
+
+		return false;
 	}
 
 	/**
@@ -638,7 +748,10 @@ final class RestoreManager {
 	 * @return bool True if valid.
 	 */
 	public function verify_backup( string $backup_path ): bool {
+		$this->logger->info( 'Verifying backup', array( 'path' => $backup_path ) );
+
 		if ( ! file_exists( $backup_path ) ) {
+			$this->logger->error( 'Backup file does not exist' );
 			return false;
 		}
 
@@ -646,30 +759,62 @@ final class RestoreManager {
 			// Get manifest using format detection.
 			$manifest = null;
 
-			if ( $this->is_tar_archive( $backup_path ) ) {
+			$is_swish = $this->is_swish_archive( $backup_path );
+			$is_tar = $this->is_tar_archive( $backup_path );
+			$is_zip = $this->is_zip_archive( $backup_path );
+
+			$this->logger->info( 'Archive type detection in verify_backup', array(
+				'is_swish' => $is_swish,
+				'is_tar'   => $is_tar,
+				'is_zip'   => $is_zip,
+				'filename' => basename( $backup_path ),
+			) );
+
+			if ( $is_swish ) {
+				$manifest = $this->get_manifest_from_swish( $backup_path );
+			} elseif ( $is_tar ) {
 				$manifest = $this->get_manifest_from_tar( $backup_path );
-			} elseif ( $this->is_zip_archive( $backup_path ) ) {
+			} elseif ( $is_zip ) {
 				$manifest = $this->get_manifest_from_zip( $backup_path );
 			} else {
-				// Unknown format - try both.
-				$manifest = $this->get_manifest_from_tar( $backup_path );
+				// Unknown format - try all.
+				$this->logger->debug( 'Unknown format, trying all extractors' );
+				$manifest = $this->get_manifest_from_swish( $backup_path );
+				if ( null === $manifest ) {
+					$manifest = $this->get_manifest_from_tar( $backup_path );
+				}
 				if ( null === $manifest ) {
 					$manifest = $this->get_manifest_from_zip( $backup_path );
 				}
 			}
 
 			if ( null === $manifest ) {
+				$this->logger->error( 'Could not extract manifest from backup' );
 				return false;
 			}
+
+			$this->logger->debug( 'Manifest extracted', array(
+				'length'  => strlen( $manifest ),
+				'preview' => substr( $manifest, 0, 100 ),
+			) );
 
 			// Validate manifest.
 			$manifest_data = json_decode( $manifest, true );
 			if ( ! is_array( $manifest_data ) || empty( $manifest_data['version'] ) ) {
+				$this->logger->error( 'Invalid manifest JSON or missing version', array(
+					'is_array'    => is_array( $manifest_data ),
+					'has_version' => isset( $manifest_data['version'] ),
+					'json_error'  => json_last_error_msg(),
+				) );
 				return false;
 			}
 
+			$this->logger->info( 'Backup verified successfully', array(
+				'version' => $manifest_data['version'],
+			) );
 			return true;
 		} catch ( \Exception $e ) {
+			$this->logger->error( 'Exception in verify_backup: ' . $e->getMessage() );
 			return false;
 		}
 	}
@@ -685,10 +830,14 @@ final class RestoreManager {
 	private function is_tar_archive( string $backup_path ): bool {
 		$filename = strtolower( basename( $backup_path ) );
 
+		// .swish is NOT a tar archive - it's a custom binary format.
+		if ( $this->is_swish_archive( $backup_path ) ) {
+			return false;
+		}
+
 		// Standard extensions.
 		if ( str_ends_with( $filename, '.tar.gz' ) ||
 			str_ends_with( $filename, '.tgz' ) ||
-			str_ends_with( $filename, '.swish' ) ||
 			str_ends_with( $filename, '.tar' ) ) {
 			return true;
 		}
@@ -720,6 +869,17 @@ final class RestoreManager {
 		}
 
 		return false;
+	}
+
+	/**
+	 * Check if file is a .swish archive (custom binary format).
+	 *
+	 * @param string $backup_path Path to backup file.
+	 * @return bool True if .swish archive.
+	 */
+	private function is_swish_archive( string $backup_path ): bool {
+		$filename = strtolower( basename( $backup_path ) );
+		return str_ends_with( $filename, '.swish' );
 	}
 
 	/**
@@ -759,37 +919,125 @@ final class RestoreManager {
 	 * @return array|null Backup info or null on error.
 	 */
 	public function get_backup_info( string $backup_path ): ?array {
+		$this->logger->info( 'Getting backup info', array(
+			'path'   => $backup_path,
+			'exists' => file_exists( $backup_path ),
+		) );
+
 		try {
 			$manifest = null;
 
 			// Determine archive type and extract manifest accordingly.
-			if ( $this->is_tar_archive( $backup_path ) ) {
+			$is_swish = $this->is_swish_archive( $backup_path );
+			$is_tar = $this->is_tar_archive( $backup_path );
+			$is_zip = $this->is_zip_archive( $backup_path );
+
+			$this->logger->debug( 'Archive type detection', array(
+				'is_swish' => $is_swish,
+				'is_tar'   => $is_tar,
+				'is_zip'   => $is_zip,
+			) );
+
+			if ( $is_swish ) {
+				$manifest = $this->get_manifest_from_swish( $backup_path );
+			} elseif ( $is_tar ) {
 				$manifest = $this->get_manifest_from_tar( $backup_path );
-			} elseif ( $this->is_zip_archive( $backup_path ) ) {
+			} elseif ( $is_zip ) {
 				$manifest = $this->get_manifest_from_zip( $backup_path );
 			} else {
-				// Unknown format - try both.
-				$manifest = $this->get_manifest_from_tar( $backup_path );
+				// Unknown format - try all.
+				$this->logger->debug( 'Unknown format, trying swish, then tar, then zip' );
+				$manifest = $this->get_manifest_from_swish( $backup_path );
+				if ( null === $manifest ) {
+					$manifest = $this->get_manifest_from_tar( $backup_path );
+				}
 				if ( null === $manifest ) {
 					$manifest = $this->get_manifest_from_zip( $backup_path );
 				}
 			}
 
 			if ( null === $manifest ) {
+				$this->logger->error( 'Could not extract manifest from backup', array(
+					'path' => $backup_path,
+				) );
 				return null;
 			}
 
+			$this->logger->debug( 'Manifest extracted successfully', array(
+				'length' => strlen( $manifest ),
+			) );
+
 			$data = json_decode( $manifest, true );
 			if ( ! is_array( $data ) ) {
+				$this->logger->error( 'Invalid manifest JSON', array(
+					'json_error' => json_last_error_msg(),
+				) );
 				return null;
 			}
 
 			$data['file_size'] = filesize( $backup_path );
 			$data['filename'] = basename( $backup_path );
 
+			$this->logger->info( 'Backup info retrieved successfully', array(
+				'site_url' => $data['site_url'] ?? 'unknown',
+				'type'     => $data['type'] ?? 'unknown',
+			) );
+
 			return $data;
 		} catch ( \Exception $e ) {
 			$this->logger->error( 'Failed to get backup info: ' . $e->getMessage() );
+			return null;
+		}
+	}
+
+	/**
+	 * Extract manifest.json from a .swish archive.
+	 *
+	 * @param string $backup_path Path to .swish file.
+	 * @return string|null Manifest contents or null on error.
+	 */
+	private function get_manifest_from_swish( string $backup_path ): ?string {
+		try {
+			$this->logger->debug( 'Opening .swish archive', array( 'path' => $backup_path ) );
+			$extractor = new \SwishMigrateAndBackup\Archive\SwishExtractor( $backup_path );
+
+			if ( ! $extractor->open() ) {
+				$this->logger->debug( 'Failed to open .swish archive for manifest' );
+				return null;
+			}
+
+			// Find manifest.json in the archive.
+			$header = $extractor->find_file( 'manifest.json' );
+
+			if ( ! $header ) {
+				$this->logger->debug( 'manifest.json not found in .swish archive' );
+				$extractor->close();
+				return null;
+			}
+
+			$this->logger->debug( 'Found manifest.json in .swish', array(
+				'name'           => $header['name'] ?? 'N/A',
+				'path'           => $header['path'] ?? 'N/A',
+				'size'           => $header['size'] ?? 0,
+				'content_offset' => $header['content_offset'] ?? 0,
+			) );
+
+			// Extract content (manifest is small, safe to read to string).
+			$content = $extractor->extract_content( $header );
+			$extractor->close();
+
+			if ( false === $content ) {
+				$this->logger->debug( 'Failed to read manifest.json from .swish archive' );
+				return null;
+			}
+
+			$this->logger->debug( 'Successfully read manifest from .swish archive', array(
+				'content_length' => strlen( $content ),
+				'content_preview' => substr( $content, 0, 200 ),
+			) );
+			return $content;
+		} catch ( \Exception $e ) {
+			$this->logger->error( 'Exception reading manifest from .swish: ' . $e->getMessage() );
 			return null;
 		}
 	}
@@ -825,25 +1073,126 @@ final class RestoreManager {
 	 * @return string|null Manifest contents or null on error.
 	 */
 	private function get_manifest_from_tar( string $backup_path ): ?string {
+		$filesize = file_exists( $backup_path ) ? filesize( $backup_path ) : 0;
+
+		$this->logger->debug( 'Attempting to read manifest from tar', array(
+			'path'   => $backup_path,
+			'exists' => file_exists( $backup_path ),
+			'size'   => $filesize,
+		) );
+
+		// Always try CLI tar first for .tar.gz files as it's more reliable.
+		// CLI tar handles large gzipped archives better than PharData.
+		$manifest = $this->get_manifest_from_tar_cli( $backup_path );
+		if ( null !== $manifest ) {
+			return $manifest;
+		}
+
+		$this->logger->debug( 'CLI tar extraction failed or unavailable, trying PharData' );
+
+		// Fallback to PharData for systems without tar or where CLI failed.
 		try {
+			// Check if Phar extension is available.
+			if ( ! class_exists( '\PharData' ) ) {
+				$this->logger->error( 'PharData class not available - phar extension may be disabled' );
+				return null;
+			}
+
 			$phar = new \PharData( $backup_path );
 
 			// Try to get manifest.json directly.
 			if ( isset( $phar['manifest.json'] ) ) {
+				$this->logger->debug( 'Found manifest.json in tar archive root' );
 				return $phar['manifest.json']->getContent();
+			}
+
+			$this->logger->debug( 'manifest.json not at root, searching archive...' );
+
+			// For very large files, don't iterate - it's too slow and memory intensive.
+			if ( $filesize > 536870912 ) { // 512MB.
+				$this->logger->warning( 'Archive too large for PharData iteration, manifest not at root' );
+				return null;
 			}
 
 			// Some archives may have it in a subdirectory, iterate to find it.
 			foreach ( new \RecursiveIteratorIterator( $phar ) as $file ) {
 				if ( basename( $file->getPathname() ) === 'manifest.json' ) {
+					$this->logger->debug( 'Found manifest.json at: ' . $file->getPathname() );
 					return $file->getContent();
 				}
 			}
 
+			$this->logger->debug( 'manifest.json not found in tar archive' );
 			return null;
 		} catch ( \Exception $e ) {
+			$this->logger->error( 'Failed to read manifest from tar: ' . $e->getMessage(), array(
+				'path'  => $backup_path,
+				'error' => $e->getMessage(),
+			) );
 			return null;
 		}
+	}
+
+	/**
+	 * Extract manifest.json from a tar.gz archive using system tar command.
+	 *
+	 * More efficient for large archives as it doesn't load the entire archive into PHP.
+	 *
+	 * @param string $backup_path Path to tar.gz file.
+	 * @return string|null Manifest contents or null on error.
+	 */
+	private function get_manifest_from_tar_cli( string $backup_path ): ?string {
+		// Check if shell_exec is available (some hosts disable it).
+		if ( ! function_exists( 'shell_exec' ) ) {
+			$this->logger->debug( 'shell_exec not available' );
+			return null;
+		}
+
+		// phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_shell_exec
+		$disabled = explode( ',', ini_get( 'disable_functions' ) );
+		if ( in_array( 'shell_exec', array_map( 'trim', $disabled ), true ) ) {
+			$this->logger->debug( 'shell_exec is disabled' );
+			return null;
+		}
+
+		// Check if tar command is available.
+		// phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_shell_exec
+		$tar_test = shell_exec( 'which tar 2>/dev/null' );
+		if ( empty( $tar_test ) ) {
+			$this->logger->debug( 'tar command not found' );
+			return null;
+		}
+
+		$this->logger->debug( 'Attempting CLI tar extraction', array(
+			'path' => $backup_path,
+		) );
+
+		// Extract just manifest.json to stdout.
+		// Use --warning=no-unknown-keyword to suppress pax header warnings.
+		$command = sprintf(
+			'tar -xzf %s -O manifest.json 2>/dev/null',
+			escapeshellarg( $backup_path )
+		);
+
+		// phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_shell_exec
+		$manifest = shell_exec( $command );
+
+		if ( ! empty( $manifest ) ) {
+			// Validate it's valid JSON.
+			$decoded = json_decode( $manifest, true );
+			if ( is_array( $decoded ) ) {
+				$this->logger->debug( 'Successfully extracted manifest using tar CLI' );
+				return $manifest;
+			}
+			$this->logger->debug( 'CLI tar output is not valid JSON', array(
+				'output_length' => strlen( $manifest ),
+				'first_chars'   => substr( $manifest, 0, 100 ),
+			) );
+		} else {
+			$this->logger->debug( 'CLI tar extraction returned empty result' );
+		}
+
+		return null;
 	}
 
 	/**
@@ -878,9 +1227,22 @@ final class RestoreManager {
 	}
 
 	/**
+	 * Extract backup to temporary directory (public wrapper).
+	 *
+	 * Used by ImportPipeline for chunked imports.
+	 *
+	 * @param string $backup_path Path to backup file.
+	 * @param string $output_dir  Output directory.
+	 * @return bool True if successful.
+	 */
+	public function extract_backup_public( string $backup_path, string $output_dir ): bool {
+		return $this->extract_backup( $backup_path, $output_dir );
+	}
+
+	/**
 	 * Extract backup to temporary directory.
 	 *
-	 * Supports both ZIP and tar.gz (including .swish) formats.
+	 * Supports ZIP, tar.gz, and .swish (custom binary) formats.
 	 *
 	 * @param string $backup_path Path to backup file.
 	 * @param string $output_dir  Output directory.
@@ -890,6 +1252,11 @@ final class RestoreManager {
 		try {
 			if ( ! is_dir( $output_dir ) && ! wp_mkdir_p( $output_dir ) ) {
 				return false;
+			}
+
+			// Check for .swish format first (custom binary format).
+			if ( $this->is_swish_archive( $backup_path ) ) {
+				return $this->extract_swish_backup( $backup_path, $output_dir );
 			}
 
 			// Determine archive type and extract accordingly.
@@ -909,6 +1276,43 @@ final class RestoreManager {
 			return $this->extract_zip_backup( $backup_path, $output_dir );
 		} catch ( \Exception $e ) {
 			$this->logger->error( 'Failed to extract backup: ' . $e->getMessage() );
+			return false;
+		}
+	}
+
+	/**
+	 * Extract .swish backup to directory.
+	 *
+	 * @param string $backup_path Path to .swish file.
+	 * @param string $output_dir  Output directory.
+	 * @return bool True if successful.
+	 */
+	private function extract_swish_backup( string $backup_path, string $output_dir ): bool {
+		$this->logger->info( 'Extracting .swish archive', array( 'path' => $backup_path ) );
+
+		try {
+			$extractor = new \SwishMigrateAndBackup\Archive\SwishExtractor( $backup_path );
+
+			if ( ! $extractor->open() ) {
+				$this->logger->error( 'Failed to open .swish archive' );
+				return false;
+			}
+
+			// Extract all files (no timeout for import - run to completion).
+			$result = $extractor->extract_all( $output_dir, 0, 0, 300 );
+			$extractor->close();
+
+			if ( $result['completed'] ) {
+				$this->logger->info( 'Extracted .swish archive', array(
+					'files' => $result['files_extracted'],
+				) );
+				return true;
+			}
+
+			$this->logger->error( 'Failed to extract .swish archive', $result );
+			return false;
+		} catch ( \Exception $e ) {
+			$this->logger->error( 'Exception extracting .swish: ' . $e->getMessage() );
 			return false;
 		}
 	}
@@ -943,14 +1347,98 @@ final class RestoreManager {
 	 * @return bool True if successful.
 	 */
 	private function extract_tar_backup( string $backup_path, string $output_dir ): bool {
+		$this->logger->info( 'Extracting tar.gz backup', array(
+			'archive' => $backup_path,
+			'output'  => $output_dir,
+		) );
+
+		// Try CLI tar first - it's more reliable for large/complex archives.
+		if ( $this->extract_tar_cli( $backup_path, $output_dir ) ) {
+			$this->logger->info( 'Successfully extracted tar.gz using CLI tar' );
+			return true;
+		}
+
+		$this->logger->debug( 'CLI tar extraction failed or unavailable, trying PharData' );
+
+		// Fallback to PharData.
 		try {
+			if ( ! class_exists( '\PharData' ) ) {
+				$this->logger->error( 'PharData class not available' );
+				return false;
+			}
+
 			$phar = new \PharData( $backup_path );
 			$phar->extractTo( $output_dir, null, true ); // true = overwrite existing files.
+			$this->logger->info( 'Successfully extracted tar.gz using PharData' );
 			return true;
 		} catch ( \Exception $e ) {
 			$this->logger->error( 'Failed to extract tar.gz: ' . $e->getMessage() );
 			return false;
 		}
+	}
+
+	/**
+	 * Extract tar.gz using system tar command.
+	 *
+	 * @param string $backup_path Path to tar.gz file.
+	 * @param string $output_dir  Output directory.
+	 * @return bool True if successful.
+	 */
+	private function extract_tar_cli( string $backup_path, string $output_dir ): bool {
+		// Check if shell_exec is available.
+		if ( ! function_exists( 'shell_exec' ) ) {
+			$this->logger->debug( 'shell_exec not available for tar extraction' );
+			return false;
+		}
+
+		// phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_shell_exec
+		$disabled = explode( ',', ini_get( 'disable_functions' ) );
+		if ( in_array( 'shell_exec', array_map( 'trim', $disabled ), true ) ) {
+			$this->logger->debug( 'shell_exec is disabled' );
+			return false;
+		}
+
+		// Check if tar command is available.
+		// phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_shell_exec
+		$tar_test = shell_exec( 'which tar 2>/dev/null' );
+		if ( empty( $tar_test ) ) {
+			$this->logger->debug( 'tar command not found' );
+			return false;
+		}
+
+		// Ensure output directory exists.
+		if ( ! is_dir( $output_dir ) && ! wp_mkdir_p( $output_dir ) ) {
+			$this->logger->error( 'Failed to create output directory: ' . $output_dir );
+			return false;
+		}
+
+		// Extract using tar command.
+		// -x = extract, -z = gzip, -f = file, -C = change to directory.
+		$command = sprintf(
+			'tar -xzf %s -C %s 2>&1',
+			escapeshellarg( $backup_path ),
+			escapeshellarg( $output_dir )
+		);
+
+		$this->logger->debug( 'Running tar extraction command', array( 'command' => $command ) );
+
+		// phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_shell_exec
+		$output = shell_exec( $command );
+
+		// Check if extraction was successful by verifying files exist.
+		$files = glob( $output_dir . '/*' );
+		if ( empty( $files ) ) {
+			$this->logger->error( 'CLI tar extraction produced no files', array(
+				'output' => $output,
+			) );
+			return false;
+		}
+
+		$this->logger->debug( 'CLI tar extraction successful', array(
+			'files_count' => count( $files ),
+		) );
+
+		return true;
 	}
 
 	/**
@@ -1045,32 +1533,10 @@ final class RestoreManager {
 	 * @return void
 	 */
 	private function flush_caches(): void {
-		// Flush rewrite rules.
-		flush_rewrite_rules();
+		$stats = CacheManager::flush_all();
 
-		// Clear object cache.
-		wp_cache_flush();
-
-		// Clear transients in batches to avoid memory issues on large sites.
-		global $wpdb;
-		$batch_size = 1000;
-
-		do {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$deleted = $wpdb->query(
-				$wpdb->prepare(
-					"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s LIMIT %d",
-					'_transient_%',
-					$batch_size
-				)
-			);
-
-			// Free memory between batches.
-			if ( function_exists( 'gc_collect_cycles' ) ) {
-				gc_collect_cycles();
-			}
-		} while ( $deleted > 0 );
-
-		$this->logger->info( 'Caches flushed' );
+		$this->logger->info( 'Caches flushed', array(
+			'transients_deleted' => $stats['transients_deleted'],
+		) );
 	}
 }

@@ -22,6 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 use SwishMigrateAndBackup\Core\ServerLimits;
 use SwishMigrateAndBackup\Logger\Logger;
+use SwishMigrateAndBackup\Backup\DatabaseBackup;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 
@@ -54,7 +55,7 @@ final class BackupPipeline {
 	 * Default files to process per request.
 	 * Can be overridden via settings for different server capabilities.
 	 */
-	private const DEFAULT_PROCESS_BATCH_SIZE = 50;
+	private const DEFAULT_PROCESS_BATCH_SIZE = 100;
 
 	/**
 	 * Memory threshold (percentage) before yielding.
@@ -74,6 +75,13 @@ final class BackupPipeline {
 	 * @var int
 	 */
 	private int $index_batch_size = self::DEFAULT_INDEX_BATCH_SIZE;
+
+	/**
+	 * CLI mode - disables time-based yielding during processing.
+	 *
+	 * @var bool
+	 */
+	private bool $cli_mode = false;
 
 	/**
 	 * Logger instance.
@@ -197,6 +205,11 @@ final class BackupPipeline {
 			$this->index_batch_size = max( 100, min( 2000, (int) $options['index_batch_size'] ) );
 		}
 
+		// CLI mode: disables time-based yielding, allows much larger batches.
+		if ( isset( $options['cli_mode'] ) && $options['cli_mode'] ) {
+			$this->cli_mode = true;
+		}
+
 		return $this;
 	}
 
@@ -257,6 +270,11 @@ final class BackupPipeline {
 		$file_index = 0;
 		$global_index = 0;
 
+		// IMPORTANT: File indexing should complete fully without yielding.
+		// This is just directory listing (no file content reading), so it's fast.
+		// Like AI1WM, we enumerate ALL files first, then archive in chunks.
+		// Only yield if we're critically low on memory.
+
 		foreach ( $directories as $directory ) {
 			if ( ! is_dir( $directory ) ) {
 				++$dir_index;
@@ -304,15 +322,20 @@ final class BackupPipeline {
 							$batch = array();
 							$current_offset = $global_index;
 
-							// Check backpressure.
-							if ( $this->should_yield() ) {
+							// Only check memory pressure during indexing - NOT time.
+							// File listing is fast and must complete to avoid missing files.
+							if ( $this->is_memory_pressure() ) {
 								$completed = false;
-								$this->logger->debug( 'Yielding during indexing', array(
+								$this->logger->debug( 'Yielding during indexing due to memory', array(
 									'indexed' => $indexed,
 									'offset'  => $current_offset,
-									'reason'  => $this->get_yield_reason(),
 								) );
 								break 2; // Exit both loops.
+							}
+
+							// Garbage collection to free memory.
+							if ( function_exists( 'gc_collect_cycles' ) ) {
+								gc_collect_cycles();
 							}
 						}
 					} else {
@@ -350,9 +373,146 @@ final class BackupPipeline {
 	}
 
 	/**
+	 * Prepare the archive with manifest and database.
+	 *
+	 * This MUST be called before process_files() to ensure the manifest
+	 * and database are at the beginning of the archive.
+	 *
+	 * @param string $job_id       Job ID.
+	 * @param string $archive_path Path to the archive file.
+	 * @param array  $options      Backup options.
+	 * @return array Result with 'success', 'error'.
+	 */
+	public function prepare_archive( string $job_id, string $archive_path, array $options = array() ): array {
+		$this->logger->info( 'Preparing archive with manifest', array(
+			'job_id'  => $job_id,
+			'archive' => $archive_path,
+		) );
+
+		// Create temp directory for manifest and database.
+		$temp_dir = dirname( $archive_path ) . '/temp-' . $job_id;
+		if ( ! is_dir( $temp_dir ) && ! wp_mkdir_p( $temp_dir ) ) {
+			return array(
+				'success' => false,
+				'error'   => 'Failed to create temp directory',
+			);
+		}
+
+		// Get stats for manifest.
+		$stats = FileQueue::get_job_stats( $job_id );
+
+		// Create manifest.
+		$manifest = $this->create_manifest( $job_id, $options, $stats );
+		$manifest_path = $temp_dir . '/manifest.json';
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+		file_put_contents( $manifest_path, wp_json_encode( $manifest, JSON_PRETTY_PRINT ) );
+
+		// Initialize archiver.
+		$archiver = new SwishArchiver( $archive_path );
+
+		if ( ! $archiver->open_for_write() ) {
+			return array(
+				'success' => false,
+				'error'   => 'Failed to create archive file',
+			);
+		}
+
+		// Add manifest as first file.
+		$archiver->add_file_direct( $manifest_path, 'manifest.json' );
+
+		// Backup database if this is a full backup.
+		$type = $options['type'] ?? 'full';
+		$backup_database = $options['backup_database'] ?? ( 'full' === $type );
+
+		if ( $backup_database ) {
+			$this->logger->info( 'Creating database backup' );
+			$db_backup = new DatabaseBackup( $this->logger );
+			$db_path = $temp_dir . '/database.sql';
+			$db_result = $db_backup->backup( $db_path );
+
+			if ( $db_result && file_exists( $db_path ) ) {
+				$archiver->add_file_direct( $db_path, 'database.sql' );
+				$this->logger->info( 'Database backup added', array(
+					'size' => filesize( $db_path ),
+				) );
+			} else {
+				$this->logger->warning( 'Database backup failed or empty' );
+			}
+		}
+
+		// Close without finalizing - process_files will append more files.
+		$archiver->close( false );
+
+		// Clean up temp files.
+		if ( file_exists( $manifest_path ) ) {
+			unlink( $manifest_path );
+		}
+		$db_path = $temp_dir . '/database.sql';
+		if ( file_exists( $db_path ) ) {
+			unlink( $db_path );
+		}
+		@rmdir( $temp_dir );
+
+		$this->logger->info( 'Archive prepared successfully' );
+
+		return array(
+			'success'  => true,
+			'manifest' => $manifest,
+		);
+	}
+
+	/**
+	 * Create backup manifest.
+	 *
+	 * @param string $job_id  Job ID.
+	 * @param array  $options Backup options.
+	 * @param array  $stats   File queue stats.
+	 * @return array Manifest data.
+	 */
+	private function create_manifest( string $job_id, array $options, array $stats ): array {
+		global $wpdb;
+
+		return array(
+			'version'           => defined( 'SWISH_BACKUP_VERSION' ) ? SWISH_BACKUP_VERSION : '1.0.0',
+			'job_id'            => $job_id,
+			'type'              => $options['type'] ?? 'full',
+			'created_at'        => gmdate( 'Y-m-d H:i:s' ),
+			'wordpress_version' => get_bloginfo( 'version' ),
+			'php_version'       => PHP_VERSION,
+			'mysql_version'     => $wpdb->db_version(),
+			'site_url'          => get_site_url(),
+			'home_url'          => get_home_url(),
+			'table_prefix'      => $wpdb->prefix,
+			'multisite'         => is_multisite(),
+			'active_theme'      => get_template(),
+			'active_plugins'    => $this->get_active_plugins(),
+			'file_count'        => $stats['total'] ?? 0,
+			'options'           => $options,
+			'format'            => 'swish',
+		);
+	}
+
+	/**
+	 * Get active plugins list.
+	 *
+	 * @return array Active plugins.
+	 */
+	private function get_active_plugins(): array {
+		$active = get_option( 'active_plugins', array() );
+
+		if ( is_multisite() ) {
+			$network_active = get_site_option( 'active_sitewide_plugins', array() );
+			$active = array_merge( $active, array_keys( $network_active ) );
+		}
+
+		return array_values( array_unique( $active ) );
+	}
+
+	/**
 	 * Execute processing phase - archive queued files.
 	 *
 	 * This phase processes files from the queue and writes them to the archive.
+	 * NOTE: prepare_archive() MUST be called first to add manifest and database.
 	 *
 	 * @param string $job_id       Job ID.
 	 * @param string $archive_path Path to the archive file.
@@ -465,12 +625,13 @@ final class BackupPipeline {
 			// Add file to archive.
 			try {
 				$bytes = 0;
-				$remaining_time = $this->get_remaining_time();
-				$this->logger->info( 'Adding file to archive', array(
-					'file_id'        => $file_id,
-					'path'           => $relative_path,
-					'size'           => $this->format_bytes( $actual_size ),
-					'remaining_time' => $remaining_time,
+				// CLI mode: no timeout (0), otherwise use remaining time budget.
+				$file_timeout = $this->cli_mode ? 0 : $this->get_remaining_time();
+				$this->logger->debug( 'Adding file to archive', array(
+					'file_id'      => $file_id,
+					'path'         => $relative_path,
+					'size'         => $this->format_bytes( $actual_size ),
+					'file_timeout' => $file_timeout,
 				) );
 
 				$result = $this->archiver->add_file(
@@ -478,13 +639,13 @@ final class BackupPipeline {
 					$relative_path,
 					$bytes_written,
 					$bytes,
-					$remaining_time
+					$file_timeout
 				);
 
 				if ( $result ) {
 					FileQueue::mark_completed( $file_id, $bytes );
 					++$processed;
-					$this->logger->info( 'File completed', array(
+					$this->logger->debug( 'File completed', array(
 						'file_id' => $file_id,
 						'path'    => $relative_path,
 						'bytes'   => $bytes,
@@ -582,10 +743,11 @@ final class BackupPipeline {
 		) );
 
 		return array(
-			'success'  => true,
-			'size'     => $size,
-			'checksum' => $checksum,
-			'stats'    => $stats,
+			'success'   => true,
+			'file_path' => $archive_path,
+			'size'      => $size,
+			'checksum'  => $checksum,
+			'stats'     => $stats,
 		);
 	}
 
@@ -620,6 +782,11 @@ final class BackupPipeline {
 	 * @return bool True if we should yield.
 	 */
 	private function should_yield(): bool {
+		// CLI mode: only yield on memory pressure, not time.
+		if ( $this->cli_mode ) {
+			return $this->is_memory_pressure();
+		}
+
 		// Time budget check.
 		$elapsed = microtime( true ) - $this->start_time;
 		if ( $elapsed >= $this->time_budget ) {

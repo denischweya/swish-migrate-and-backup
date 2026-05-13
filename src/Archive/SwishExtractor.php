@@ -293,7 +293,7 @@ class SwishExtractor extends SwishArchiver {
 				$dest_path,
 				$file_offset,
 				$bytes,
-				$timeout_seconds - ( microtime( true ) - $start_time )
+				(int) ( $timeout_seconds - ( microtime( true ) - $start_time ) )
 			);
 
 			if ( ! $completed ) {

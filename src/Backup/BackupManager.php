@@ -1860,6 +1860,15 @@ final class BackupManager {
 
 			$this->logger->info( 'File list prepared', array( 'count' => $total_files ) );
 
+			// Check if file scan was truncated (incomplete backup warning).
+			if ( $file_list['truncated'] ?? false ) {
+				$this->logger->error( 'WARNING: File scan was truncated - backup may be incomplete!', array(
+					'files_found' => $total_files,
+					'tip'         => 'Consider using CLI backup (wp swish backup) or the pipeline-based backup for large sites.',
+				) );
+				$this->update_job_status( $job_id, 'processing', 12, 'Warning: Some files may be missing due to timeout...' );
+			}
+
 			// Step 3: Add special files (wp-config, manifest).
 			$this->update_job_status( $job_id, 'processing', 12, 'Adding configuration files...' );
 			$this->file_backup->backup_wp_config( $temp_dir );

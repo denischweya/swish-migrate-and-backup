@@ -15,6 +15,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 use SwishMigrateAndBackup\Backup\BackupManager;
+use SwishMigrateAndBackup\Import\ImportPipeline;
+use SwishMigrateAndBackup\Import\ImportSession;
 use SwishMigrateAndBackup\Migration\Migrator;
 use SwishMigrateAndBackup\Queue\JobQueue;
 use SwishMigrateAndBackup\Queue\Scheduler;
@@ -455,6 +457,77 @@ final class RestController extends WP_REST_Controller {
 				),
 			)
 		);
+
+		// Import pipeline routes (chunked, session-based imports).
+		register_rest_route(
+			$this->namespace,
+			'/import/start',
+			array(
+				array(
+					'methods'             => WP_REST_Server::CREATABLE,
+					'callback'            => array( $this, 'import_pipeline_start' ),
+					'permission_callback' => array( $this, 'check_admin_permission' ),
+					'args'                => array(
+						'backup_path' => array(
+							'type'     => 'string',
+							'required' => true,
+						),
+						'old_url'     => array(
+							'type'    => 'string',
+							'default' => '',
+						),
+						'new_url'     => array(
+							'type'    => 'string',
+							'default' => '',
+						),
+						'restore_database' => array(
+							'type'    => 'boolean',
+							'default' => true,
+						),
+						'restore_files'    => array(
+							'type'    => 'boolean',
+							'default' => true,
+						),
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			$this->namespace,
+			'/import/continue',
+			array(
+				array(
+					'methods'             => WP_REST_Server::CREATABLE,
+					'callback'            => array( $this, 'import_pipeline_continue' ),
+					'permission_callback' => array( $this, 'check_import_secret_key' ),
+					'args'                => array(
+						'secret_key' => array(
+							'type'     => 'string',
+							'required' => true,
+						),
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			$this->namespace,
+			'/import/status',
+			array(
+				array(
+					'methods'             => WP_REST_Server::READABLE,
+					'callback'            => array( $this, 'import_pipeline_status' ),
+					'permission_callback' => array( $this, 'check_import_secret_key_or_admin' ),
+					'args'                => array(
+						'secret_key' => array(
+							'type'    => 'string',
+							'default' => '',
+						),
+					),
+				),
+			)
+		);
 	}
 
 	/**
@@ -472,6 +545,64 @@ final class RestController extends WP_REST_Controller {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Check import secret key permission.
+	 *
+	 * This allows import operations to continue even after database restore
+	 * when WordPress sessions are invalidated.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return bool|WP_Error
+	 */
+	public function check_import_secret_key( WP_REST_Request $request ) {
+		$secret_key = $request->get_param( 'secret_key' );
+
+		if ( empty( $secret_key ) ) {
+			return new WP_Error(
+				'missing_secret_key',
+				__( 'Import secret key is required.', 'swish-migrate-and-backup' ),
+				array( 'status' => 401 )
+			);
+		}
+
+		if ( ! ImportSession::verify_secret_key( $secret_key ) ) {
+			return new WP_Error(
+				'invalid_secret_key',
+				__( 'Invalid or expired import session.', 'swish-migrate-and-backup' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		return true;
+	}
+
+	/**
+	 * Check import secret key OR admin permission.
+	 *
+	 * Allows both authenticated admins and valid import sessions.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return bool|WP_Error
+	 */
+	public function check_import_secret_key_or_admin( WP_REST_Request $request ) {
+		// First try admin permission.
+		if ( current_user_can( 'manage_options' ) ) {
+			return true;
+		}
+
+		// Then try secret key.
+		$secret_key = $request->get_param( 'secret_key' );
+		if ( ! empty( $secret_key ) && ImportSession::verify_secret_key( $secret_key ) ) {
+			return true;
+		}
+
+		return new WP_Error(
+			'unauthorized',
+			__( 'You must be an admin or have a valid import session.', 'swish-migrate-and-backup' ),
+			array( 'status' => 403 )
+		);
 	}
 
 	/**
@@ -618,7 +749,8 @@ final class RestController extends WP_REST_Controller {
 		}
 
 		$adapter = $this->storage_manager->get_default_adapter();
-		$url = $adapter->get_download_url( $backup['filename'] );
+		// 24-hour expiry for large file downloads that may need retries.
+		$url = $adapter->get_download_url( $backup['filename'], DAY_IN_SECONDS );
 
 		return rest_ensure_response( array( 'url' => $url ) );
 	}
@@ -1850,6 +1982,20 @@ final class RestController extends WP_REST_Controller {
 		// Generate job ID.
 		$job_id = 'backup_' . wp_generate_uuid4();
 
+		// Calculate adaptive settings based on server capabilities.
+		$max_exec_time = \SwishMigrateAndBackup\Core\ServerLimits::get_max_execution_time();
+		$safe_threshold = \SwishMigrateAndBackup\Core\ServerLimits::get_safe_timeout_threshold();
+
+		// Dynamic time budget: use 60% of available time, minimum 10s, max 25s.
+		$time_budget = 15; // Default.
+		if ( $max_exec_time > 0 ) {
+			$time_budget = max( 10, min( 25, (int) ( ( $max_exec_time - $safe_threshold ) * 0.6 ) ) );
+		}
+
+		// Use adaptive batch size if no user setting, otherwise respect user choice.
+		$adaptive_batch = \SwishMigrateAndBackup\Core\ServerLimits::get_adaptive_file_batch_size( 150 );
+		$batch_size = $settings['pipeline_batch_size'] ?? $adaptive_batch;
+
 		// Build options.
 		$options = array(
 			'type'                 => $type,
@@ -1861,8 +2007,8 @@ final class RestController extends WP_REST_Controller {
 			'exclude_plugins'      => $settings['exclude_plugins'] ?? array(),
 			'exclude_themes'       => $settings['exclude_themes'] ?? array(),
 			'exclude_uploads'      => $settings['exclude_uploads'] ?? array(),
-			'time_budget'          => 15, // 15 seconds per request.
-			'pipeline_batch_size'  => $settings['pipeline_batch_size'] ?? 150, // Files per batch.
+			'time_budget'          => $time_budget,
+			'pipeline_batch_size'  => $batch_size,
 		);
 
 		// Create backup directory.
@@ -1999,6 +2145,26 @@ final class RestController extends WP_REST_Controller {
 		}
 
 		if ( 'processing' === $phase ) {
+			// Prepare archive if not done yet (adds manifest and database).
+			if ( empty( $job_state['archive_prepared'] ) ) {
+				$prepare_result = $pipeline->prepare_archive(
+					$job_id,
+					$job_state['archive_path'],
+					$job_state['options']
+				);
+
+				if ( ! $prepare_result['success'] ) {
+					return new WP_Error(
+						'prepare_failed',
+						$prepare_result['error'] ?? 'Failed to prepare archive',
+						array( 'status' => 500 )
+					);
+				}
+
+				$job_state['archive_prepared'] = true;
+				update_option( 'swish_pipeline_job_' . $job_id, $job_state );
+			}
+
 			// Continue processing (archiving files).
 			$result = $pipeline->process_files( $job_id, $job_state['archive_path'] );
 
@@ -2209,6 +2375,172 @@ final class RestController extends WP_REST_Controller {
 			'message' => $result
 				? __( 'Schedule deleted.', 'swish-migrate-and-backup' )
 				: __( 'Failed to delete schedule.', 'swish-migrate-and-backup' ),
+		) );
+	}
+
+	/**
+	 * Start an import pipeline.
+	 *
+	 * This initiates a chunked import operation that can span multiple HTTP requests.
+	 * Returns a secret key for subsequent requests.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function import_pipeline_start( WP_REST_Request $request ) {
+		$force = $request->get_param( 'force' ) ?? false;
+
+		// Check if an import is already in progress.
+		if ( ImportSession::is_import_active() ) {
+			if ( $force ) {
+				// Force clear the stale session.
+				ImportSession::force_clear();
+				$this->logger->info( 'Force cleared stale import session' );
+			} else {
+				$state = ImportSession::get_state();
+				return new WP_Error(
+					'import_in_progress',
+					__( 'An import is already in progress. Use force=true to clear and restart.', 'swish-migrate-and-backup' ),
+					array(
+						'status' => 409,
+						'phase'  => $state['phase'] ?? 'unknown',
+					)
+				);
+			}
+		}
+
+		$backup_path = $request->get_param( 'backup_path' );
+
+		// Validate backup file exists.
+		if ( ! file_exists( $backup_path ) ) {
+			return new WP_Error(
+				'file_not_found',
+				__( 'Backup file not found.', 'swish-migrate-and-backup' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		// Create import session.
+		$options = array(
+			'old_url'          => $request->get_param( 'old_url' ) ?? '',
+			'new_url'          => $request->get_param( 'new_url' ) ?? '',
+			'restore_database' => $request->get_param( 'restore_database' ) ?? true,
+			'restore_files'    => $request->get_param( 'restore_files' ) ?? true,
+		);
+
+		// Debug logging to trace URL values at session creation.
+		// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+		error_log( sprintf(
+			'Swish Import Session Creating: old_url="%s", new_url="%s", backup_path="%s"',
+			$options['old_url'],
+			$options['new_url'],
+			$backup_path
+		) );
+
+		$session = ImportSession::create_session( $backup_path, $options );
+
+		// Create the import pipeline.
+		$logger = new \SwishMigrateAndBackup\Logger\Logger();
+		$pipeline = new ImportPipeline( $logger, $this->restore_manager, $this->migrator );
+
+		// Execute the first chunk.
+		$result = $pipeline->execute( $session['secret_key'] );
+
+		return rest_ensure_response( array(
+			'success'    => $result['success'] ?? true,
+			'secret_key' => $session['secret_key'],
+			'phase'      => $result['phase'] ?? 'validate',
+			'progress'   => $result['progress'] ?? 0,
+			'message'    => $result['message'] ?? 'Import started',
+			'completed'  => $result['completed'] ?? false,
+		) );
+	}
+
+	/**
+	 * Continue an import pipeline.
+	 *
+	 * This executes the next chunk of an import operation.
+	 * Uses secret key authentication instead of WordPress sessions.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function import_pipeline_continue( WP_REST_Request $request ) {
+		$secret_key = $request->get_param( 'secret_key' );
+
+		// Get current state.
+		$state = ImportSession::get_state();
+		if ( ! $state ) {
+			return new WP_Error(
+				'no_active_import',
+				__( 'No active import session.', 'swish-migrate-and-backup' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		// Check if already completed.
+		if ( in_array( $state['phase'] ?? '', array( 'completed', 'failed' ), true ) ) {
+			return rest_ensure_response( array(
+				'success'   => 'completed' === $state['phase'],
+				'phase'     => $state['phase'],
+				'progress'  => 100,
+				'message'   => 'Import already ' . $state['phase'],
+				'completed' => true,
+			) );
+		}
+
+		// Create the import pipeline.
+		$logger = new \SwishMigrateAndBackup\Logger\Logger();
+		$pipeline = new ImportPipeline( $logger, $this->restore_manager, $this->migrator );
+
+		// Execute the next chunk.
+		$result = $pipeline->execute( $secret_key );
+
+		// If not completed, spawn a non-blocking continuation request.
+		// This ensures the import continues even if the browser connection is lost.
+		if ( ! ( $result['completed'] ?? false ) && ( $result['success'] ?? true ) ) {
+			$pipeline->spawn_continuation( $secret_key );
+		}
+
+		return rest_ensure_response( array(
+			'success'   => $result['success'] ?? true,
+			'phase'     => $result['phase'] ?? $state['phase'],
+			'progress'  => $result['progress'] ?? 0,
+			'message'   => $result['message'] ?? 'Processing...',
+			'completed' => $result['completed'] ?? false,
+			'error'     => $result['error'] ?? null,
+		) );
+	}
+
+	/**
+	 * Get import pipeline status.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response
+	 */
+	public function import_pipeline_status( WP_REST_Request $request ): WP_REST_Response {
+		$state = ImportSession::get_state();
+
+		if ( ! $state ) {
+			return rest_ensure_response( array(
+				'active'    => false,
+				'phase'     => null,
+				'progress'  => 0,
+				'message'   => 'No active import',
+				'completed' => false,
+			) );
+		}
+
+		$completed = in_array( $state['phase'] ?? '', array( 'completed', 'failed' ), true );
+
+		return rest_ensure_response( array(
+			'active'     => ! $completed,
+			'phase'      => $state['phase'] ?? 'unknown',
+			'progress'   => $state['progress'] ?? 0,
+			'started_at' => $state['started_at'] ?? null,
+			'completed'  => $completed,
+			'success'    => 'completed' === ( $state['phase'] ?? '' ),
+			'error'      => $state['result']['error'] ?? null,
 		) );
 	}
 }

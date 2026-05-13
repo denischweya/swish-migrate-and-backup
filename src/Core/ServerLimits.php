@@ -112,17 +112,22 @@ final class ServerLimits {
 	/**
 	 * Check if we're approaching the time limit.
 	 *
-	 * For environments with unlimited execution time (local dev, CLI),
-	 * we still enforce a soft limit to prevent runaway processes and
-	 * ensure the backup can be chunked properly.
+	 * For CLI environments, we don't enforce time limits since CLI can run
+	 * indefinitely. For web requests with unlimited execution time (local dev),
+	 * we enforce a soft limit to ensure backups can be chunked properly.
 	 *
 	 * @param float $threshold_seconds Seconds before limit to trigger (default 10).
 	 * @return bool True if approaching limit.
 	 */
 	public static function is_approaching_time_limit( float $threshold_seconds = 10.0 ): bool {
+		// CLI mode: never timeout - CLI can run indefinitely.
+		if ( self::is_cli() ) {
+			return false;
+		}
+
 		$remaining = self::get_remaining_time( 0 );
 
-		// For unlimited time, enforce a soft limit of 120 seconds per chunk.
+		// For unlimited time (local dev), enforce a soft limit of 120 seconds per chunk.
 		// This ensures backups can still be chunked and don't run forever.
 		if ( -1 === $remaining ) {
 			$elapsed = self::get_elapsed_time();
@@ -131,6 +136,25 @@ final class ServerLimits {
 		}
 
 		return $remaining <= $threshold_seconds;
+	}
+
+	/**
+	 * Check if running in CLI mode.
+	 *
+	 * @return bool True if running in CLI (WP-CLI or php CLI).
+	 */
+	public static function is_cli(): bool {
+		// Check for WP-CLI.
+		if ( defined( 'WP_CLI' ) && WP_CLI ) {
+			return true;
+		}
+
+		// Check PHP SAPI.
+		if ( php_sapi_name() === 'cli' ) {
+			return true;
+		}
+
+		return false;
 	}
 
 	/**

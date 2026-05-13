@@ -244,28 +244,73 @@ const SettingsModal = ( { settings, onSave, onClose } ) => {
 
 				<div className="swish-modal-body">
 					<div className="swish-settings-section">
-						<h3>{ __( 'Performance Settings', 'swish-migrate-and-backup' ) }</h3>
+						<h3>{ __( 'Performance', 'swish-migrate-and-backup' ) }</h3>
 						<p className="description">
 							{ __(
-								'Adjust batch sizes to optimize performance for your hosting environment. Lower values are safer for shared hosting.',
+								'Adjust batch sizes based on your hosting environment. Lower values are safer for shared hosting.',
 								'swish-migrate-and-backup'
 							) }
 						</p>
 
 						<div className="swish-setting-row">
-							<label htmlFor="db_batch_size">
-								{ __( 'Database Batch Size', 'swish-migrate-and-backup' ) }
-								<span className="swish-setting-hint">
-									{ __( '(rows per batch: 50-2000)', 'swish-migrate-and-backup' ) }
+							<label htmlFor="pipeline_batch_size">
+								{ __( 'Files per Request', 'swish-migrate-and-backup' ) }
+							</label>
+							<div className="swish-range-input">
+								<input
+									type="range"
+									id="pipeline_batch_size"
+									min="25"
+									max="500"
+									step="25"
+									value={ formData.pipeline_batch_size || 150 }
+									onChange={ ( e ) =>
+										updateField(
+											'pipeline_batch_size',
+											parseInt( e.target.value, 10 )
+										)
+									}
+								/>
+								<span className="swish-range-value">
+									{ formData.pipeline_batch_size || 150 }
 								</span>
+							</div>
+							<div className="swish-preset-buttons">
+								<button
+									type="button"
+									className="button button-small"
+									onClick={ () => updateField( 'pipeline_batch_size', 50 ) }
+								>
+									{ __( 'Shared (50)', 'swish-migrate-and-backup' ) }
+								</button>
+								<button
+									type="button"
+									className="button button-small"
+									onClick={ () => updateField( 'pipeline_batch_size', 150 ) }
+								>
+									{ __( 'VPS (150)', 'swish-migrate-and-backup' ) }
+								</button>
+								<button
+									type="button"
+									className="button button-small"
+									onClick={ () => updateField( 'pipeline_batch_size', 300 ) }
+								>
+									{ __( 'Dedicated (300)', 'swish-migrate-and-backup' ) }
+								</button>
+							</div>
+						</div>
+
+						<div className="swish-setting-row">
+							<label htmlFor="db_batch_size">
+								{ __( 'Database Rows per Batch', 'swish-migrate-and-backup' ) }
 							</label>
 							<div className="swish-range-input">
 								<input
 									type="range"
 									id="db_batch_size"
-									min="50"
+									min="100"
 									max="2000"
-									step="50"
+									step="100"
 									value={ formData.db_batch_size || 500 }
 									onChange={ ( e ) =>
 										updateField(
@@ -278,134 +323,6 @@ const SettingsModal = ( { settings, onSave, onClose } ) => {
 									{ formData.db_batch_size || 500 }
 								</span>
 							</div>
-							<div className="swish-preset-buttons">
-								<button
-									type="button"
-									className="button button-small"
-									onClick={ () => updateField( 'db_batch_size', 100 ) }
-								>
-									{ __( 'Slow (100)', 'swish-migrate-and-backup' ) }
-								</button>
-								<button
-									type="button"
-									className="button button-small"
-									onClick={ () => updateField( 'db_batch_size', 500 ) }
-								>
-									{ __( 'Balanced (500)', 'swish-migrate-and-backup' ) }
-								</button>
-								<button
-									type="button"
-									className="button button-small"
-									onClick={ () => updateField( 'db_batch_size', 1000 ) }
-								>
-									{ __( 'Fast (1000)', 'swish-migrate-and-backup' ) }
-								</button>
-							</div>
-						</div>
-
-						<div className="swish-setting-row">
-							<label htmlFor="file_batch_size">
-								{ __( 'File Batch Size', 'swish-migrate-and-backup' ) }
-								<span className="swish-setting-hint">
-									{ __( '(files per batch: 25-500)', 'swish-migrate-and-backup' ) }
-								</span>
-							</label>
-							<div className="swish-range-input">
-								<input
-									type="range"
-									id="file_batch_size"
-									min="25"
-									max="500"
-									step="25"
-									value={ formData.file_batch_size || 100 }
-									onChange={ ( e ) =>
-										updateField(
-											'file_batch_size',
-											parseInt( e.target.value, 10 )
-										)
-									}
-								/>
-								<span className="swish-range-value">
-									{ formData.file_batch_size || 100 }
-								</span>
-							</div>
-							<div className="swish-preset-buttons">
-								<button
-									type="button"
-									className="button button-small"
-									onClick={ () => updateField( 'file_batch_size', 50 ) }
-								>
-									{ __( 'Slow (50)', 'swish-migrate-and-backup' ) }
-								</button>
-								<button
-									type="button"
-									className="button button-small"
-									onClick={ () => updateField( 'file_batch_size', 100 ) }
-								>
-									{ __( 'Balanced (100)', 'swish-migrate-and-backup' ) }
-								</button>
-								<button
-									type="button"
-									className="button button-small"
-									onClick={ () => updateField( 'file_batch_size', 250 ) }
-								>
-									{ __( 'Fast (250)', 'swish-migrate-and-backup' ) }
-								</button>
-							</div>
-						</div>
-
-						<div className="swish-setting-row">
-							<label htmlFor="pipeline_batch_size">
-								{ __( 'Pipeline Batch Size', 'swish-migrate-and-backup' ) }
-								<span className="swish-setting-hint">
-									{ __( '(files per request: 10-500)', 'swish-migrate-and-backup' ) }
-								</span>
-							</label>
-							<div className="swish-range-input">
-								<input
-									type="range"
-									id="pipeline_batch_size"
-									min="10"
-									max="500"
-									step="10"
-									value={ formData.pipeline_batch_size || 150 }
-									onChange={ ( e ) =>
-										updateField(
-											'pipeline_batch_size',
-											parseInt( e.target.value, 10 )
-										)
-									}
-								/>
-								<span className="swish-range-value">
-									{ formData.pipeline_batch_size || 50 }
-								</span>
-							</div>
-							<div className="swish-preset-buttons">
-								<button
-									type="button"
-									className="button button-small"
-									onClick={ () => updateField( 'pipeline_batch_size', 150 ) }
-								>
-									{ __( 'Shared (150)', 'swish-migrate-and-backup' ) }
-								</button>
-								<button
-									type="button"
-									className="button button-small"
-									onClick={ () => updateField( 'pipeline_batch_size', 250 ) }
-								>
-									{ __( 'VPS (250)', 'swish-migrate-and-backup' ) }
-								</button>
-								<button
-									type="button"
-									className="button button-small"
-									onClick={ () => updateField( 'pipeline_batch_size', 500 ) }
-								>
-									{ __( 'Dedicated (500)', 'swish-migrate-and-backup' ) }
-								</button>
-							</div>
-							<p className="description">
-								{ __( 'Higher values process more files per request, faster on powerful servers.', 'swish-migrate-and-backup' ) }
-							</p>
 						</div>
 					</div>
 
@@ -587,23 +504,17 @@ const SettingsModal = ( { settings, onSave, onClose } ) => {
 					</div>
 
 					<div className="swish-settings-section">
-						<h3>{ __( 'Hosting Presets', 'swish-migrate-and-backup' ) }</h3>
-						<p className="description">
-							{ __(
-								'Quick presets for common hosting environments.',
-								'swish-migrate-and-backup'
-							) }
-						</p>
+						<h3>{ __( 'Quick Presets', 'swish-migrate-and-backup' ) }</h3>
 						<div className="swish-preset-buttons hosting-presets">
 							<button
 								type="button"
 								className="button"
 								onClick={ () => {
-									updateField( 'db_batch_size', 100 );
-									updateField( 'file_batch_size', 50 );
-									updateField( 'pipeline_batch_size', 150 );
+									updateField( 'db_batch_size', 200 );
+									updateField( 'pipeline_batch_size', 50 );
 								} }
 							>
+								<span className="dashicons dashicons-cloud"></span>
 								{ __( 'Shared Hosting', 'swish-migrate-and-backup' ) }
 							</button>
 							<button
@@ -611,10 +522,10 @@ const SettingsModal = ( { settings, onSave, onClose } ) => {
 								className="button"
 								onClick={ () => {
 									updateField( 'db_batch_size', 500 );
-									updateField( 'file_batch_size', 100 );
-									updateField( 'pipeline_batch_size', 250 );
+									updateField( 'pipeline_batch_size', 150 );
 								} }
 							>
+								<span className="dashicons dashicons-desktop"></span>
 								{ __( 'VPS / Managed', 'swish-migrate-and-backup' ) }
 							</button>
 							<button
@@ -622,11 +533,11 @@ const SettingsModal = ( { settings, onSave, onClose } ) => {
 								className="button"
 								onClick={ () => {
 									updateField( 'db_batch_size', 1000 );
-									updateField( 'file_batch_size', 250 );
-									updateField( 'pipeline_batch_size', 500 );
+									updateField( 'pipeline_batch_size', 300 );
 								} }
 							>
-								{ __( 'Dedicated Server', 'swish-migrate-and-backup' ) }
+								<span className="dashicons dashicons-building"></span>
+								{ __( 'Dedicated', 'swish-migrate-and-backup' ) }
 							</button>
 						</div>
 					</div>

@@ -273,6 +273,91 @@
 	color: #24292e;
 }
 
+/* CLI Tool Tabs */
+.swish-backup-cli-toggle {
+	display: flex;
+	gap: 0;
+	margin-bottom: 15px;
+	border: 1px solid #ddd;
+	border-radius: 4px;
+	overflow: hidden;
+}
+
+.swish-cli-tab {
+	flex: 1;
+	padding: 10px 15px;
+	border: none;
+	background: #f6f7f7;
+	color: #50575e;
+	cursor: pointer;
+	font-size: 13px;
+	font-weight: 500;
+	transition: all 0.2s ease;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+}
+
+.swish-cli-tab:not(:last-child) {
+	border-right: 1px solid #ddd;
+}
+
+.swish-cli-tab:hover {
+	background: #e9ecef;
+}
+
+.swish-cli-tab.active {
+	background: #2271b1;
+	color: #fff;
+}
+
+.swish-cli-recommended {
+	font-size: 10px;
+	background: #d63638;
+	color: #fff;
+	padding: 2px 6px;
+	border-radius: 10px;
+	font-weight: 600;
+	text-transform: uppercase;
+}
+
+.swish-cli-tab.active .swish-cli-recommended {
+	background: rgba(255,255,255,0.3);
+}
+
+.swish-cli-tool-section {
+	margin-bottom: 15px;
+}
+
+.swish-backup-cli-tip {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 12px;
+	color: #646970;
+	margin-top: 10px;
+	padding: 8px 12px;
+	background: #f0f6fc;
+	border-radius: 4px;
+}
+
+.swish-backup-cli-tip .dashicons {
+	font-size: 16px;
+	width: 16px;
+	height: 16px;
+	color: #2271b1;
+}
+
+.swish-backup-cli-tip a {
+	color: #2271b1;
+	text-decoration: none;
+}
+
+.swish-backup-cli-tip a:hover {
+	text-decoration: underline;
+}
+
 .swish-backup-warning {
 	background: #fff3cd;
 	border: 1px solid #ffc107;
@@ -1098,6 +1183,187 @@
 
 .swish-job-completed .swish-progress-percent {
 	color: #166534;
+}
+
+/* Settings Modal */
+.swish-backup-settings-btn {
+	margin-left: 5px;
+}
+
+.swish-backup-settings-modal-content {
+	max-width: 550px;
+	width: 90%;
+}
+
+.swish-backup-settings-modal-content .swish-modal-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 15px 20px;
+	border-bottom: 1px solid #dcdcde;
+	margin: -20px -20px 20px;
+}
+
+.swish-backup-settings-modal-content .swish-modal-header h3 {
+	margin: 0;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.swish-backup-settings-modal-content .swish-modal-close {
+	background: none;
+	border: none;
+	cursor: pointer;
+	padding: 5px;
+	color: #787c82;
+}
+
+.swish-backup-settings-modal-content .swish-modal-close:hover {
+	color: #1d2327;
+}
+
+.swish-settings-body {
+	max-height: 60vh;
+	overflow-y: auto;
+}
+
+.swish-settings-section {
+	margin-bottom: 25px;
+	padding-bottom: 20px;
+	border-bottom: 1px solid #f0f0f1;
+}
+
+.swish-settings-section:last-child {
+	border-bottom: none;
+	margin-bottom: 0;
+}
+
+.swish-settings-section h4 {
+	margin: 0 0 8px;
+	font-size: 14px;
+}
+
+.swish-settings-section > .description {
+	margin: 0 0 15px;
+	color: #646970;
+}
+
+.swish-setting-row {
+	margin-bottom: 20px;
+}
+
+.swish-setting-row:last-child {
+	margin-bottom: 0;
+}
+
+.swish-setting-row > label {
+	display: block;
+	font-weight: 500;
+	margin-bottom: 8px;
+}
+
+.swish-range-control {
+	display: flex;
+	align-items: center;
+	gap: 15px;
+	margin-bottom: 10px;
+}
+
+.swish-range-control input[type="range"] {
+	flex: 1;
+	height: 6px;
+	-webkit-appearance: none;
+	background: #dcdcde;
+	border-radius: 3px;
+	outline: none;
+}
+
+.swish-range-control input[type="range"]::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	width: 18px;
+	height: 18px;
+	background: #2271b1;
+	border-radius: 50%;
+	cursor: pointer;
+}
+
+.swish-range-control .swish-range-value {
+	min-width: 50px;
+	text-align: right;
+	font-weight: 600;
+	font-size: 14px;
+}
+
+.swish-preset-buttons {
+	display: flex;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+.swish-preset-buttons .button {
+	font-size: 12px;
+	padding: 2px 8px;
+	min-height: 26px;
+}
+
+.swish-checkbox-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+	gap: 10px;
+}
+
+.swish-checkbox-item {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 10px;
+	background: #f6f7f7;
+	border-radius: 4px;
+	cursor: pointer;
+	transition: background-color 0.15s;
+}
+
+.swish-checkbox-item:hover {
+	background: #f0f0f1;
+}
+
+.swish-checkbox-item input[type="checkbox"] {
+	margin: 0;
+}
+
+.swish-checkbox-item .dashicons {
+	font-size: 16px;
+	width: 16px;
+	height: 16px;
+	color: #646970;
+}
+
+.swish-hosting-presets {
+	display: flex;
+	gap: 10px;
+	flex-wrap: wrap;
+}
+
+.swish-hosting-presets .button {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+}
+
+.swish-hosting-presets .dashicons {
+	font-size: 16px;
+	width: 16px;
+	height: 16px;
+}
+
+.swish-modal-footer {
+	display: flex;
+	justify-content: flex-end;
+	gap: 10px;
+	padding-top: 20px;
+	margin-top: 20px;
+	border-top: 1px solid #dcdcde;
 }
 
 /* Responsive */

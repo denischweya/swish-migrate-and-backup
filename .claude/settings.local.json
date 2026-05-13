@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(ddev exec:*)",
-      "Bash(git push)"
+      "Bash(git push)",
+      "Bash(xargs:*)",
+      "Bash(php -l:*)",
+      "Bash(node --check:*)",
+      "Bash(git add:*)"
     ]
   }
 }

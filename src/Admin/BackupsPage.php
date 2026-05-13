@@ -74,6 +74,10 @@ final class BackupsPage {
 			<button type="button" class="page-title-action" id="swish-backup-now">
 				<?php esc_html_e( 'Create Backup', 'swish-migrate-and-backup' ); ?>
 			</button>
+			<button type="button" class="page-title-action swish-backup-settings-btn" id="swish-backup-open-settings">
+				<span class="dashicons dashicons-admin-generic" style="vertical-align: middle; margin-top: -2px;"></span>
+				<?php esc_html_e( 'Settings', 'swish-migrate-and-backup' ); ?>
+			</button>
 			<hr class="wp-header-end">
 
 			<?php AdminNav::render(); ?>
@@ -236,22 +240,164 @@ final class BackupsPage {
 				<div class="swish-backup-modal-content swish-backup-cli-modal-content">
 					<h3><?php esc_html_e( 'CLI Download Command', 'swish-migrate-and-backup' ); ?></h3>
 					<p class="swish-backup-cli-description">
-						<?php esc_html_e( 'Use this command to download the backup via command line. Supports resume on failure.', 'swish-migrate-and-backup' ); ?>
+						<?php esc_html_e( 'Use these commands to download the backup via command line. Both support resume on failure.', 'swish-migrate-and-backup' ); ?>
 					</p>
-					<div class="swish-backup-cli-command-wrapper">
-						<pre id="swish-backup-cli-command" class="swish-backup-cli-command"></pre>
-						<button type="button" class="button button-small swish-backup-cli-copy" id="swish-backup-cli-copy">
-							<span class="dashicons dashicons-clipboard"></span>
-							<?php esc_html_e( 'Copy', 'swish-migrate-and-backup' ); ?>
+
+					<!-- Tool Toggle -->
+					<div class="swish-backup-cli-toggle">
+						<button type="button" class="swish-cli-tab active" data-tool="curl">
+							<?php esc_html_e( 'curl', 'swish-migrate-and-backup' ); ?>
+						</button>
+						<button type="button" class="swish-cli-tab" data-tool="aria2c">
+							<?php esc_html_e( 'aria2c', 'swish-migrate-and-backup' ); ?>
+							<span class="swish-cli-recommended"><?php esc_html_e( 'Recommended for 3GB+', 'swish-migrate-and-backup' ); ?></span>
 						</button>
 					</div>
+
+					<!-- curl command -->
+					<div id="swish-cli-curl" class="swish-cli-tool-section">
+						<div class="swish-backup-cli-command-wrapper">
+							<pre id="swish-backup-cli-command" class="swish-backup-cli-command"></pre>
+							<button type="button" class="button button-small swish-backup-cli-copy" data-target="swish-backup-cli-command">
+								<span class="dashicons dashicons-clipboard"></span>
+								<?php esc_html_e( 'Copy', 'swish-migrate-and-backup' ); ?>
+							</button>
+						</div>
+					</div>
+
+					<!-- aria2c command -->
+					<div id="swish-cli-aria2c" class="swish-cli-tool-section" style="display:none;">
+						<div class="swish-backup-cli-command-wrapper">
+							<pre id="swish-backup-aria2c-command" class="swish-backup-cli-command"></pre>
+							<button type="button" class="button button-small swish-backup-cli-copy" data-target="swish-backup-aria2c-command">
+								<span class="dashicons dashicons-clipboard"></span>
+								<?php esc_html_e( 'Copy', 'swish-migrate-and-backup' ); ?>
+							</button>
+						</div>
+						<p class="swish-backup-cli-tip">
+							<span class="dashicons dashicons-info-outline"></span>
+							<?php
+							printf(
+								/* translators: %s: link to documentation */
+								esc_html__( 'aria2c not installed? See %s for installation instructions.', 'swish-migrate-and-backup' ),
+								'<a href="' . esc_url( admin_url( 'admin.php?page=swish-backup-docs#aria2c-installation' ) ) . '">' . esc_html__( 'documentation', 'swish-migrate-and-backup' ) . '</a>'
+							);
+							?>
+						</p>
+					</div>
+
 					<p class="swish-backup-cli-note">
 						<strong><?php esc_html_e( 'Note:', 'swish-migrate-and-backup' ); ?></strong>
-						<?php esc_html_e( 'The download link expires in 1 hour. If interrupted, re-run the same command to resume.', 'swish-migrate-and-backup' ); ?>
+						<?php esc_html_e( 'The download link expires in 24 hours. If interrupted, re-run the same command to resume.', 'swish-migrate-and-backup' ); ?>
 					</p>
 					<div class="swish-backup-modal-actions">
 						<button type="button" class="button swish-backup-modal-cancel">
 							<?php esc_html_e( 'Close', 'swish-migrate-and-backup' ); ?>
+						</button>
+					</div>
+				</div>
+			</div>
+
+			<!-- Settings Modal -->
+			<div id="swish-backup-settings-modal" class="swish-backup-modal" style="display:none;">
+				<div class="swish-backup-modal-content swish-backup-settings-modal-content">
+					<div class="swish-modal-header">
+						<h3>
+							<span class="dashicons dashicons-admin-settings"></span>
+							<?php esc_html_e( 'Backup Settings', 'swish-migrate-and-backup' ); ?>
+						</h3>
+						<button type="button" class="swish-modal-close swish-backup-modal-cancel">
+							<span class="dashicons dashicons-no-alt"></span>
+						</button>
+					</div>
+
+					<div class="swish-settings-body">
+						<!-- Performance Section -->
+						<div class="swish-settings-section">
+							<h4><?php esc_html_e( 'Performance', 'swish-migrate-and-backup' ); ?></h4>
+							<p class="description"><?php esc_html_e( 'Adjust batch sizes based on your hosting environment. Lower values are safer for shared hosting.', 'swish-migrate-and-backup' ); ?></p>
+
+							<div class="swish-setting-row">
+								<label for="swish-pipeline-batch-size"><?php esc_html_e( 'Files per Request', 'swish-migrate-and-backup' ); ?></label>
+								<div class="swish-range-control">
+									<input type="range" id="swish-pipeline-batch-size" min="25" max="500" step="25" value="150">
+									<span class="swish-range-value">150</span>
+								</div>
+								<div class="swish-preset-buttons">
+									<button type="button" class="button button-small" data-value="50"><?php esc_html_e( 'Shared (50)', 'swish-migrate-and-backup' ); ?></button>
+									<button type="button" class="button button-small" data-value="150"><?php esc_html_e( 'VPS (150)', 'swish-migrate-and-backup' ); ?></button>
+									<button type="button" class="button button-small" data-value="300"><?php esc_html_e( 'Dedicated (300)', 'swish-migrate-and-backup' ); ?></button>
+								</div>
+							</div>
+
+							<div class="swish-setting-row">
+								<label for="swish-db-batch-size"><?php esc_html_e( 'Database Rows per Batch', 'swish-migrate-and-backup' ); ?></label>
+								<div class="swish-range-control">
+									<input type="range" id="swish-db-batch-size" min="100" max="2000" step="100" value="500">
+									<span class="swish-range-value">500</span>
+								</div>
+							</div>
+						</div>
+
+						<!-- Backup Contents Section -->
+						<div class="swish-settings-section">
+							<h4><?php esc_html_e( 'Default Backup Contents', 'swish-migrate-and-backup' ); ?></h4>
+
+							<div class="swish-checkbox-grid">
+								<label class="swish-checkbox-item">
+									<input type="checkbox" id="swish-backup-database" checked>
+									<span class="dashicons dashicons-database"></span>
+									<?php esc_html_e( 'Database', 'swish-migrate-and-backup' ); ?>
+								</label>
+								<label class="swish-checkbox-item">
+									<input type="checkbox" id="swish-backup-plugins" checked>
+									<span class="dashicons dashicons-admin-plugins"></span>
+									<?php esc_html_e( 'Plugins', 'swish-migrate-and-backup' ); ?>
+								</label>
+								<label class="swish-checkbox-item">
+									<input type="checkbox" id="swish-backup-themes" checked>
+									<span class="dashicons dashicons-admin-appearance"></span>
+									<?php esc_html_e( 'Themes', 'swish-migrate-and-backup' ); ?>
+								</label>
+								<label class="swish-checkbox-item">
+									<input type="checkbox" id="swish-backup-uploads" checked>
+									<span class="dashicons dashicons-admin-media"></span>
+									<?php esc_html_e( 'Uploads', 'swish-migrate-and-backup' ); ?>
+								</label>
+								<label class="swish-checkbox-item">
+									<input type="checkbox" id="swish-backup-core">
+									<span class="dashicons dashicons-wordpress"></span>
+									<?php esc_html_e( 'Core Files', 'swish-migrate-and-backup' ); ?>
+								</label>
+							</div>
+						</div>
+
+						<!-- Hosting Presets -->
+						<div class="swish-settings-section">
+							<h4><?php esc_html_e( 'Quick Presets', 'swish-migrate-and-backup' ); ?></h4>
+							<div class="swish-hosting-presets">
+								<button type="button" class="button" data-preset="shared">
+									<span class="dashicons dashicons-cloud"></span>
+									<?php esc_html_e( 'Shared Hosting', 'swish-migrate-and-backup' ); ?>
+								</button>
+								<button type="button" class="button" data-preset="vps">
+									<span class="dashicons dashicons-desktop"></span>
+									<?php esc_html_e( 'VPS / Managed', 'swish-migrate-and-backup' ); ?>
+								</button>
+								<button type="button" class="button" data-preset="dedicated">
+									<span class="dashicons dashicons-building"></span>
+									<?php esc_html_e( 'Dedicated', 'swish-migrate-and-backup' ); ?>
+								</button>
+							</div>
+						</div>
+					</div>
+
+					<div class="swish-modal-footer">
+						<button type="button" class="button swish-backup-modal-cancel">
+							<?php esc_html_e( 'Cancel', 'swish-migrate-and-backup' ); ?>
+						</button>
+						<button type="button" class="button button-primary" id="swish-backup-save-settings">
+							<?php esc_html_e( 'Save Settings', 'swish-migrate-and-backup' ); ?>
 						</button>
 					</div>
 				</div>

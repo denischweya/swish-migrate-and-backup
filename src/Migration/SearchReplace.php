@@ -616,6 +616,237 @@ final class SearchReplace {
 	}
 
 	/**
+	 * Run a single chunk of search and replace operations.
+	 *
+	 * This method processes a limited number of rows before returning,
+	 * allowing the operation to be split across multiple HTTP requests.
+	 *
+	 * @param string $search      Search string.
+	 * @param string $replace     Replace string.
+	 * @param int    $table_index Current table index.
+	 * @param int    $row_offset  Current row offset within the table.
+	 * @param int    $time_limit  Maximum seconds to process (default 10).
+	 * @param array  $tables      Tables to process (empty for all).
+	 * @return array Results with 'completed', 'table_index', 'row_offset', 'replacements'.
+	 */
+	public function run_chunked(
+		string $search,
+		string $replace,
+		int $table_index = 0,
+		int $row_offset = 0,
+		int $time_limit = 10,
+		array $tables = array()
+	): array {
+		$start_time = microtime( true );
+		$this->replacements_made = 0;
+		$this->rows_processed = 0;
+
+		if ( empty( $search ) ) {
+			return array(
+				'completed'    => true,
+				'table_index'  => $table_index,
+				'row_offset'   => 0,
+				'replacements' => 0,
+				'error'        => 'Search string cannot be empty',
+			);
+		}
+
+		// Get tables to process.
+		if ( empty( $tables ) ) {
+			$tables = $this->get_all_tables();
+		}
+
+		$total_tables = count( $tables );
+
+		// If we've processed all tables, we're done.
+		if ( $table_index >= $total_tables ) {
+			return array(
+				'completed'    => true,
+				'table_index'  => $table_index,
+				'row_offset'   => 0,
+				'replacements' => $this->replacements_made,
+			);
+		}
+
+		// Process tables starting from current index.
+		for ( $i = $table_index; $i < $total_tables; $i++ ) {
+			$table = $tables[ $i ];
+			$current_offset = ( $i === $table_index ) ? $row_offset : 0;
+
+			$result = $this->process_table_chunked(
+				$table,
+				$search,
+				$replace,
+				$current_offset,
+				$start_time,
+				$time_limit
+			);
+
+			// Check if we timed out within this table.
+			if ( ! $result['table_complete'] ) {
+				return array(
+					'completed'    => false,
+					'table_index'  => $i,
+					'row_offset'   => $result['next_offset'],
+					'replacements' => $this->replacements_made,
+					'current_table' => $table,
+				);
+			}
+
+			// Check if we're running low on time before starting next table.
+			if ( ( microtime( true ) - $start_time ) >= ( $time_limit - 1 ) ) {
+				// Return with next table index.
+				return array(
+					'completed'    => false,
+					'table_index'  => $i + 1,
+					'row_offset'   => 0,
+					'replacements' => $this->replacements_made,
+				);
+			}
+		}
+
+		// All tables processed.
+		return array(
+			'completed'    => true,
+			'table_index'  => $total_tables,
+			'row_offset'   => 0,
+			'replacements' => $this->replacements_made,
+		);
+	}
+
+	/**
+	 * Process a single table with time limit support.
+	 *
+	 * @param string $table       Table name.
+	 * @param string $search      Search string.
+	 * @param string $replace     Replace string.
+	 * @param int    $start_offset Starting row offset.
+	 * @param float  $start_time  Operation start time.
+	 * @param int    $time_limit  Time limit in seconds.
+	 * @return array Results with 'table_complete', 'next_offset', 'changes'.
+	 */
+	private function process_table_chunked(
+		string $table,
+		string $search,
+		string $replace,
+		int $start_offset,
+		float $start_time,
+		int $time_limit
+	): array {
+		global $wpdb;
+
+		// Get primary key.
+		$primary_key = $this->get_primary_key( $table );
+		if ( ! $primary_key ) {
+			return array( 'table_complete' => true, 'next_offset' => 0, 'changes' => 0 );
+		}
+
+		// Get text columns.
+		$columns = $this->get_text_columns( $table );
+		if ( empty( $columns ) ) {
+			return array( 'table_complete' => true, 'next_offset' => 0, 'changes' => 0 );
+		}
+
+		// Get row count.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$row_count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$table}`" );
+
+		if ( 0 === $row_count || $start_offset >= $row_count ) {
+			return array( 'table_complete' => true, 'next_offset' => 0, 'changes' => 0 );
+		}
+
+		$table_changes = 0;
+		$offset = $start_offset;
+
+		while ( $offset < $row_count ) {
+			// Check time limit.
+			if ( ( microtime( true ) - $start_time ) >= $time_limit ) {
+				return array(
+					'table_complete' => false,
+					'next_offset'    => $offset,
+					'changes'        => $table_changes,
+				);
+			}
+
+			// Check memory and adjust batch size if needed.
+			$this->adjust_batch_size_for_memory();
+
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+					"SELECT * FROM `{$table}` LIMIT %d OFFSET %d",
+					$this->current_batch_size,
+					$offset
+				),
+				ARRAY_A
+			);
+
+			if ( empty( $rows ) ) {
+				break;
+			}
+
+			foreach ( $rows as $row ) {
+				$row_id = $row[ $primary_key ] ?? null;
+				if ( null === $row_id ) {
+					continue;
+				}
+
+				$updates = array();
+
+				foreach ( $columns as $column ) {
+					if ( ! isset( $row[ $column ] ) || null === $row[ $column ] ) {
+						continue;
+					}
+
+					$value = $row[ $column ];
+
+					// Check if contains search string.
+					if ( strpos( $value, $search ) === false ) {
+						continue;
+					}
+
+					// Perform replacement.
+					$new_value = $this->recursive_replace( $value, $search, $replace );
+
+					if ( $new_value !== $value ) {
+						$updates[ $column ] = $new_value;
+					}
+				}
+
+				if ( ! empty( $updates ) ) {
+					// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+					$wpdb->update(
+						$table,
+						$updates,
+						array( $primary_key => $row_id )
+					);
+
+					$table_changes += count( $updates );
+					$this->replacements_made += count( $updates );
+				}
+
+				++$this->rows_processed;
+			}
+
+			$offset += $this->current_batch_size;
+
+			// Free memory.
+			unset( $rows );
+
+			if ( $this->is_memory_low() && function_exists( 'gc_collect_cycles' ) ) {
+				gc_collect_cycles();
+			}
+		}
+
+		return array(
+			'table_complete' => true,
+			'next_offset'    => 0,
+			'changes'        => $table_changes,
+		);
+	}
+
+	/**
 	 * Generate URL migration replacements.
 	 *
 	 * @param string $old_url Old site URL.

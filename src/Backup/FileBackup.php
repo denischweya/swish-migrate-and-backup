@@ -260,14 +260,14 @@ final class FileBackup {
 	 * Generator-based file scanning.
 	 *
 	 * Yields files one at a time instead of loading all into memory.
-	 * Checks for timeout during scanning.
+	 * IMPORTANT: No timeout checks during file enumeration - enumeration must complete
+	 * fully to avoid missing files. This matches AI1WM's approach.
 	 *
 	 * @param array $directories Directories to scan.
 	 * @return Generator Yields file data arrays.
 	 */
 	public function scan_files_generator( array $directories ): Generator {
 		$file_count = 0;
-		$check_interval = max( 500, ServerLimits::get_timeout_check_interval() * 10 );
 
 		foreach ( $directories as $directory ) {
 			if ( ! is_dir( $directory ) ) {
@@ -299,17 +299,8 @@ final class FileBackup {
 
 						++$file_count;
 
-						// Periodic timeout check during scanning.
-						if ( 0 === $file_count % $check_interval ) {
-							// Check timeout with a larger threshold during scanning.
-							if ( ServerLimits::is_approaching_time_limit( ServerLimits::get_safe_timeout_threshold() + 10 ) ) {
-								$this->logger->warning( 'Approaching timeout during file scan', array(
-									'files_found' => $file_count,
-								) );
-								return; // Stop scanning.
-							}
-
-							// Periodic memory cleanup.
+						// Periodic memory cleanup (no timeout check - enumeration must complete).
+						if ( 0 === $file_count % 1000 ) {
 							if ( function_exists( 'gc_collect_cycles' ) ) {
 								gc_collect_cycles();
 							}
@@ -338,20 +329,30 @@ final class FileBackup {
 		$state = $this->get_state();
 
 		$this->logger->info( 'Starting file scan', array(
-			'directories'   => count( $directories ),
-			'server_limits' => ServerLimits::get_debug_info(),
+			'directories'      => count( $directories ),
+			'directory_paths'  => $directories,
+			'server_limits'    => ServerLimits::get_debug_info(),
 		) );
 
 		$file_count = 0;
 		$batch = array();
 		$batch_size = 500; // Write to disk every 500 files.
-		$timed_out = false;
-		$check_interval = max( 200, ServerLimits::get_timeout_check_interval() * 5 );
+		$current_directory = ''; // Track which directory we're scanning.
+
+		// IMPORTANT: No timeout checks during file enumeration.
+		// File listing must complete fully to avoid missing files.
+		// This matches AI1WM's approach - enumerate all files first, then archive in chunks.
 
 		foreach ( $directories as $directory ) {
 			if ( ! is_dir( $directory ) ) {
+				$this->logger->warning( 'Directory does not exist, skipping', array(
+					'directory' => $directory,
+				) );
 				continue;
 			}
+
+			$current_directory = $directory;
+			$this->logger->debug( 'Scanning directory', array( 'directory' => $directory ) );
 
 			try {
 				$iterator = new RecursiveIteratorIterator(
@@ -394,19 +395,13 @@ final class FileBackup {
 								gc_collect_cycles();
 							}
 						}
-
-						// Check timeout periodically.
-						if ( 0 === $file_count % $check_interval ) {
-							if ( ServerLimits::is_approaching_time_limit( ServerLimits::get_safe_timeout_threshold() + 5 ) ) {
-								$timed_out = true;
-								$this->logger->warning( 'Timeout during file scan', array(
-									'files_found' => $file_count,
-								) );
-								break 2; // Exit both loops.
-							}
-						}
 					}
 				}
+
+				$this->logger->debug( 'Finished scanning directory', array(
+					'directory'         => $directory,
+					'total_files_so_far' => $file_count,
+				) );
 			} catch ( \Exception $e ) {
 				$this->logger->warning( 'Error scanning directory: ' . $e->getMessage(), array(
 					'directory' => $directory,
@@ -423,16 +418,23 @@ final class FileBackup {
 			}
 		}
 
-		$this->logger->info( 'File scan completed', array(
-			'file_count' => $file_count,
-			'timed_out'  => $timed_out,
+		$this->logger->info( 'File scan completed successfully', array(
+			'file_count'   => $file_count,
+			'elapsed_time' => ServerLimits::get_elapsed_time(),
 		) );
 
 		return array(
 			'count'     => $file_count,
-			'timed_out' => $timed_out,
+			'timed_out' => false, // No longer times out.
 		);
 	}
+
+	/**
+	 * Track if scan was truncated.
+	 *
+	 * @var bool
+	 */
+	private bool $scan_truncated = false;
 
 	/**
 	 * Get list of files to backup (legacy method for compatibility).
@@ -443,6 +445,11 @@ final class FileBackup {
 	public function get_file_list( array $directories ): array {
 		$files = array();
 		$file_count = 0;
+		$this->scan_truncated = false;
+
+		$this->logger->info( 'Starting file list scan', array(
+			'directories' => $directories,
+		) );
 
 		foreach ( $this->scan_files_generator( $directories ) as $file ) {
 			$files[] = $file;
@@ -451,11 +458,26 @@ final class FileBackup {
 			// Safety limit - don't load too many files into memory.
 			if ( $file_count >= 50000 ) {
 				$this->logger->warning( 'File list truncated at 50000 files - use scan_files_to_state for large sites' );
+				$this->scan_truncated = true;
 				break;
 			}
 		}
 
+		$this->logger->info( 'File list scan complete', array(
+			'total_files' => $file_count,
+			'truncated'   => $this->scan_truncated,
+		) );
+
 		return $files;
+	}
+
+	/**
+	 * Check if the last scan was truncated.
+	 *
+	 * @return bool True if scan was truncated.
+	 */
+	public function was_scan_truncated(): bool {
+		return $this->scan_truncated;
 	}
 
 	/**
@@ -1591,6 +1613,7 @@ final class FileBackup {
 			'count'       => count( $files ),
 			'total_size'  => $total_size,
 			'directories' => $directories,
+			'truncated'   => $this->was_scan_truncated(),
 		);
 	}
 
@@ -1614,6 +1637,10 @@ final class FileBackup {
 		$normalized_path = str_replace( '\\', '/', $path );
 		$abspath = str_replace( '\\', '/', ABSPATH );
 
+		// Debug: log exclusion checks for uploads/202* folders to diagnose missing files.
+		$is_upload_year_folder = preg_match( '#/uploads/202\d#', $normalized_path );
+		$debug_uploads = $is_upload_year_folder && defined( 'WP_DEBUG' ) && WP_DEBUG;
+
 		// Exclude WordPress core files/directories unless explicitly included.
 		if ( ! $this->include_core ) {
 			foreach ( $this->get_wp_core_patterns() as $core_pattern ) {
@@ -1626,17 +1653,21 @@ final class FileBackup {
 			}
 		}
 
-		// Check for excluded plugins.
-		if ( ! empty( $this->exclude_plugins ) ) {
-			$plugins_dir = str_replace( '\\', '/', WP_PLUGIN_DIR ) . '/';
-			if ( strpos( $normalized_path, $plugins_dir ) === 0 ) {
-				// Extract the plugin folder name from the path.
-				$relative_to_plugins = substr( $normalized_path, strlen( $plugins_dir ) );
-				$plugin_folder = explode( '/', $relative_to_plugins )[0];
+		// Always exclude the Swish plugin itself to prevent overwriting on import.
+		$plugins_dir = str_replace( '\\', '/', WP_PLUGIN_DIR ) . '/';
+		if ( strpos( $normalized_path, $plugins_dir ) === 0 ) {
+			$relative_to_plugins = substr( $normalized_path, strlen( $plugins_dir ) );
+			$plugin_folder = explode( '/', $relative_to_plugins )[0];
 
-				if ( in_array( $plugin_folder, $this->exclude_plugins, true ) ) {
-					return true;
-				}
+			// Self-exclusion: never backup this plugin.
+			$self_plugin_folders = array( 'swish-migrate-and-backup', 'swish-migrate-and-backup-pro' );
+			if ( in_array( $plugin_folder, $self_plugin_folders, true ) ) {
+				return true;
+			}
+
+			// Check for user-excluded plugins.
+			if ( ! empty( $this->exclude_plugins ) && in_array( $plugin_folder, $this->exclude_plugins, true ) ) {
+				return true;
 			}
 		}
 

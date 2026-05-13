@@ -4,7 +4,7 @@ Tags: backup, migration, restore, database, cloud storage
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.1.7
+Stable tag: 1.1.8
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -27,6 +27,7 @@ Swish Migrate and Backup is a powerful WordPress plugin that allows you to creat
 * **Chunked Processing** - Handle large sites without memory issues
 * **Encrypted Credentials** - Cloud storage credentials are encrypted using AES-256-CBC
 * **REST API** - Full REST API for integration with other tools
+* **WP-CLI Support** - Command line interface for backup and migration operations
 
 = Remote Backup Storage =
 
@@ -48,6 +49,27 @@ Upgrade to PRO for advanced features: [Get PRO](https://swishbackup.swishfolio.c
 * WordPress 6.0 or higher
 * PHP 8.1 or higher
 * Write access to wp-content/uploads directory
+
+= CLI Backup Commands =
+
+Swish Backup includes WP-CLI commands for backup and migration operations. Requires [WP-CLI](https://wp-cli.org/) to be installed.
+
+**Backup Commands:**
+
+`wp swish backup --type=database` - Create a database-only backup
+`wp swish backup --type=full` - Create a full backup (database + files)
+`wp swish backup --type=full --include-core` - Full backup including WordPress core files
+
+**Import Commands:**
+
+`wp swish import /path/to/backup.zip` - Import a backup (auto-detects old URL)
+`wp swish import backup.zip --old-url=https://old.com --new-url=https://new.com` - Import with URL replacement
+`wp swish import backup.zip --skip-url-replace` - Restore only, no URL replacement
+
+**Utility Commands:**
+
+`wp swish status` - Check active import session status
+`wp swish cleanup` - Clean up stale import sessions
 
 == Installation ==
 
@@ -100,6 +122,69 @@ This feature is only available in the PRO version of this plugin [Get PRO](https
 5. Schedules - Set up automatic scheduled backups
 
 == Changelog ==
+
+= 1.1.8 =
+* **Backup Completeness Fixes**
+  * Fixed missing files in backups (e.g., uploads/2026 folder) by removing timeout checks during file indexing
+  * File enumeration now completes fully before archiving begins, following AI1WM's proven approach
+  * Only memory pressure triggers yielding during indexing phase, not time limits
+
+* **CLI Backup Performance**
+  * CLI backups now use pipeline approach with optimized settings
+  * Increased batch size to 500 files per iteration for CLI (no HTTP timeout concerns)
+  * Disabled time-based yielding for CLI - only yields on memory pressure
+  * Files write completely without internal chunking in CLI mode
+  * Reduced logging overhead by changing per-file logs from info to debug level
+
+* **Browser Backup Optimization**
+  * Dynamic time budget based on server's max_execution_time (uses 60% of available time)
+  * Adaptive batch size using ServerLimits detection for different hosting environments
+  * Increased default batch size from 50 to 100 files per request
+  * Automatic tuning for WP Engine, Kinsta, Flywheel, and other managed hosts
+
+* **Settings UI Improvements**
+  * Added Settings button to Backups page header for quick access before creating backups
+  * New settings modal with performance controls and hosting presets
+  * Simplified settings to focus on key options: Files per Request, Database Rows per Batch
+  * Quick presets for Shared Hosting, VPS/Managed, and Dedicated servers
+  * Backup contents toggles for Database, Plugins, Themes, Uploads, and Core Files
+
+* **Job Progress Display Fixes**
+  * Fixed steps log not updating during pipeline backups
+  * Steps log now correctly shows pipeline phases: Scanning files → Archiving files → Finalizing
+  * Initial steps displayed immediately when backup starts
+  * Progress details show file counts during indexing and processing phases
+
+* **Import Pipeline Reliability Improvements**
+  * Fixed race condition in file queue processing that could cause files to get stuck
+  * Increased stale session timeout from 2 to 10 minutes for slow servers
+  * Added database index on `updated_at` for faster stale processing queries
+  * Fixed table prefix detection to read from SQL header comment first
+  * Added table prefix verification after database restore to detect mismatches
+
+* **Performance Optimizations**
+  * Added chunked URL replacement to prevent timeouts on large databases
+  * Fixed transient deletion loop with iteration limit (max 100k transients)
+  * Created shared CacheManager utility to consolidate cache flushing logic
+  * URL replacement now processes tables incrementally with state persistence
+
+* **Detailed Migration Progress Indicators**
+  * Each phase now shows specific human-readable labels (e.g., "Restoring Database" instead of generic "Processing")
+  * Added detailed progress messages showing actual data: bytes processed, tables imported, files copied
+  * Database restore shows: "2 MB of 4 MB processed (847 queries this chunk)"
+  * URL replacement shows: current pattern being processed, table name, replacement count
+  * Finalize phase lists actions taken: caches flushed, security plugins deactivated
+  * Cleanup phase shows size of temporary files removed
+
+* **New Shared Components**
+  * Added `CacheManager` class for centralized cache operations with safeguards
+  * Added `count_tables_in_sql()` helper for accurate table counting in progress display
+
+* **WP-CLI Support**
+  * Added `wp swish backup` command for creating backups from command line
+  * Added `wp swish import` command for importing/migrating backups via CLI
+  * Added `wp swish status` and `wp swish cleanup` utility commands
+  * CLI commands support all backup types: full, database, files
 
 = 1.1.7 =
 * Fixed large file downloads for curl/wget - moved download handler outside wp-admin
@@ -200,6 +285,9 @@ This feature is only available in the PRO version of this plugin [Get PRO](https
 * REST API endpoints
 
 == Upgrade Notice ==
+
+= 1.1.8 =
+Major backup and migration improvements. Fixes missing files in backups by completing file enumeration before archiving. CLI backups are significantly faster with optimized batch sizes. Browser backups auto-tune to server capabilities. New settings modal on Backups page for quick configuration. Improved job progress display with real-time step updates.
 
 = 1.1.7 =
 Fixes large file downloads for external tools like curl and wget. Downloads no longer require WordPress login - token-based authentication enables resumable transfers.

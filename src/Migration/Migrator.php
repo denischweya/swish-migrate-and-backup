@@ -15,6 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 use SwishMigrateAndBackup\Backup\BackupManager;
+use SwishMigrateAndBackup\Core\CacheManager;
 use SwishMigrateAndBackup\Logger\Logger;
 use SwishMigrateAndBackup\Restore\RestoreManager;
 
@@ -119,6 +120,17 @@ final class Migrator {
 
 			if ( ! $restore_result ) {
 				throw new \RuntimeException( 'Restore failed' );
+			}
+
+			// Update table prefix in wp-config.php if the backup uses a different prefix.
+			$backup_prefix = $backup_info['table_prefix'] ?? null;
+			if ( $backup_prefix ) {
+				$prefix_updated = $this->update_wp_config_table_prefix( $backup_prefix );
+				if ( $prefix_updated ) {
+					$this->logger->info( 'Updated wp-config.php table prefix', array(
+						'new_prefix' => $backup_prefix,
+					) );
+				}
 			}
 
 			// Perform URL replacement if needed.
@@ -377,48 +389,95 @@ final class Migrator {
 	}
 
 	/**
+	 * Update table prefix in wp-config.php.
+	 *
+	 * When migrating a backup to a new site, the backup's database tables
+	 * may use a different prefix than the destination site. This method
+	 * updates wp-config.php to use the backup's table prefix so WordPress
+	 * can find the imported tables.
+	 *
+	 * @param string $new_prefix The table prefix from the backup.
+	 * @return bool True if wp-config.php was updated, false otherwise.
+	 */
+	private function update_wp_config_table_prefix( string $new_prefix ): bool {
+		global $wpdb;
+
+		// Check if prefix is different from current.
+		if ( $wpdb->prefix === $new_prefix ) {
+			$this->logger->debug( 'Table prefix already matches, no update needed', array(
+				'prefix' => $new_prefix,
+			) );
+			return false;
+		}
+
+		// Find wp-config.php location.
+		$wp_config_path = ABSPATH . 'wp-config.php';
+		if ( ! file_exists( $wp_config_path ) ) {
+			// Check one level up (common in some setups).
+			$wp_config_path = dirname( ABSPATH ) . '/wp-config.php';
+			if ( ! file_exists( $wp_config_path ) ) {
+				$this->logger->warning( 'wp-config.php not found, cannot update table prefix' );
+				return false;
+			}
+		}
+
+		// Read current wp-config.php.
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+		$config_content = file_get_contents( $wp_config_path );
+		if ( false === $config_content ) {
+			$this->logger->error( 'Failed to read wp-config.php' );
+			return false;
+		}
+
+		// Match $table_prefix = 'something';  (handles single/double quotes and various spacing).
+		$pattern = '/(\$table_prefix\s*=\s*[\'"])([^\'"]+)([\'"])/';
+
+		if ( ! preg_match( $pattern, $config_content ) ) {
+			$this->logger->error( 'Could not find $table_prefix in wp-config.php' );
+			return false;
+		}
+
+		// Replace with new prefix using callback to handle special characters safely.
+		$new_content = preg_replace_callback(
+			$pattern,
+			function ( $matches ) use ( $new_prefix ) {
+				return $matches[1] . $new_prefix . $matches[3];
+			},
+			$config_content
+		);
+
+		if ( $new_content === $config_content ) {
+			$this->logger->debug( 'No changes made to wp-config.php' );
+			return false;
+		}
+
+		// Write back to wp-config.php.
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+		$result = file_put_contents( $wp_config_path, $new_content );
+		if ( false === $result ) {
+			$this->logger->error( 'Failed to write wp-config.php' );
+			return false;
+		}
+
+		$this->logger->info( 'wp-config.php table prefix updated', array(
+			'old_prefix' => $wpdb->prefix,
+			'new_prefix' => $new_prefix,
+		) );
+
+		return true;
+	}
+
+	/**
 	 * Flush all caches.
 	 *
 	 * @return void
 	 */
 	private function flush_all_caches(): void {
-		// Flush rewrite rules.
-		flush_rewrite_rules();
+		$stats = CacheManager::flush_all();
 
-		// Flush object cache.
-		wp_cache_flush();
-
-		// Clear transients in batches to avoid memory issues on large sites.
-		global $wpdb;
-		$batch_size = 1000;
-		$deleted_total = 0;
-
-		do {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$deleted = $wpdb->query(
-				$wpdb->prepare(
-					"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s LIMIT %d",
-					'_transient_%',
-					$batch_size
-				)
-			);
-
-			$deleted_total += (int) $deleted;
-
-			// Free memory between batches.
-			if ( function_exists( 'gc_collect_cycles' ) ) {
-				gc_collect_cycles();
-			}
-		} while ( $deleted > 0 );
-
-		$this->logger->info( 'Transients cleared', array( 'count' => $deleted_total ) );
-
-		// Clear opcache if available.
-		if ( function_exists( 'opcache_reset' ) ) {
-			@opcache_reset();
-		}
-
-		$this->logger->info( 'All caches flushed' );
+		$this->logger->info( 'All caches flushed', array(
+			'transients_deleted' => $stats['transients_deleted'],
+		) );
 	}
 
 	/**

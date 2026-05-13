@@ -5,6 +5,61 @@ All notable changes to Swish Migrate and Backup will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.8] - 2026-05-13
+
+### Fixed
+- **Missing files in backups** (e.g., uploads/2026 folder) - removed timeout checks during file indexing phase
+- File enumeration now completes fully before archiving begins (AI1WM approach)
+- Only memory pressure triggers yielding during indexing, not time limits
+- **Job steps log not updating** during pipeline backups - now correctly shows phases
+- Steps log displays pipeline phases: Scanning files → Archiving files → Finalizing
+- Initial steps now displayed immediately when backup starts
+
+### Added
+- **Settings button on Backups page** for quick access before creating backups
+- New settings modal with performance controls and hosting presets
+- Quick presets for Shared Hosting, VPS/Managed, and Dedicated servers
+- Backup contents toggles (Database, Plugins, Themes, Uploads, Core Files)
+- CLI mode for BackupPipeline that disables time-based yielding
+- `is_cli()` detection in ServerLimits class
+
+### Changed
+- **CLI backup performance** - now uses pipeline approach with optimized settings
+  - Batch size increased to 500 files per iteration (no HTTP timeout concerns)
+  - Disabled time-based yielding - only yields on memory pressure
+  - Files write completely without internal chunking
+  - Per-file logging reduced from info to debug level
+- **Browser backup optimization** - dynamic settings based on server capabilities
+  - Dynamic time budget using 60% of max_execution_time (10-25s range)
+  - Adaptive batch size via ServerLimits detection for different hosts
+  - Default batch size increased from 50 to 100 files per request
+  - Automatic tuning for WP Engine, Kinsta, Flywheel, and managed hosts
+- **Simplified settings UI** - consolidated to key settings: Files per Request, Database Rows per Batch
+- Import pipeline reliability improvements
+  - Fixed race condition in file queue processing
+  - Increased stale session timeout from 2 to 10 minutes
+  - Added database index on `updated_at` for faster queries
+  - Fixed table prefix detection from SQL header comment
+  - Added table prefix verification after database restore
+- Performance optimizations
+  - Chunked URL replacement prevents timeouts on large databases
+  - Transient deletion loop limited to 100k iterations
+  - URL replacement processes tables incrementally with state persistence
+- Detailed migration progress indicators
+  - Human-readable phase labels (e.g., "Restoring Database")
+  - Progress shows actual data: bytes processed, tables imported, files copied
+  - Finalize phase lists actions taken
+
+### Added (Shared Components)
+- `CacheManager` class for centralized cache operations with safeguards
+- `count_tables_in_sql()` helper for accurate table counting
+
+### Added (WP-CLI)
+- `wp swish backup` command for creating backups from command line
+- `wp swish import` command for importing/migrating backups via CLI
+- `wp swish status` and `wp swish cleanup` utility commands
+- CLI commands support all backup types: full, database, files
+
 ## [1.1.7] - 2026-05-12
 
 ### Fixed

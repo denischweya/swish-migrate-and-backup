@@ -43,6 +43,9 @@ use SwishMigrateAndBackup\Storage\LocalAdapter;
 use SwishMigrateAndBackup\Storage\S3Adapter;
 use SwishMigrateAndBackup\Storage\DropboxAdapter;
 use SwishMigrateAndBackup\Storage\GoogleDriveAdapter;
+use SwishMigrateAndBackup\CLI\Commands as CLICommands;
+use SwishMigrateAndBackup\Import\ImportPipeline;
+use SwishMigrateAndBackup\Import\ImportSession;
 
 /**
  * Plugin class responsible for bootstrapping all components.
@@ -334,6 +337,10 @@ final class Plugin {
 		// REST API.
 		add_action( 'rest_api_init', array( $this->container->get( RestController::class ), 'register_routes' ) );
 
+		// Bypass WordPress authentication for import endpoints.
+		// Import uses its own secret_key authentication which survives database restore.
+		add_filter( 'rest_authentication_errors', array( $this, 'bypass_rest_auth_for_import' ), 100 );
+
 		// Cron scheduler.
 		add_action( 'swish_backup_scheduled_backup', array( $this->container->get( Scheduler::class ), 'run_scheduled_backup' ) );
 
@@ -355,6 +362,29 @@ final class Plugin {
 		// AJAX handler for non-blocking backup processing.
 		add_action( 'wp_ajax_swish_process_backup', array( $this, 'ajax_process_backup' ) );
 		add_action( 'wp_ajax_nopriv_swish_process_backup', array( $this, 'ajax_process_backup' ) );
+
+		// AJAX handler for non-blocking import continuation.
+		add_action( 'wp_ajax_swish_import_continue', array( $this, 'ajax_import_continue' ) );
+		add_action( 'wp_ajax_nopriv_swish_import_continue', array( $this, 'ajax_import_continue' ) );
+
+		// Register WP-CLI commands.
+		if ( defined( 'WP_CLI' ) && WP_CLI ) {
+			$this->register_cli_commands();
+		}
+	}
+
+	/**
+	 * Register WP-CLI commands.
+	 *
+	 * @return void
+	 */
+	private function register_cli_commands(): void {
+		$cli_commands = new CLICommands( $this->container->get( Logger::class ) );
+
+		\WP_CLI::add_command( 'swish backup', array( $cli_commands, 'backup' ) );
+		\WP_CLI::add_command( 'swish import', array( $cli_commands, 'import' ) );
+		\WP_CLI::add_command( 'swish status', array( $cli_commands, 'status' ) );
+		\WP_CLI::add_command( 'swish cleanup', array( $cli_commands, 'cleanup' ) );
 	}
 
 	/**
@@ -450,6 +480,119 @@ final class Plugin {
 		$backup_manager->process_async_backup( $job_id );
 
 		exit;
+	}
+
+	/**
+	 * AJAX handler for non-blocking import continuation.
+	 *
+	 * This is called via a loopback request from ImportPipeline
+	 * to continue imports without relying on browser polling.
+	 *
+	 * @return void
+	 */
+	public function ajax_import_continue(): void {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Secret key verified in ImportSession.
+		$secret_key = isset( $_REQUEST['secret_key'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['secret_key'] ) ) : '';
+
+		if ( empty( $secret_key ) ) {
+			wp_die( 'Invalid request', 400 );
+		}
+
+		// Verify the secret key.
+		if ( ! ImportSession::verify_secret_key( $secret_key ) ) {
+			wp_die( 'Invalid secret key', 403 );
+		}
+
+		// Check if import is already completed.
+		$state = ImportSession::get_state();
+		if ( ! $state || in_array( $state['phase'] ?? '', array( 'completed', 'failed' ), true ) ) {
+			wp_die( 'Import completed', 200 );
+		}
+
+		// Ensure the script continues running.
+		// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+		@ignore_user_abort( true );
+
+		// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+		@set_time_limit( 300 );
+
+		// Close the connection immediately.
+		if ( function_exists( 'fastcgi_finish_request' ) ) {
+			header( 'Content-Type: text/plain' );
+			header( 'Connection: close' );
+			echo 'OK';
+			fastcgi_finish_request();
+		} else {
+			header( 'Content-Type: text/plain' );
+			header( 'Connection: close' );
+			header( 'Content-Length: 2' );
+			echo 'OK';
+			if ( ob_get_level() > 0 ) {
+				ob_end_flush();
+			}
+			flush();
+		}
+
+		// Create the import pipeline and execute.
+		$logger = $this->container->get( Logger::class );
+		$restore_manager = $this->container->get( RestoreManager::class );
+		$migrator = $this->container->get( Migrator::class );
+
+		$pipeline = new ImportPipeline( $logger, $restore_manager, $migrator );
+		$pipeline->execute( $secret_key );
+
+		exit;
+	}
+
+	/**
+	 * Bypass WordPress REST authentication for import endpoints.
+	 *
+	 * During database restore, WordPress sessions are invalidated when wp_usermeta
+	 * is imported with session_tokens from the backup. This causes the REST API
+	 * to reject requests with 403 before our secret_key check runs.
+	 *
+	 * Import endpoints use their own secret_key authentication which is stored
+	 * in a file and survives the database restore.
+	 *
+	 * @param WP_Error|null|true $result Authentication result.
+	 * @return WP_Error|null|true Modified result.
+	 */
+	public function bypass_rest_auth_for_import( $result ) {
+		// If already authenticated or error, don't interfere.
+		if ( true === $result || is_wp_error( $result ) ) {
+			return $result;
+		}
+
+		// Check if this is an import endpoint request.
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotValidated
+		$request_uri = isset( $_SERVER['REQUEST_URI'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
+
+		// Match import/continue and import/status endpoints.
+		if ( strpos( $request_uri, '/swish-backup/v1/import/' ) !== false ) {
+			// Check if a valid secret_key is present in the request.
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$secret_key = '';
+			if ( isset( $_REQUEST['secret_key'] ) ) {
+				// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+				$secret_key = sanitize_text_field( wp_unslash( $_REQUEST['secret_key'] ) );
+			} else {
+				// Check request body for POST requests.
+				$input = file_get_contents( 'php://input' );
+				if ( $input ) {
+					$data = json_decode( $input, true );
+					if ( is_array( $data ) && isset( $data['secret_key'] ) ) {
+						$secret_key = sanitize_text_field( $data['secret_key'] );
+					}
+				}
+			}
+
+			// If we have a valid secret key, bypass WordPress auth.
+			if ( ! empty( $secret_key ) && ImportSession::verify_secret_key( $secret_key ) ) {
+				return true;
+			}
+		}
+
+		return $result;
 	}
 
 	/**

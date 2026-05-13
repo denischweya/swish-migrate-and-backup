@@ -54,6 +54,10 @@ final class DocumentationPage {
 				'title' => __( 'Pro Features', 'swish-migrate-and-backup' ),
 				'icon'  => 'dashicons-star-filled',
 			),
+			'aria2c-installation' => array(
+				'title' => __( 'Installing aria2c', 'swish-migrate-and-backup' ),
+				'icon'  => 'dashicons-download',
+			),
 			'troubleshooting' => array(
 				'title' => __( 'Troubleshooting', 'swish-migrate-and-backup' ),
 				'icon'  => 'dashicons-sos',
@@ -541,6 +545,59 @@ final class DocumentationPage {
 									<li><?php esc_html_e( 'Troubleshooting backup issues', 'swish-migrate-and-backup' ); ?></li>
 									<li><?php esc_html_e( 'Migration guidance', 'swish-migrate-and-backup' ); ?></li>
 									<li><?php esc_html_e( 'Cloud storage configuration', 'swish-migrate-and-backup' ); ?></li>
+								</ul>
+							</div>
+						</section>
+
+						<!-- Installing aria2c -->
+						<section id="aria2c-installation" class="swish-docs-section">
+							<h2>
+								<span class="dashicons dashicons-download"></span>
+								<?php esc_html_e( 'Installing aria2c', 'swish-migrate-and-backup' ); ?>
+							</h2>
+
+							<div class="swish-docs-card">
+								<div class="swish-docs-tip" style="margin-bottom: 15px;">
+									<span class="dashicons dashicons-info"></span>
+									<strong><?php esc_html_e( 'Recommended for large files (3GB+)', 'swish-migrate-and-backup' ); ?></strong>
+									<?php esc_html_e( 'aria2c is a lightweight download utility with better resume capabilities than curl. It handles connection drops more gracefully and is recommended for downloading large backup files.', 'swish-migrate-and-backup' ); ?>
+								</div>
+
+								<h3><?php esc_html_e( 'Linux (Ubuntu/Debian)', 'swish-migrate-and-backup' ); ?></h3>
+								<pre class="swish-docs-code">sudo apt-get update
+sudo apt-get install aria2</pre>
+
+								<h3><?php esc_html_e( 'macOS (using Homebrew)', 'swish-migrate-and-backup' ); ?></h3>
+								<pre class="swish-docs-code">brew install aria2</pre>
+
+								<h3><?php esc_html_e( 'Windows (using Chocolatey)', 'swish-migrate-and-backup' ); ?></h3>
+								<pre class="swish-docs-code">choco install aria2</pre>
+
+								<h3><?php esc_html_e( 'Windows (Manual Installation)', 'swish-migrate-and-backup' ); ?></h3>
+								<ol>
+									<li><?php esc_html_e( 'Download the latest release from the', 'swish-migrate-and-backup' ); ?> <a href="https://github.com/aria2/aria2/releases" target="_blank"><?php esc_html_e( 'aria2 GitHub releases page', 'swish-migrate-and-backup' ); ?></a></li>
+									<li><?php esc_html_e( 'Extract the zip file', 'swish-migrate-and-backup' ); ?></li>
+									<li><?php esc_html_e( 'Add the extracted folder containing aria2c.exe to your system\'s PATH environment variable', 'swish-migrate-and-backup' ); ?></li>
+								</ol>
+
+								<h3><?php esc_html_e( 'Arch Linux', 'swish-migrate-and-backup' ); ?></h3>
+								<pre class="swish-docs-code">sudo pacman -S aria2</pre>
+							</div>
+
+							<div class="swish-docs-card">
+								<h3><?php esc_html_e( 'Verify Installation', 'swish-migrate-and-backup' ); ?></h3>
+								<p><?php esc_html_e( 'After installation, verify aria2c is working by checking the version:', 'swish-migrate-and-backup' ); ?></p>
+								<pre class="swish-docs-code">aria2c --version</pre>
+								<p><?php esc_html_e( 'You should see version information if installed correctly.', 'swish-migrate-and-backup' ); ?></p>
+							</div>
+
+							<div class="swish-docs-card">
+								<h3><?php esc_html_e( 'Why aria2c for Large Downloads?', 'swish-migrate-and-backup' ); ?></h3>
+								<ul>
+									<li><strong><?php esc_html_e( 'Better Resume Support', 'swish-migrate-and-backup' ); ?>:</strong> <?php esc_html_e( 'Automatically resumes interrupted downloads without losing progress', 'swish-migrate-and-backup' ); ?></li>
+									<li><strong><?php esc_html_e( 'Connection Handling', 'swish-migrate-and-backup' ); ?>:</strong> <?php esc_html_e( 'More resilient to connection drops and timeouts', 'swish-migrate-and-backup' ); ?></li>
+									<li><strong><?php esc_html_e( 'Automatic Retries', 'swish-migrate-and-backup' ); ?>:</strong> <?php esc_html_e( 'Configurable retry attempts with delays between retries', 'swish-migrate-and-backup' ); ?></li>
+									<li><strong><?php esc_html_e( 'Progress Tracking', 'swish-migrate-and-backup' ); ?>:</strong> <?php esc_html_e( 'Saves download state for seamless continuation', 'swish-migrate-and-backup' ); ?></li>
 								</ul>
 							</div>
 						</section>
