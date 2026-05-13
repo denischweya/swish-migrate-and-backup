@@ -996,17 +996,65 @@ final class BackupPipeline {
 	/**
 	 * Get relative path from WordPress root.
 	 *
+	 * Uses multiple strategies to handle symlinks, Docker paths, etc.
+	 *
 	 * @param string $path Absolute path.
 	 * @return string Relative path.
 	 */
 	private function get_relative_path( string $path ): string {
 		$path = str_replace( '\\', '/', $path );
-		$root = str_replace( '\\', '/', ABSPATH );
 
+		// Try matching against ABSPATH first.
+		$root = str_replace( '\\', '/', rtrim( ABSPATH, '/' ) ) . '/';
 		if ( strpos( $path, $root ) === 0 ) {
 			return substr( $path, strlen( $root ) );
 		}
 
+		// Try matching against WP_CONTENT_DIR (handles symlinks/Docker mounts).
+		$wp_content = str_replace( '\\', '/', WP_CONTENT_DIR );
+		if ( strpos( $path, $wp_content ) === 0 ) {
+			return 'wp-content' . substr( $path, strlen( $wp_content ) );
+		}
+
+		// Try matching against plugin directory.
+		$plugins_dir = str_replace( '\\', '/', WP_PLUGIN_DIR );
+		if ( strpos( $path, $plugins_dir ) === 0 ) {
+			return 'wp-content/plugins' . substr( $path, strlen( $plugins_dir ) );
+		}
+
+		// Try matching against theme directory.
+		$themes_dir = str_replace( '\\', '/', get_theme_root() );
+		if ( strpos( $path, $themes_dir ) === 0 ) {
+			return 'wp-content/themes' . substr( $path, strlen( $themes_dir ) );
+		}
+
+		// Try matching against uploads directory.
+		$upload_dir = wp_upload_dir();
+		$uploads_base = str_replace( '\\', '/', $upload_dir['basedir'] );
+		if ( strpos( $path, $uploads_base ) === 0 ) {
+			return 'wp-content/uploads' . substr( $path, strlen( $uploads_base ) );
+		}
+
+		// Try using realpath to resolve symlinks.
+		$real_path = realpath( $path );
+		$real_root = realpath( ABSPATH );
+		if ( $real_path && $real_root && strpos( $real_path, $real_root ) === 0 ) {
+			$real_path = str_replace( '\\', '/', $real_path );
+			$real_root = str_replace( '\\', '/', rtrim( $real_root, '/' ) ) . '/';
+			return substr( $real_path, strlen( $real_root ) );
+		}
+
+		// Look for wp-content in path and preserve structure from there.
+		$wp_content_pos = strpos( $path, '/wp-content/' );
+		if ( false !== $wp_content_pos ) {
+			return substr( $path, $wp_content_pos + 1 ); // +1 to skip leading slash.
+		}
+
+		// Fallback to basename (logs warning as this loses structure).
+		$this->logger->warning( 'Could not determine relative path, using basename', array(
+			'path'    => $path,
+			'abspath' => ABSPATH,
+		) );
 		return basename( $path );
 	}
 
