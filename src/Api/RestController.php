@@ -650,7 +650,7 @@ final class RestController extends WP_REST_Controller {
 		// Check if backup failed.
 		if ( isset( $result['error'] ) ) {
 			// Check if it's a size limit error.
-			if ( strpos( $result['error'], '2GB limit' ) !== false ) {
+			if ( strpos( $result['error'], '4GB limit' ) !== false ) {
 				return new WP_Error(
 					'backup_size_limit_exceeded',
 					$result['error'],
@@ -1458,7 +1458,7 @@ final class RestController extends WP_REST_Controller {
 			'backup_uploads'       => true,
 			'backup_core_files'    => true,
 			'compression_level'    => 6,
-			'archive_format'       => 'auto',
+			'archive_format'       => 'swish',
 			'default_storage'      => 'local',
 			'exclude_files'        => array(),
 			'exclude_plugins'      => array(),  // Plugin slugs to exclude.
@@ -1516,9 +1516,9 @@ final class RestController extends WP_REST_Controller {
 		}
 
 		if ( isset( $params['archive_format'] ) ) {
-			$allowed_formats = array( 'auto', 'zip', 'tar' );
+			$allowed_formats = array( 'auto', 'zip', 'tar', 'swish' );
 			$format = sanitize_text_field( $params['archive_format'] );
-			$settings['archive_format'] = in_array( $format, $allowed_formats, true ) ? $format : 'auto';
+			$settings['archive_format'] = in_array( $format, $allowed_formats, true ) ? $format : 'swish';
 		}
 
 		if ( isset( $params['default_storage'] ) ) {

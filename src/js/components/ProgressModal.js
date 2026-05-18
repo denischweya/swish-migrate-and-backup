@@ -256,7 +256,7 @@ const ProgressModal = ( { job, onClose } ) => {
 							</button>
 							{ isFailed &&
 								job.message &&
-								job.message.includes( '2GB limit' ) && (
+								job.message.includes( '4GB limit' ) && (
 									<a
 										href={
 											window.swishBackupData?.proUrl ||

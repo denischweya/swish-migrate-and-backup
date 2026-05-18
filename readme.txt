@@ -4,7 +4,7 @@ Tags: backup, migration, restore, database, cloud storage
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.1.8
+Stable tag: 1.1.9
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -84,7 +84,7 @@ Swish Backup includes WP-CLI commands for backup and migration operations. Requi
 = How large of a site can this plugin handle? =
 
 The plugin uses chunked processing for both database and file operations, allowing it to handle sites of virtually any size without running into memory limits.
-The free plugin can only import up to 2GB backup, Pro version removed this limit [Get PRO](https://swishbackup.swishfolio.com/)
+The free plugin can only import up to 4GB backup, Pro version removed this limit [Get PRO](https://swishbackup.swishfolio.com/)
 
 = Where are backups stored by default? =
 
@@ -123,11 +123,20 @@ This feature is only available in the PRO version of this plugin [Get PRO](https
 
 == Changelog ==
 
+= 1.1.9 =
+* Added SWISH archive format option to Settings dropdown
+* SWISH format provides streaming with true append support and resume capability
+
 = 1.1.8 =
 * **Backup Completeness Fixes**
   * Fixed missing files in backups (e.g., uploads/2026 folder) by removing timeout checks during file indexing
   * File enumeration now completes fully before archiving begins, following AI1WM's proven approach
   * Only memory pressure triggers yielding during indexing phase, not time limits
+  * Fixed path resolution for symlinks and Docker environments - improved relative path detection
+  * Fixed plugin vendor directories not being backed up (was breaking Yoast, WooCommerce, etc.)
+
+* **Size Limit Increase**
+  * Increased backup size limit from 2GB to 4GB for free version
 
 * **CLI Backup Performance**
   * CLI backups now use pipeline approach with optimized settings
@@ -285,6 +294,9 @@ This feature is only available in the PRO version of this plugin [Get PRO](https
 * REST API endpoints
 
 == Upgrade Notice ==
+
+= 1.1.9 =
+Added SWISH archive format option to Settings dropdown. Our custom streaming format with true append support and resume capability.
 
 = 1.1.8 =
 Major backup and migration improvements. Fixes missing files in backups by completing file enumeration before archiving. CLI backups are significantly faster with optimized batch sizes. Browser backups auto-tune to server capabilities. New settings modal on Backups page for quick configuration. Improved job progress display with real-time step updates.

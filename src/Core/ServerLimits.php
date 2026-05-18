@@ -677,10 +677,10 @@ final class ServerLimits {
 	public static function should_use_tar(): bool {
 		// Check user setting first.
 		$settings = get_option( 'swish_backup_settings', array() );
-		$archive_format = $settings['archive_format'] ?? 'auto';
+		$archive_format = $settings['archive_format'] ?? 'swish';
 
-		// If user explicitly chose ZIP, use it.
-		if ( 'zip' === $archive_format ) {
+		// If user explicitly chose ZIP or SWISH, don't use tar.
+		if ( 'zip' === $archive_format || 'swish' === $archive_format ) {
 			return false;
 		}
 

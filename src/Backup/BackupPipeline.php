@@ -157,6 +157,8 @@ final class BackupPipeline {
 		$this->time_budget = self::DEFAULT_TIME_BUDGET;
 
 		// Set default exclusions.
+		// Note: 'vendor' is NOT excluded because many plugins (Yoast, WooCommerce, etc.)
+		// include vendor/ directories with Composer autoloaders that are required to function.
 		$this->exclude_patterns = array(
 			'*.log',
 			'*.tmp',
@@ -164,7 +166,6 @@ final class BackupPipeline {
 			'.git',
 			'.svn',
 			'node_modules',
-			'vendor',
 			'wp-content/cache',
 			'wp-content/debug.log',
 			'wp-content/upgrade',
@@ -1011,37 +1012,80 @@ final class BackupPipeline {
 		}
 
 		// Try matching against WP_CONTENT_DIR (handles symlinks/Docker mounts).
-		$wp_content = str_replace( '\\', '/', WP_CONTENT_DIR );
-		if ( strpos( $path, $wp_content ) === 0 ) {
+		$wp_content = str_replace( '\\', '/', rtrim( WP_CONTENT_DIR, '/' ) );
+		if ( strpos( $path, $wp_content . '/' ) === 0 ) {
 			return 'wp-content' . substr( $path, strlen( $wp_content ) );
 		}
 
 		// Try matching against plugin directory.
-		$plugins_dir = str_replace( '\\', '/', WP_PLUGIN_DIR );
-		if ( strpos( $path, $plugins_dir ) === 0 ) {
+		$plugins_dir = str_replace( '\\', '/', rtrim( WP_PLUGIN_DIR, '/' ) );
+		if ( strpos( $path, $plugins_dir . '/' ) === 0 ) {
 			return 'wp-content/plugins' . substr( $path, strlen( $plugins_dir ) );
 		}
 
 		// Try matching against theme directory.
-		$themes_dir = str_replace( '\\', '/', get_theme_root() );
-		if ( strpos( $path, $themes_dir ) === 0 ) {
+		$themes_dir = str_replace( '\\', '/', rtrim( get_theme_root(), '/' ) );
+		if ( strpos( $path, $themes_dir . '/' ) === 0 ) {
 			return 'wp-content/themes' . substr( $path, strlen( $themes_dir ) );
 		}
 
 		// Try matching against uploads directory.
 		$upload_dir = wp_upload_dir();
-		$uploads_base = str_replace( '\\', '/', $upload_dir['basedir'] );
-		if ( strpos( $path, $uploads_base ) === 0 ) {
+		$uploads_base = str_replace( '\\', '/', rtrim( $upload_dir['basedir'], '/' ) );
+		if ( strpos( $path, $uploads_base . '/' ) === 0 ) {
 			return 'wp-content/uploads' . substr( $path, strlen( $uploads_base ) );
 		}
 
-		// Try using realpath to resolve symlinks.
+		// Try realpath matching for all known directories.
+		// This handles symlinks where the iterator returns resolved paths.
 		$real_path = realpath( $path );
-		$real_root = realpath( ABSPATH );
-		if ( $real_path && $real_root && strpos( $real_path, $real_root ) === 0 ) {
+		if ( $real_path ) {
 			$real_path = str_replace( '\\', '/', $real_path );
-			$real_root = str_replace( '\\', '/', rtrim( $real_root, '/' ) ) . '/';
-			return substr( $real_path, strlen( $real_root ) );
+
+			// Try plugins directory with realpath.
+			$real_plugins = realpath( WP_PLUGIN_DIR );
+			if ( $real_plugins ) {
+				$real_plugins = str_replace( '\\', '/', rtrim( $real_plugins, '/' ) );
+				if ( strpos( $real_path, $real_plugins . '/' ) === 0 ) {
+					return 'wp-content/plugins' . substr( $real_path, strlen( $real_plugins ) );
+				}
+			}
+
+			// Try themes directory with realpath.
+			$real_themes = realpath( get_theme_root() );
+			if ( $real_themes ) {
+				$real_themes = str_replace( '\\', '/', rtrim( $real_themes, '/' ) );
+				if ( strpos( $real_path, $real_themes . '/' ) === 0 ) {
+					return 'wp-content/themes' . substr( $real_path, strlen( $real_themes ) );
+				}
+			}
+
+			// Try uploads directory with realpath.
+			$real_uploads = realpath( $upload_dir['basedir'] );
+			if ( $real_uploads ) {
+				$real_uploads = str_replace( '\\', '/', rtrim( $real_uploads, '/' ) );
+				if ( strpos( $real_path, $real_uploads . '/' ) === 0 ) {
+					return 'wp-content/uploads' . substr( $real_path, strlen( $real_uploads ) );
+				}
+			}
+
+			// Try WP_CONTENT_DIR with realpath.
+			$real_content = realpath( WP_CONTENT_DIR );
+			if ( $real_content ) {
+				$real_content = str_replace( '\\', '/', rtrim( $real_content, '/' ) );
+				if ( strpos( $real_path, $real_content . '/' ) === 0 ) {
+					return 'wp-content' . substr( $real_path, strlen( $real_content ) );
+				}
+			}
+
+			// Try ABSPATH with realpath.
+			$real_root = realpath( ABSPATH );
+			if ( $real_root ) {
+				$real_root = str_replace( '\\', '/', rtrim( $real_root, '/' ) ) . '/';
+				if ( strpos( $real_path, $real_root ) === 0 ) {
+					return substr( $real_path, strlen( $real_root ) );
+				}
+			}
 		}
 
 		// Look for wp-content in path and preserve structure from there.
@@ -1050,10 +1094,37 @@ final class BackupPipeline {
 			return substr( $path, $wp_content_pos + 1 ); // +1 to skip leading slash.
 		}
 
+		// Also check realpath for wp-content pattern.
+		if ( $real_path ) {
+			$wp_content_pos = strpos( $real_path, '/wp-content/' );
+			if ( false !== $wp_content_pos ) {
+				return substr( $real_path, $wp_content_pos + 1 );
+			}
+		}
+
+		// Try to extract path structure from common WordPress patterns.
+		// Match patterns like /plugins/plugin-name/... or /themes/theme-name/...
+		if ( preg_match( '#/plugins/([^/]+/.+)$#', $path, $matches ) ) {
+			return 'wp-content/plugins/' . $matches[1];
+		}
+		if ( preg_match( '#/themes/([^/]+/.+)$#', $path, $matches ) ) {
+			return 'wp-content/themes/' . $matches[1];
+		}
+		if ( preg_match( '#/uploads/(\d{4}/\d{2}/.+)$#', $path, $matches ) ) {
+			return 'wp-content/uploads/' . $matches[1];
+		}
+		if ( preg_match( '#/uploads/([^/]+/.+)$#', $path, $matches ) ) {
+			return 'wp-content/uploads/' . $matches[1];
+		}
+
 		// Fallback to basename (logs warning as this loses structure).
 		$this->logger->warning( 'Could not determine relative path, using basename', array(
-			'path'    => $path,
-			'abspath' => ABSPATH,
+			'path'      => $path,
+			'real_path' => $real_path ?? 'N/A',
+			'abspath'   => ABSPATH,
+			'plugins'   => WP_PLUGIN_DIR,
+			'themes'    => get_theme_root(),
+			'uploads'   => $upload_dir['basedir'],
 		) );
 		return basename( $path );
 	}

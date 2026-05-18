@@ -118,16 +118,17 @@ final class SettingsPage {
 							</th>
 							<td>
 								<?php
-								$archive_format = $settings['archive_format'] ?? 'auto';
+								$archive_format = $settings['archive_format'] ?? 'swish';
 								$tar_available = \SwishMigrateAndBackup\Core\ServerLimits::is_tar_available();
 								?>
 								<select name="swish_backup_settings[archive_format]" id="archive_format">
-									<option value="auto" <?php selected( $archive_format, 'auto' ); ?>><?php esc_html_e( 'Auto (recommended)', 'swish-migrate-and-backup' ); ?></option>
+									<option value="swish" <?php selected( $archive_format, 'swish' ); ?>><?php esc_html_e( 'SWISH - Streaming format with resume support (recommended)', 'swish-migrate-and-backup' ); ?></option>
+									<option value="auto" <?php selected( $archive_format, 'auto' ); ?>><?php esc_html_e( 'Auto - Select based on server environment', 'swish-migrate-and-backup' ); ?></option>
 									<option value="zip" <?php selected( $archive_format, 'zip' ); ?>><?php esc_html_e( 'ZIP - Better for shared hosting, chunked processing', 'swish-migrate-and-backup' ); ?></option>
 									<option value="tar" <?php selected( $archive_format, 'tar' ); ?> <?php disabled( ! $tar_available ); ?>><?php esc_html_e( 'TAR.GZ - Faster for large sites, uses system tar', 'swish-migrate-and-backup' ); ?><?php echo ! $tar_available ? ' (' . esc_html__( 'not available', 'swish-migrate-and-backup' ) . ')' : ''; ?></option>
 								</select>
 								<p class="description">
-									<?php esc_html_e( 'ZIP is more compatible and supports chunked processing for timeout recovery. TAR.GZ is faster but requires system tar command.', 'swish-migrate-and-backup' ); ?>
+									<?php esc_html_e( 'SWISH is our custom streaming format with true append support and resume capability.', 'swish-migrate-and-backup' ); ?>
 								</p>
 							</td>
 						</tr>
@@ -296,7 +297,7 @@ final class SettingsPage {
 
 				$settings['default_storage'] = sanitize_text_field( $input['default_storage'] ?? 'local' );
 				$settings['compression_level'] = absint( $input['compression_level'] ?? 6 );
-				$settings['archive_format'] = in_array( $input['archive_format'] ?? 'auto', array( 'auto', 'zip', 'tar' ), true ) ? $input['archive_format'] : 'auto';
+				$settings['archive_format'] = in_array( $input['archive_format'] ?? 'swish', array( 'auto', 'zip', 'tar', 'swish' ), true ) ? $input['archive_format'] : 'swish';
 				$settings['backup_database'] = ! empty( $input['backup_database'] );
 				$settings['backup_plugins'] = ! empty( $input['backup_plugins'] );
 				$settings['backup_themes'] = ! empty( $input['backup_themes'] );

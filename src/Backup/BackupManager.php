@@ -158,13 +158,13 @@ final class BackupManager {
 				array(
 					'size_limit_exceeded' => 1,
 					'status'              => 'failed',
-					'error_message'       => 'Backup exceeds 2GB limit for free version',
+					'error_message'       => 'Backup exceeds 4GB limit for free version',
 				),
 				array( 'job_id' => $job_id )
 			);
 
 			$this->logger->warning(
-				'Backup exceeds 2GB limit',
+				'Backup exceeds 4GB limit',
 				array(
 					'job_id'      => $job_id,
 					'backup_size' => size_format( $backup_size ),
@@ -175,7 +175,7 @@ final class BackupManager {
 			// Throw exception with upgrade URL.
 			throw new \Exception(
 				sprintf(
-					'Your backup is %s which exceeds the 2GB limit for the free version. Upgrade to Pro to remove all limits: %s',
+					'Your backup is %s which exceeds the 4GB limit for the free version. Upgrade to Pro to remove all limits: %s',
 					esc_html( size_format( $backup_size ) ),
 					esc_url( SWISH_BACKUP_PRO_URL )
 				)
@@ -741,12 +741,12 @@ final class BackupManager {
 		$all_files = array_merge( $special_files, $files );
 		$total_all = count( $all_files );
 
-		// Step 4: Create streaming tar archive.
+		// Step 4: Create streaming archive.
 		$this->update_job_status( $job_id, 'processing', 15, 'Creating archive...' );
 
 		$site_name = sanitize_file_name( wp_parse_url( get_site_url(), PHP_URL_HOST ) );
 		$timestamp = gmdate( 'Y-m-d-His' );
-		$backup_filename = "{$site_name}-full-{$timestamp}.tar.gz";
+		$backup_filename = "{$site_name}-full-{$timestamp}.swish";
 		$backup_path = $this->get_backup_directory() . '/' . $backup_filename;
 
 		// Progress callback.
@@ -1899,13 +1899,13 @@ final class BackupManager {
 			$all_files = array_merge( $special_files, $files );
 			$total_all = count( $all_files );
 
-			// Step 4: Create streaming tar archive.
+			// Step 4: Create streaming archive.
 			$this->update_job_status( $job_id, 'processing', 15, 'Creating archive...' );
 
-			// Generate filename without extension, then add .tar.gz.
+			// Generate filename with .swish extension.
 			$site_name = sanitize_file_name( wp_parse_url( get_site_url(), PHP_URL_HOST ) );
 			$timestamp = gmdate( 'Y-m-d-His' );
-			$backup_filename = "{$site_name}-full-{$timestamp}.tar.gz";
+			$backup_filename = "{$site_name}-full-{$timestamp}.swish";
 			$backup_path = $this->get_backup_directory() . '/' . $backup_filename;
 
 			// Progress callback.
@@ -2586,10 +2586,10 @@ final class BackupManager {
 		ServerLimits::init_timing();
 
 		try {
-			// Generate filename without extension, then add .tar.gz.
+			// Generate filename with .swish extension.
 			$site_name = sanitize_file_name( wp_parse_url( get_site_url(), PHP_URL_HOST ) );
 			$timestamp = gmdate( 'Y-m-d-His' );
-			$backup_filename = "{$site_name}-files-{$timestamp}.tar.gz";
+			$backup_filename = "{$site_name}-files-{$timestamp}.swish";
 			$backup_path = $this->get_backup_directory() . '/' . $backup_filename;
 
 			$this->update_job_status( $job_id, 'processing', 10, 'Preparing file list...' );
@@ -3434,7 +3434,7 @@ final class BackupManager {
 	private function generate_backup_filename( string $type = 'full' ): string {
 		$site_name = sanitize_file_name( wp_parse_url( get_site_url(), PHP_URL_HOST ) );
 		$timestamp = gmdate( 'Y-m-d-His' );
-		return "{$site_name}-{$type}-{$timestamp}.zip";
+		return "{$site_name}-{$type}-{$timestamp}.swish";
 	}
 
 	/**

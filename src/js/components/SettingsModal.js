@@ -337,14 +337,17 @@ const SettingsModal = ( { settings, onSave, onClose } ) => {
 						<div className="swish-setting-row">
 							<select
 								id="archive_format"
-								value={ formData.archive_format || 'auto' }
+								value={ formData.archive_format || 'swish' }
 								onChange={ ( e ) =>
 									updateField( 'archive_format', e.target.value )
 								}
 								className="swish-select-field"
 							>
+								<option value="swish">
+									{ __( 'SWISH - Streaming format with resume support (recommended)', 'swish-migrate-and-backup' ) }
+								</option>
 								<option value="auto">
-									{ __( 'Auto (recommended)', 'swish-migrate-and-backup' ) }
+									{ __( 'Auto - Select based on server environment', 'swish-migrate-and-backup' ) }
 								</option>
 								<option value="zip">
 									{ __( 'ZIP - Better for shared hosting, chunked processing', 'swish-migrate-and-backup' ) }
@@ -359,8 +362,10 @@ const SettingsModal = ( { settings, onSave, onClose } ) => {
 									__( 'ZIP supports chunked processing and timeout recovery.', 'swish-migrate-and-backup' ) }
 								{ formData.archive_format === 'tar' &&
 									__( 'TAR.GZ uses system tar command for better performance.', 'swish-migrate-and-backup' ) }
-								{ ( ! formData.archive_format || formData.archive_format === 'auto' ) &&
+								{ formData.archive_format === 'auto' &&
 									__( 'Auto mode selects the best format based on your server environment.', 'swish-migrate-and-backup' ) }
+								{ ( ! formData.archive_format || formData.archive_format === 'swish' ) &&
+									__( 'SWISH is our custom streaming format with true append support and resume capability.', 'swish-migrate-and-backup' ) }
 							</p>
 						</div>
 					</div>

@@ -5,6 +5,11 @@ All notable changes to Swish Migrate and Backup will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.9] - 2026-05-18
+
+### Added
+- **SWISH archive format option** in Settings dropdown - our custom streaming format with true append support and resume capability
+
 ## [1.1.8] - 2026-05-13
 
 ### Fixed
@@ -14,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Job steps log not updating** during pipeline backups - now correctly shows phases
 - Steps log displays pipeline phases: Scanning files → Archiving files → Finalizing
 - Initial steps now displayed immediately when backup starts
+- **Path resolution for symlinks and Docker** - improved `get_relative_path()` with realpath matching for plugins, themes, uploads, and wp-content directories
+- **Plugin vendor directories not backed up** - removed `vendor` from default exclusions (was breaking plugins like Yoast Duplicate Post, WooCommerce that use Composer autoloaders)
+
+### Changed
+- **Backup size limit increased** from 2GB to 4GB for free version
 
 ### Added
 - **Settings button on Backups page** for quick access before creating backups

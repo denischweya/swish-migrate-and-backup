@@ -463,7 +463,7 @@ final class DocumentationPage {
 									<?php esc_html_e( 'Unlimited Backup Size', 'swish-migrate-and-backup' ); ?>
 									<span class="swish-docs-pro-tag"><?php esc_html_e( 'Pro', 'swish-migrate-and-backup' ); ?></span>
 								</h3>
-								<p><?php esc_html_e( 'The free version has a 2GB backup size limit. With Pro, you can backup sites of any size without restrictions. This is essential for:', 'swish-migrate-and-backup' ); ?></p>
+								<p><?php esc_html_e( 'The free version has a 4GB backup size limit. With Pro, you can backup sites of any size without restrictions. This is essential for:', 'swish-migrate-and-backup' ); ?></p>
 								<ul>
 									<li><?php esc_html_e( 'E-commerce sites with large product catalogs', 'swish-migrate-and-backup' ); ?></li>
 									<li><?php esc_html_e( 'Media-heavy websites with lots of images and videos', 'swish-migrate-and-backup' ); ?></li>
@@ -626,7 +626,7 @@ sudo apt-get install aria2</pre>
 									<li><?php esc_html_e( 'Disk space: Make sure you have enough free space', 'swish-migrate-and-backup' ); ?></li>
 									<li><?php esc_html_e( 'Permissions: The wp-content folder must be writable', 'swish-migrate-and-backup' ); ?></li>
 									<li><?php esc_html_e( 'Memory limit: Increase PHP memory if your host allows', 'swish-migrate-and-backup' ); ?></li>
-									<li><?php esc_html_e( 'File size: Free version has a 2GB limit - consider upgrading to Pro', 'swish-migrate-and-backup' ); ?></li>
+									<li><?php esc_html_e( 'File size: Free version has a 4GB limit - consider upgrading to Pro', 'swish-migrate-and-backup' ); ?></li>
 								</ul>
 							</div>
 
@@ -655,7 +655,7 @@ sudo apt-get install aria2</pre>
 
 							<div class="swish-docs-card swish-docs-faq">
 								<h3><?php esc_html_e( 'How large can my backups be?', 'swish-migrate-and-backup' ); ?></h3>
-								<p><?php esc_html_e( 'The free version supports backups up to 2GB. For unlimited backup sizes, upgrade to Swish Backup Pro.', 'swish-migrate-and-backup' ); ?></p>
+								<p><?php esc_html_e( 'The free version supports backups up to 4GB. For unlimited backup sizes, upgrade to Swish Backup Pro.', 'swish-migrate-and-backup' ); ?></p>
 							</div>
 
 							<div class="swish-docs-card swish-docs-faq">
