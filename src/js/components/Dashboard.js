@@ -50,7 +50,6 @@ const formatDate = (dateString) => {
  * @param {Function} props.onDelete       - Delete handler.
  * @param {Function} props.onDownload     - Download handler.
  * @param {Function} props.onRestore      - Restore handler.
- * @param {Function} props.onOpenSettings - Settings handler.
  * @return {JSX.Element} Component.
  */
 const Dashboard = ({
@@ -61,18 +60,18 @@ const Dashboard = ({
 	onDelete,
 	onDownload,
 	onRestore,
-	onOpenSettings,
 }) => {
 	const [showBackupTypes, setShowBackupTypes] = useState(false);
 	const [showMigration, setShowMigration] = useState(false);
+	const settingsUrl = window.swishBackupData?.settingsPageUrl || 'admin.php?page=swish-backup-settings';
 
 	return (
 		<div className="swish-dashboard">
 			<div className="swish-dashboard-header">
-				<button className="button button-link" onClick={onOpenSettings}>
+				<a href={settingsUrl} className="button button-link">
 					<span className="dashicons dashicons-admin-settings"></span>
 					{__('Settings', 'swish-migrate-and-backup')}
-				</button>
+				</a>
 			</div>
 
 			<div className="swish-quick-actions">

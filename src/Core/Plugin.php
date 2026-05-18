@@ -1114,11 +1114,12 @@ final class Plugin {
 				'swish-backup-dashboard',
 				'swishBackupData',
 				array(
-					'apiUrl'         => rest_url( 'swish-backup/v1' ),
-					'nonce'          => wp_create_nonce( 'wp_rest' ),
-					'proUrl'         => SWISH_BACKUP_PRO_URL,
-					'isProActive'    => apply_filters( 'swish_backup_is_pro', false ),
-					'backupsPageUrl' => admin_url( 'admin.php?page=swish-backup-backups' ),
+					'apiUrl'          => rest_url( 'swish-backup/v1' ),
+					'nonce'           => wp_create_nonce( 'wp_rest' ),
+					'proUrl'          => SWISH_BACKUP_PRO_URL,
+					'isProActive'     => apply_filters( 'swish_backup_is_pro', false ),
+					'backupsPageUrl'  => admin_url( 'admin.php?page=swish-backup-backups' ),
+					'settingsPageUrl' => admin_url( 'admin.php?page=swish-backup-settings' ),
 				)
 			);
 		} else {

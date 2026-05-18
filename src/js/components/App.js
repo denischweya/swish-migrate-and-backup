@@ -8,7 +8,6 @@ import { useState, useEffect, useCallback } from '@wordpress/element';
 import { Spinner } from '@wordpress/components';
 import Dashboard from './Dashboard';
 import ProgressModal from './ProgressModal';
-import SettingsModal from './SettingsModal';
 import {
 	getStats,
 	getBackups,
@@ -19,8 +18,6 @@ import {
 	getJobStatus,
 	processJob,
 	getSettings,
-	updateSettings,
-	pipelineStart,
 	pipelineContinue,
 } from '../api';
 
@@ -37,7 +34,6 @@ const App = () => {
 	const [ error, setError ] = useState( null );
 	const [ currentJob, setCurrentJob ] = useState( null );
 	const [ showProgress, setShowProgress ] = useState( false );
-	const [ showSettings, setShowSettings ] = useState( false );
 
 	useEffect( () => {
 		loadDashboardData();
@@ -317,17 +313,6 @@ const App = () => {
 		}
 	}, [] );
 
-	const handleSettingsSave = useCallback( async ( newSettings ) => {
-		try {
-			const result = await updateSettings( newSettings );
-			if ( result.success ) {
-				setSettings( result.settings );
-			}
-		} catch ( err ) {
-			alert( err.message || 'Failed to update settings' );
-		}
-	}, [] );
-
 	const handleCloseProgress = useCallback( () => {
 		if ( currentJob?.status !== 'processing' ) {
 			setShowProgress( false );
@@ -365,19 +350,10 @@ const App = () => {
 				onDelete={ handleDelete }
 				onDownload={ handleDownload }
 				onRestore={ handleRestore }
-				onOpenSettings={ () => setShowSettings( true ) }
 			/>
 
 			{ showProgress && (
 				<ProgressModal job={ currentJob } onClose={ handleCloseProgress } />
-			) }
-
-			{ showSettings && (
-				<SettingsModal
-					settings={ settings }
-					onSave={ handleSettingsSave }
-					onClose={ () => setShowSettings( false ) }
-				/>
 			) }
 		</div>
 	);
