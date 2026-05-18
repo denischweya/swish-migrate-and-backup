@@ -173,15 +173,29 @@ class ExportController {
 				'timeout' => $timeout,
 			) );
 
-			$state = match ( $phase ) {
-				self::PHASE_INIT      => $this->phase_init( $state ),
-				self::PHASE_ENUMERATE => $this->phase_enumerate( $state, $timeout ),
-				self::PHASE_DATABASE  => $this->phase_database( $state, $timeout ),
-				self::PHASE_CONTENT   => $this->phase_content( $state, $timeout ),
-				self::PHASE_FINALIZE  => $this->phase_finalize( $state ),
-				self::PHASE_COMPLETE  => $state, // Already done.
-				default               => $state,
-			};
+			switch ( $phase ) {
+				case self::PHASE_INIT:
+					$state = $this->phase_init( $state );
+					break;
+				case self::PHASE_ENUMERATE:
+					$state = $this->phase_enumerate( $state, $timeout );
+					break;
+				case self::PHASE_DATABASE:
+					$state = $this->phase_database( $state, $timeout );
+					break;
+				case self::PHASE_CONTENT:
+					$state = $this->phase_content( $state, $timeout );
+					break;
+				case self::PHASE_FINALIZE:
+					$state = $this->phase_finalize( $state );
+					break;
+				case self::PHASE_COMPLETE:
+					// Already done, keep $state as is.
+					break;
+				default:
+					// Keep $state as is.
+					break;
+			}
 
 			// Save updated state.
 			$this->save_state( $job_id, $state );

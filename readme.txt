@@ -4,7 +4,7 @@ Tags: backup, migration, restore, database, cloud storage
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.1.9
+Stable tag: 1.1.10
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -122,6 +122,12 @@ This feature is only available in the PRO version of this plugin [Get PRO](https
 5. Schedules - Set up automatic scheduled backups
 
 == Changelog ==
+
+= 1.1.10 =
+* Fixed PHP 7.4 compatibility - converted match expressions to switch statements
+* Fixed cancel job button to always clean up localStorage
+* Fixed stale jobs remaining in UI when jobs not found on server
+* Added debug logging for backup progress troubleshooting
 
 = 1.1.9 =
 * Added SWISH archive format option to Settings dropdown
@@ -294,6 +300,9 @@ This feature is only available in the PRO version of this plugin [Get PRO](https
 * REST API endpoints
 
 == Upgrade Notice ==
+
+= 1.1.10 =
+Fixes PHP 7.4 compatibility and improves job cancellation. Cancel button now properly cleans up stale jobs from UI.
 
 = 1.1.9 =
 Added SWISH archive format option to Settings dropdown. Our custom streaming format with true append support and resume capability.

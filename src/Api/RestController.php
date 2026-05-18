@@ -641,11 +641,17 @@ final class RestController extends WP_REST_Controller {
 		}
 
 		// Synchronous backup (legacy, not recommended for large sites).
-		$result = match ( $type ) {
-			'database' => $this->backup_manager->create_database_backup( $options ),
-			'files'    => $this->backup_manager->create_files_backup( $options ),
-			default    => $this->backup_manager->create_full_backup( $options ),
-		};
+		switch ( $type ) {
+			case 'database':
+				$result = $this->backup_manager->create_database_backup( $options );
+				break;
+			case 'files':
+				$result = $this->backup_manager->create_files_backup( $options );
+				break;
+			default:
+				$result = $this->backup_manager->create_full_backup( $options );
+				break;
+		}
 
 		// Check if backup failed.
 		if ( isset( $result['error'] ) ) {

@@ -5,6 +5,16 @@ All notable changes to Swish Migrate and Backup will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.10] - 2026-05-18
+
+### Fixed
+- **PHP 7.4 compatibility** - converted `match` expressions to `switch` statements for broader PHP version support
+- **Cancel job button** - now always cleans up localStorage even when server returns "job not found"
+- **Stale jobs in UI** - polling error handler now properly removes job cards from UI when jobs not found on server
+
+### Added
+- Debug logging for backup progress troubleshooting (console messages with `[SwishBackup]` prefix)
+
 ## [1.1.9] - 2026-05-18
 
 ### Added

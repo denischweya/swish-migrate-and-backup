@@ -1460,11 +1460,17 @@ final class BackupManager {
 		// Run the actual backup.
 		$type = $options['type'] ?? 'full';
 
-		$result = match ( $type ) {
-			'database' => $this->run_database_backup( $job_id, $options ),
-			'files'    => $this->run_files_backup( $job_id, $options ),
-			default    => $this->run_full_backup( $job_id, $options ),
-		};
+		switch ( $type ) {
+			case 'database':
+				$result = $this->run_database_backup( $job_id, $options );
+				break;
+			case 'files':
+				$result = $this->run_files_backup( $job_id, $options );
+				break;
+			default:
+				$result = $this->run_full_backup( $job_id, $options );
+				break;
+		}
 
 		// Log result.
 		if ( isset( $result['error'] ) ) {

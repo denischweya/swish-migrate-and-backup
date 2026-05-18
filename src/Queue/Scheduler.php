@@ -352,14 +352,26 @@ final class Scheduler {
 	 * @return void
 	 */
 	private function schedule_cron_event( int $schedule_id, string $frequency, int $timestamp ): void {
-		$recurrence = match ( $frequency ) {
-			'hourly'     => 'hourly',
-			'twicedaily' => 'twicedaily',
-			'daily'      => 'daily',
-			'weekly'     => 'swish_backup_weekly',
-			'monthly'    => 'swish_backup_monthly',
-			default      => 'daily',
-		};
+		switch ( $frequency ) {
+			case 'hourly':
+				$recurrence = 'hourly';
+				break;
+			case 'twicedaily':
+				$recurrence = 'twicedaily';
+				break;
+			case 'daily':
+				$recurrence = 'daily';
+				break;
+			case 'weekly':
+				$recurrence = 'swish_backup_weekly';
+				break;
+			case 'monthly':
+				$recurrence = 'swish_backup_monthly';
+				break;
+			default:
+				$recurrence = 'daily';
+				break;
+		}
 
 		wp_schedule_event( $timestamp, $recurrence, 'swish_backup_scheduled_backup', array( $schedule_id ) );
 	}

@@ -126,15 +126,18 @@
 			$('#swish-backup-type-selector').slideUp();
 
 			// Start the backup using pipeline API (chunked, resumable)
+			console.log('[SwishBackup] Starting backup type:', type);
 			wp.apiFetch({
 				path: '/swish-backup/v1/pipeline/start',
 				method: 'POST',
 				data: { type: type }
 			}).then(function(response) {
+				console.log('[SwishBackup] Pipeline start response:', response);
 				if (response.job_id) {
 					// Store job in localStorage for persistence across page refreshes
 					// Mark as pipeline job so we use the correct polling method
 					SwishBackup.storeActiveJob(response.job_id, type, true);
+					console.log('[SwishBackup] Job stored:', response.job_id);
 
 					// Redirect to backups page if not already there
 					const backupsPageUrl = swishBackup.backupsPageUrl || 'admin.php?page=swish-backup-backups';
@@ -215,11 +218,14 @@
 			const jobs = this.getActiveJobs();
 			const jobIds = Object.keys(jobs);
 
+			console.log('[SwishBackup] Checking for active jobs:', jobIds.length, jobs);
+
 			if (jobIds.length > 0) {
 				this.renderActiveJobs();
 
 				// Start polling for each active job
 				jobIds.forEach(function(jobId) {
+					console.log('[SwishBackup] Starting polling for:', jobId);
 					SwishBackup.startJobPolling(jobId);
 				});
 			}
@@ -254,6 +260,7 @@
 		 */
 		renderActiveJobs: function() {
 			const container = $('#swish-active-jobs-container');
+			console.log('[SwishBackup] Render container found:', container.length > 0);
 			if (container.length === 0) return;
 
 			const jobs = this.getActiveJobs();
@@ -421,9 +428,13 @@
 		pollJobStatusNew: function(jobId) {
 			const self = this;
 			const jobState = this.activeJobs[jobId];
-			if (!jobState) return;
+			if (!jobState) {
+				console.log('[SwishBackup] No job state for:', jobId);
+				return;
+			}
 
 			jobState.pollCount++;
+			console.log('[SwishBackup] Polling job:', jobId, 'count:', jobState.pollCount);
 
 			// Check if this is a pipeline job
 			const storedJobs = this.getActiveJobs();
@@ -441,6 +452,7 @@
 				path: apiPath,
 				method: apiMethod
 			}).then(function(job) {
+				console.log('[SwishBackup] API response:', job);
 				// Normalize response - pipeline API uses different field names
 				const isComplete = job.completed === true || job.status === 'completed' || job.phase === 'complete';
 				const isFailed = job.status === 'failed' || job.phase === 'failed';
@@ -492,11 +504,26 @@
 					}, isPipeline ? 500 : 1000); // Poll faster for pipeline jobs
 				}
 			}).catch(function(error) {
-				// Check if job not found (404) - clean up immediately
-				if (error && error.code === 'job_not_found') {
-					console.log('Job not found, cleaning up:', jobId);
+				console.error('[SwishBackup] API error:', error);
+
+				// Helper to clean up job from UI and localStorage
+				const cleanupJobUI = function() {
 					self.removeActiveJob(jobId);
 					delete self.activeJobs[jobId];
+
+					// Remove the job card from UI
+					$('.swish-active-job-card[data-job-id="' + jobId + '"]').fadeOut(300, function() {
+						$(this).remove();
+						if ($('.swish-active-job-card').length === 0) {
+							$('#swish-active-jobs-container').empty();
+						}
+					});
+				};
+
+				// Check if job not found (404) - clean up immediately
+				if (error && (error.code === 'job_not_found' || error.code === 'rest_no_route')) {
+					console.log('[SwishBackup] Job not found, cleaning up:', jobId);
+					cleanupJobUI();
 					return;
 				}
 
@@ -507,9 +534,8 @@
 					}, 1000);
 				} else {
 					// Give up after 30 seconds of errors
-					console.log('Giving up on job after too many errors:', jobId);
-					self.removeActiveJob(jobId);
-					delete self.activeJobs[jobId];
+					console.log('[SwishBackup] Giving up on job after too many errors:', jobId);
+					cleanupJobUI();
 				}
 			});
 		},
@@ -671,31 +697,34 @@
 			const btn = $(this);
 			btn.prop('disabled', true).text('Cancelling...');
 
+			// Helper function to clean up the job from UI and localStorage
+			const cleanupJob = function() {
+				// Remove job from localStorage and stop polling
+				SwishBackup.removeActiveJob(jobId);
+				delete SwishBackup.activeJobs[jobId];
+
+				// Remove the job card from UI
+				$('.swish-active-job-card[data-job-id="' + jobId + '"]').fadeOut(300, function() {
+					$(this).remove();
+
+					// If no more jobs, remove the container
+					if ($('.swish-active-job-card').length === 0) {
+						$('#swish-active-jobs-container').empty();
+					}
+				});
+			};
+
 			wp.apiFetch({
 				path: '/swish-backup/v1/job/' + jobId + '/cancel',
 				method: 'POST'
 			}).then(function(response) {
-				if (response.success) {
-					// Remove job from localStorage and stop polling
-					SwishBackup.removeActiveJob(jobId);
-					delete SwishBackup.activeJobs[jobId];
-
-					// Remove the job card from UI
-					$('.swish-active-job-card[data-job-id="' + jobId + '"]').fadeOut(300, function() {
-						$(this).remove();
-
-						// If no more jobs, remove the container
-						if ($('.swish-active-job-card').length === 0) {
-							$('#swish-active-jobs-container').empty();
-						}
-					});
-				} else {
-					alert(response.message || 'Failed to cancel job');
-					btn.prop('disabled', false).html('<span class="dashicons dashicons-no-alt"></span> Cancel');
-				}
+				// Always clean up, regardless of response
+				cleanupJob();
 			}).catch(function(error) {
-				alert(error.message || 'Failed to cancel job');
-				btn.prop('disabled', false).html('<span class="dashicons dashicons-no-alt"></span> Cancel');
+				// If job not found, it's already gone - just clean up locally
+				// For any error, clean up the local state since user wants to cancel
+				console.log('[SwishBackup] Cancel error (cleaning up anyway):', error.message || error);
+				cleanupJob();
 			});
 		},
 
