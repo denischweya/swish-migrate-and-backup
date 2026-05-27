@@ -413,6 +413,51 @@
 	border-top: 1px solid #ddd;
 }
 
+/* Starting backup modal */
+.swish-starting-modal {
+	text-align: center;
+	padding: 40px;
+	max-width: 400px;
+}
+
+.swish-starting-content {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 16px;
+}
+
+.swish-starting-content .dashicons {
+	font-size: 48px;
+	width: 48px;
+	height: 48px;
+	color: #2271b1;
+}
+
+.swish-starting-content .dashicons.spin {
+	animation: swish-spin 1s linear infinite;
+}
+
+.swish-starting-content h3 {
+	margin: 0;
+	font-size: 20px;
+	color: #1d2327;
+}
+
+.swish-starting-content p {
+	margin: 0;
+	color: #646970;
+}
+
+@keyframes swish-spin {
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
+}
+
 .swish-backup-modal-content h3 {
 	margin-top: 0;
 }

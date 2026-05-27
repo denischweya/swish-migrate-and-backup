@@ -34,6 +34,8 @@ const App = () => {
 	const [ error, setError ] = useState( null );
 	const [ currentJob, setCurrentJob ] = useState( null );
 	const [ showProgress, setShowProgress ] = useState( false );
+	const [ isStartingBackup, setIsStartingBackup ] = useState( false );
+	const [ startingBackupType, setStartingBackupType ] = useState( null );
 
 	useEffect( () => {
 		loadDashboardData();
@@ -79,6 +81,10 @@ const App = () => {
 	const handleBackup = useCallback(
 		async ( type ) => {
 			try {
+				// Show immediate feedback
+				setIsStartingBackup( true );
+				setStartingBackupType( type );
+
 				// Start the backup job
 				const result = await createBackup( type, {
 					db_batch_size: settings?.db_batch_size || 500,
@@ -94,11 +100,14 @@ const App = () => {
 					window.location.href = backupsPageUrl;
 				} else if ( result.success || result.filename ) {
 					// Synchronous backup completed immediately (rare)
+					setIsStartingBackup( false );
 					loadDashboardData();
 				} else {
+					setIsStartingBackup( false );
 					alert( 'Backup failed to start' );
 				}
 			} catch ( err ) {
+				setIsStartingBackup( false );
 				alert( err.message || 'Backup failed' );
 			}
 		},
@@ -354,6 +363,24 @@ const App = () => {
 
 			{ showProgress && (
 				<ProgressModal job={ currentJob } onClose={ handleCloseProgress } />
+			) }
+
+			{ isStartingBackup && (
+				<div className="swish-modal-overlay">
+					<div className="swish-modal swish-starting-modal">
+						<div className="swish-starting-content">
+							<span className="dashicons dashicons-update spin"></span>
+							<h3>{ __( 'Starting Backup...', 'swish-migrate-and-backup' ) }</h3>
+							<p>
+								{ __( 'Initializing', 'swish-migrate-and-backup' ) }{ ' ' }
+								{ startingBackupType === 'full' && __( 'full', 'swish-migrate-and-backup' ) }
+								{ startingBackupType === 'database' && __( 'database', 'swish-migrate-and-backup' ) }
+								{ startingBackupType === 'files' && __( 'files', 'swish-migrate-and-backup' ) }
+								{ ' ' }{ __( 'backup job...', 'swish-migrate-and-backup' ) }
+							</p>
+						</div>
+					</div>
+				</div>
 			) }
 		</div>
 	);

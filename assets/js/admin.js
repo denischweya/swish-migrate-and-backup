@@ -118,12 +118,21 @@
 		 */
 		startBackup: function() {
 			const type = $(this).data('type');
+			const btn = $(this);
 
 			$('.swish-backup-type-option').removeClass('selected');
-			$(this).addClass('selected');
+			btn.addClass('selected');
+
+			// Disable the button and show loading state
+			btn.prop('disabled', true);
+			$('.swish-backup-type-option').prop('disabled', true);
 
 			// Hide the backup type selector
 			$('#swish-backup-type-selector').slideUp();
+
+			// Show immediate "Starting..." UI feedback
+			const tempJobId = 'starting_' + Date.now();
+			SwishBackup.showStartingUI(tempJobId, type);
 
 			// Start the backup using pipeline API (chunked, resumable)
 			console.log('[SwishBackup] Starting backup type:', type);
@@ -133,6 +142,10 @@
 				data: { type: type }
 			}).then(function(response) {
 				console.log('[SwishBackup] Pipeline start response:', response);
+
+				// Remove the temporary "starting" UI
+				SwishBackup.removeStartingUI(tempJobId);
+
 				if (response.job_id) {
 					// Store job in localStorage for persistence across page refreshes
 					// Mark as pipeline job so we use the correct polling method
@@ -152,11 +165,73 @@
 					// Synchronous backup completed immediately
 					location.reload();
 				} else {
+					SwishBackup.enableBackupButtons();
 					alert(swishBackup.i18n.backupFailed);
 				}
 			}).catch(function(error) {
+				// Remove the temporary "starting" UI
+				SwishBackup.removeStartingUI(tempJobId);
+				SwishBackup.enableBackupButtons();
 				alert(error.message || swishBackup.i18n.backupFailed);
 			});
+		},
+
+		/**
+		 * Show immediate "Starting backup..." UI feedback.
+		 */
+		showStartingUI: function(tempJobId, type) {
+			const container = $('#swish-active-jobs-container');
+			if (container.length === 0) return;
+
+			const typeLabel = (type || 'full').charAt(0).toUpperCase() + (type || 'full').slice(1);
+
+			let html = '<div class="swish-active-jobs">';
+			html += '<h2 class="swish-active-jobs-title">Active Backups</h2>';
+			html += '<div class="swish-active-job-card swish-job-starting" data-job-id="' + tempJobId + '">';
+			html += '  <div class="swish-job-progress-circle">';
+			html += '    <svg class="swish-progress-ring" viewBox="0 0 120 120">';
+			html += '      <circle class="swish-progress-ring-bg" cx="60" cy="60" r="52" />';
+			html += '      <circle class="swish-progress-ring-fill swish-progress-indeterminate" cx="60" cy="60" r="52" stroke-dasharray="326.73" stroke-dashoffset="290" />';
+			html += '    </svg>';
+			html += '    <div class="swish-progress-text">';
+			html += '      <span class="swish-progress-icon"><span class="dashicons dashicons-update spin"></span></span>';
+			html += '    </div>';
+			html += '  </div>';
+			html += '  <div class="swish-job-details">';
+			html += '    <div class="swish-job-header">';
+			html += '      <span class="swish-job-type-badge swish-backup-type-' + type + '">' + typeLabel + ' Backup</span>';
+			html += '      <span class="swish-job-status swish-job-status-starting">Starting...</span>';
+			html += '    </div>';
+			html += '    <div class="swish-job-step">';
+			html += '      <span class="swish-job-step-icon"></span>';
+			html += '      <span class="swish-job-step-text">Initializing backup job...</span>';
+			html += '    </div>';
+			html += '    <div class="swish-job-meta">';
+			html += '      <span class="swish-job-started">Starting now...</span>';
+			html += '    </div>';
+			html += '  </div>';
+			html += '</div>';
+			html += '</div>';
+
+			container.html(html);
+		},
+
+		/**
+		 * Remove the temporary "Starting..." UI.
+		 */
+		removeStartingUI: function(tempJobId) {
+			$('.swish-active-job-card[data-job-id="' + tempJobId + '"]').remove();
+			// If no more jobs, clear the container (it will be re-rendered with real jobs)
+			if ($('.swish-active-job-card').length === 0) {
+				$('#swish-active-jobs-container').empty();
+			}
+		},
+
+		/**
+		 * Re-enable backup buttons after error.
+		 */
+		enableBackupButtons: function() {
+			$('.swish-backup-type-option').prop('disabled', false).removeClass('selected');
 		},
 
 		/**
@@ -811,30 +886,11 @@
 				method: 'GET'
 			}).then(function(response) {
 				if (response.url) {
-					// Generate curl command
-					const curlCommand = `curl -L -C - \\
-  --retry 100 \\
-  --retry-delay 5 \\
-  --retry-all-errors \\
-  --connect-timeout 30 \\
-  --max-time 0 \\
-  -o "${filename}" \\
-  "${response.url}"`;
+					// Single-line commands so copy/paste works on bash, zsh, PowerShell and CMD.
+					const curlCommand = `curl -L -C - --retry 100 --retry-delay 5 --retry-all-errors --connect-timeout 30 --max-time 0 -o "${filename}" "${response.url}"`;
 					$curlCommand.text(curlCommand);
 
-					// Generate aria2c command
-					const aria2cCommand = `aria2c \\
-  --continue=true \\
-  --max-tries=100 \\
-  --retry-wait=5 \\
-  --timeout=60 \\
-  --connect-timeout=30 \\
-  --max-connection-per-server=1 \\
-  --split=1 \\
-  --http-no-cache=true \\
-  --auto-file-renaming=false \\
-  -o "${filename}" \\
-  "${response.url}"`;
+					const aria2cCommand = `aria2c --continue=true --max-tries=100 --retry-wait=5 --timeout=60 --connect-timeout=30 --max-connection-per-server=1 --split=1 --http-no-cache=true --auto-file-renaming=false -o "${filename}" "${response.url}"`;
 					$aria2cCommand.text(aria2cCommand);
 				} else {
 					$curlCommand.text('Error: Could not generate download URL');

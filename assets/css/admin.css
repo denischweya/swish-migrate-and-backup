@@ -996,6 +996,48 @@
 	font-size: 10px;
 }
 
+.swish-job-status-starting {
+	background: #e0f2fe;
+	color: #0369a1;
+	animation: statusPulse 1.5s ease-in-out infinite;
+}
+
+.swish-job-status-starting::before {
+	content: '◠';
+	font-size: 10px;
+	animation: spin 1s linear infinite;
+	display: inline-block;
+}
+
+/* Starting job card styles */
+.swish-job-starting .swish-progress-ring-fill {
+	animation: progressSpin 1.5s linear infinite;
+	stroke: #0ea5e9;
+}
+
+.swish-job-starting .swish-progress-icon .dashicons {
+	font-size: 24px;
+	width: 24px;
+	height: 24px;
+	color: #0ea5e9;
+}
+
+.swish-job-starting .swish-progress-icon .dashicons.spin {
+	animation: spin 1s linear infinite;
+}
+
+@keyframes progressSpin {
+	0% {
+		stroke-dashoffset: 326.73;
+	}
+	50% {
+		stroke-dashoffset: 163;
+	}
+	100% {
+		stroke-dashoffset: 326.73;
+	}
+}
+
 @keyframes statusPulse {
 
 	0%,

@@ -5,6 +5,18 @@ All notable changes to Swish Migrate and Backup will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.11] - 2026-05-27
+
+### Changed
+- **SWISH is now the only archive format** for new backups - removed Archive Format selector from Settings page
+- Settings save handler (admin form + REST API) always stores `archive_format = 'swish'`
+
+### Fixed
+- **Windows copy/paste of curl and aria2c download commands** - commands were generated with backslash line continuations (POSIX shell syntax), causing CMD/PowerShell to parse each line as a separate command. Commands are now generated as a single line that copies as one command on bash, zsh, PowerShell and CMD
+
+### Notes
+- Restore still supports existing `.zip` and `.tar.gz` backups - underlying archiver/extractor classes remain in place
+
 ## [1.1.10] - 2026-05-18
 
 ### Fixed

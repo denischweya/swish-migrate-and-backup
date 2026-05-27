@@ -1521,11 +1521,7 @@ final class RestController extends WP_REST_Controller {
 			$settings['compression_level'] = max( 0, min( 9, absint( $params['compression_level'] ) ) );
 		}
 
-		if ( isset( $params['archive_format'] ) ) {
-			$allowed_formats = array( 'auto', 'zip', 'tar', 'swish' );
-			$format = sanitize_text_field( $params['archive_format'] );
-			$settings['archive_format'] = in_array( $format, $allowed_formats, true ) ? $format : 'swish';
-		}
+		$settings['archive_format'] = 'swish';
 
 		if ( isset( $params['default_storage'] ) ) {
 			$settings['default_storage'] = sanitize_text_field( $params['default_storage'] );
