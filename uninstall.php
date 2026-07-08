@@ -36,23 +36,42 @@ function swish_backup_uninstall_cleanup(): void {
 		'swish_backup_storage_dropbox',
 		'swish_backup_storage_googledrive',
 		'swish_backup_job_queue',
+		// Multisite options (names kept from the former Pro add-on).
+		'swish_backup_pro_db_version',
+		'swish_backup_pro_settings',
 	);
 
 	foreach ( $swish_options_to_delete as $swish_option ) {
 		delete_option( $swish_option );
 	}
 
-	// Delete transients.
-	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-	$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s", '_transient_swish_backup_%' ) );
-	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-	$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s", '_transient_timeout_swish_backup_%' ) );
+	// Delete transients (backup, import, and site-duplication job state).
+	$swish_transient_patterns = array(
+		'_transient_swish_backup_%',
+		'_transient_timeout_swish_backup_%',
+		'_transient_swish_import_job_%',
+		'_transient_timeout_swish_import_job_%',
+		'_transient_swish_duplicate_%',
+		'_transient_timeout_swish_duplicate_%',
+	);
+
+	foreach ( $swish_transient_patterns as $swish_pattern ) {
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s", $swish_pattern ) );
+	}
+
+	// Delete per-user theme preference.
+	delete_metadata( 'user', 0, 'swish_backup_theme', '', true );
 
 	// Drop custom tables.
 	$swish_tables_to_drop = array(
 		$wpdb->prefix . 'swish_backup_jobs',
 		$wpdb->prefix . 'swish_backup_logs',
 		$wpdb->prefix . 'swish_backup_schedules',
+		$wpdb->prefix . 'swish_backup_state',
+		$wpdb->prefix . 'swish_file_queue',
+		$wpdb->base_prefix . 'swish_backup_multisite_jobs',
+		$wpdb->base_prefix . 'swish_backup_site_backups',
 	);
 
 	foreach ( $swish_tables_to_drop as $swish_table ) {
@@ -64,6 +83,11 @@ function swish_backup_uninstall_cleanup(): void {
 	$swish_cron_hooks = array(
 		'swish_backup_scheduled_backup',
 		'swish_backup_cleanup',
+		'swish_backup_process_async',
+		'swish_backup_continue',
+		'swish_backup_run_multisite_backup',
+		'swish_backup_run_import',
+		'swish_backup_run_duplicate_site',
 	);
 
 	foreach ( $swish_cron_hooks as $swish_hook ) {

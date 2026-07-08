@@ -51,7 +51,7 @@ final class DocumentationPage {
 				'icon'  => 'dashicons-migrate',
 			),
 			'pro-features' => array(
-				'title' => __( 'Pro Features', 'swish-migrate-and-backup' ),
+				'title' => __( 'Advanced Features', 'swish-migrate-and-backup' ),
 				'icon'  => 'dashicons-star-filled',
 			),
 			'aria2c-installation' => array(
@@ -438,32 +438,16 @@ final class DocumentationPage {
 							</div>
 						</section>
 
-						<!-- Pro Features -->
+						<!-- Advanced Features -->
 						<section id="pro-features" class="swish-docs-section">
 							<h2>
 								<span class="dashicons dashicons-star-filled"></span>
-								<?php esc_html_e( 'Pro Features', 'swish-migrate-and-backup' ); ?>
-								<span class="swish-docs-pro-badge"><?php esc_html_e( 'PRO', 'swish-migrate-and-backup' ); ?></span>
+								<?php esc_html_e( 'Advanced Features', 'swish-migrate-and-backup' ); ?>
 							</h2>
 
 							<div class="swish-docs-card">
-								<h3><?php esc_html_e( 'About Swish Backup Pro', 'swish-migrate-and-backup' ); ?></h3>
-								<p><?php esc_html_e( 'Swish Backup Pro unlocks powerful features for professionals and larger websites. Upgrade to remove limitations and access advanced functionality.', 'swish-migrate-and-backup' ); ?></p>
-								<?php if ( ! AdminNav::is_pro_installed() ) : ?>
-									<p>
-										<a href="<?php echo esc_url( admin_url( 'admin.php?page=swish-backup-pro' ) ); ?>" class="button button-primary">
-											<?php esc_html_e( 'Learn More About Pro', 'swish-migrate-and-backup' ); ?>
-										</a>
-									</p>
-								<?php endif; ?>
-							</div>
-
-							<div class="swish-docs-card">
-								<h3>
-									<?php esc_html_e( 'Unlimited Backup Size', 'swish-migrate-and-backup' ); ?>
-									<span class="swish-docs-pro-tag"><?php esc_html_e( 'Pro', 'swish-migrate-and-backup' ); ?></span>
-								</h3>
-								<p><?php esc_html_e( 'The free version has a 4GB backup size limit. With Pro, you can backup sites of any size without restrictions. This is essential for:', 'swish-migrate-and-backup' ); ?></p>
+								<h3><?php esc_html_e( 'Unlimited Backup Size', 'swish-migrate-and-backup' ); ?></h3>
+								<p><?php esc_html_e( 'There is no backup size limit. You can back up sites of any size, including:', 'swish-migrate-and-backup' ); ?></p>
 								<ul>
 									<li><?php esc_html_e( 'E-commerce sites with large product catalogs', 'swish-migrate-and-backup' ); ?></li>
 									<li><?php esc_html_e( 'Media-heavy websites with lots of images and videos', 'swish-migrate-and-backup' ); ?></li>
@@ -473,11 +457,8 @@ final class DocumentationPage {
 							</div>
 
 							<div class="swish-docs-card">
-								<h3>
-									<?php esc_html_e( 'WordPress Multisite Support', 'swish-migrate-and-backup' ); ?>
-									<span class="swish-docs-pro-tag"><?php esc_html_e( 'Pro', 'swish-migrate-and-backup' ); ?></span>
-								</h3>
-								<p><?php esc_html_e( 'Pro enables full support for WordPress Multisite networks:', 'swish-migrate-and-backup' ); ?></p>
+								<h3><?php esc_html_e( 'WordPress Multisite Support', 'swish-migrate-and-backup' ); ?></h3>
+								<p><?php esc_html_e( 'Full support for WordPress Multisite networks:', 'swish-migrate-and-backup' ); ?></p>
 								<div class="swish-docs-feature-list">
 									<div class="swish-docs-feature">
 										<span class="dashicons dashicons-networking"></span>
@@ -504,10 +485,7 @@ final class DocumentationPage {
 							</div>
 
 							<div class="swish-docs-card">
-								<h3>
-									<?php esc_html_e( 'WordPress Core Files Backup', 'swish-migrate-and-backup' ); ?>
-									<span class="swish-docs-pro-tag"><?php esc_html_e( 'Pro', 'swish-migrate-and-backup' ); ?></span>
-								</h3>
+								<h3><?php esc_html_e( 'WordPress Core Files Backup', 'swish-migrate-and-backup' ); ?></h3>
 								<p><?php esc_html_e( 'Include WordPress core files (wp-admin, wp-includes) in your backups. This is useful for:', 'swish-migrate-and-backup' ); ?></p>
 								<ul>
 									<li><?php esc_html_e( 'Complete site cloning to a new server', 'swish-migrate-and-backup' ); ?></li>
@@ -517,10 +495,7 @@ final class DocumentationPage {
 							</div>
 
 							<div class="swish-docs-card">
-								<h3>
-									<?php esc_html_e( 'Selective Folder Backup', 'swish-migrate-and-backup' ); ?>
-									<span class="swish-docs-pro-tag"><?php esc_html_e( 'Pro', 'swish-migrate-and-backup' ); ?></span>
-								</h3>
+								<h3><?php esc_html_e( 'Selective Folder Backup', 'swish-migrate-and-backup' ); ?></h3>
 								<p><?php esc_html_e( 'Choose exactly which wp-content folders to include in your backup:', 'swish-migrate-and-backup' ); ?></p>
 								<ul>
 									<li><strong><?php esc_html_e( 'Themes:', 'swish-migrate-and-backup' ); ?></strong> <?php esc_html_e( 'All installed themes', 'swish-migrate-and-backup' ); ?></li>
@@ -534,19 +509,6 @@ final class DocumentationPage {
 								</div>
 							</div>
 
-							<div class="swish-docs-card">
-								<h3>
-									<?php esc_html_e( 'Priority Support', 'swish-migrate-and-backup' ); ?>
-									<span class="swish-docs-pro-tag"><?php esc_html_e( 'Pro', 'swish-migrate-and-backup' ); ?></span>
-								</h3>
-								<p><?php esc_html_e( 'Pro users receive priority email support with faster response times. Our team is ready to help you with:', 'swish-migrate-and-backup' ); ?></p>
-								<ul>
-									<li><?php esc_html_e( 'Setup and configuration assistance', 'swish-migrate-and-backup' ); ?></li>
-									<li><?php esc_html_e( 'Troubleshooting backup issues', 'swish-migrate-and-backup' ); ?></li>
-									<li><?php esc_html_e( 'Migration guidance', 'swish-migrate-and-backup' ); ?></li>
-									<li><?php esc_html_e( 'Cloud storage configuration', 'swish-migrate-and-backup' ); ?></li>
-								</ul>
-							</div>
 						</section>
 
 						<!-- Installing aria2c -->
@@ -626,7 +588,7 @@ sudo apt-get install aria2</pre>
 									<li><?php esc_html_e( 'Disk space: Make sure you have enough free space', 'swish-migrate-and-backup' ); ?></li>
 									<li><?php esc_html_e( 'Permissions: The wp-content folder must be writable', 'swish-migrate-and-backup' ); ?></li>
 									<li><?php esc_html_e( 'Memory limit: Increase PHP memory if your host allows', 'swish-migrate-and-backup' ); ?></li>
-									<li><?php esc_html_e( 'File size: Free version has a 4GB limit - consider upgrading to Pro', 'swish-migrate-and-backup' ); ?></li>
+									<li><?php esc_html_e( 'File size: There is no backup size limit, but very large sites need adequate disk space', 'swish-migrate-and-backup' ); ?></li>
 								</ul>
 							</div>
 
@@ -655,7 +617,7 @@ sudo apt-get install aria2</pre>
 
 							<div class="swish-docs-card swish-docs-faq">
 								<h3><?php esc_html_e( 'How large can my backups be?', 'swish-migrate-and-backup' ); ?></h3>
-								<p><?php esc_html_e( 'The free version supports backups up to 4GB. For unlimited backup sizes, upgrade to Swish Backup Pro.', 'swish-migrate-and-backup' ); ?></p>
+								<p><?php esc_html_e( 'There is no backup size limit. Make sure your server has enough free disk space to hold the archive.', 'swish-migrate-and-backup' ); ?></p>
 							</div>
 
 							<div class="swish-docs-card swish-docs-faq">
@@ -675,7 +637,7 @@ sudo apt-get install aria2</pre>
 
 							<div class="swish-docs-card swish-docs-faq">
 								<h3><?php esc_html_e( 'Does this plugin work with WordPress Multisite?', 'swish-migrate-and-backup' ); ?></h3>
-								<p><?php esc_html_e( 'The free version works on single sites. For full multisite network backup support, upgrade to Swish Backup Pro.', 'swish-migrate-and-backup' ); ?></p>
+								<p><?php esc_html_e( 'Yes. On multisite installations you get network-wide backups, selective site backup, multisite migration, and site duplication under Network Admin → Swish Backup.', 'swish-migrate-and-backup' ); ?></p>
 							</div>
 
 							<div class="swish-docs-card swish-docs-faq">

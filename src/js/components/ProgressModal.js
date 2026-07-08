@@ -4,7 +4,7 @@
  * @package SwishMigrateAndBackup
  */
 
-import { useState, useEffect, useMemo, Fragment } from '@wordpress/element';
+import { useState, useEffect, useMemo } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 
 /**
@@ -247,32 +247,12 @@ const ProgressModal = ( { job, onClose } ) => {
 
 				<div className="swish-modal-footer">
 					{ ! isProcessing && (
-						<Fragment>
-							<button
-								className="button button-primary"
-								onClick={ onClose }
-							>
-								{ __( 'Close', 'swish-migrate-and-backup' ) }
-							</button>
-							{ isFailed &&
-								job.message &&
-								job.message.includes( '4GB limit' ) && (
-									<a
-										href={
-											window.swishBackupData?.proUrl ||
-											'https://denis.swishfolio.com/swish-migrate-and-backup-pro'
-										}
-										className="button button-primary swish-upgrade-button"
-										target="_blank"
-										rel="noopener noreferrer"
-									>
-										{ __(
-											'Upgrade to Pro',
-											'swish-migrate-and-backup'
-										) }
-									</a>
-								) }
-						</Fragment>
+						<button
+							className="button button-primary"
+							onClick={ onClose }
+						>
+							{ __( 'Close', 'swish-migrate-and-backup' ) }
+						</button>
 					) }
 					{ isProcessing && (
 						<p className="swish-processing-notice">

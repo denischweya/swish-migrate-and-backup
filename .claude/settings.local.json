@@ -10,7 +10,23 @@
       "Bash(git commit:*)",
       "WebFetch(domain:roots.io)",
       "Bash(curl:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(perl -pi -e 's/final class ProRestController extends WP_REST_Controller \\\\{/final class MultisiteRestController extends WP_REST_Controller {/' src/Api/MultisiteRestController.php)",
+      "Bash(perl -pi -e \"s/'<\\\\\\\\?php esc_html_e\\\\\\\\\\( \\('\\(?:[^'\\\\\\\\\\\\\\\\]|\\\\\\\\\\\\\\\\.\\)*'\\), 'swish-migrate-and-backup' \\\\\\\\\\); \\\\\\\\?> '/'<?php echo esc_js\\( __\\( \\\\$1, 'swish-migrate-and-backup' \\) \\); ?> '/g\" src/Admin/Multisite/MigrationUI.php src/Admin/Multisite/BackupHistoryUI.php)",
+      "Bash(echo \"remaining: $?\")",
+      "Bash(perl -pi -e 's/style=\"<\\\\?php echo \\\\$index >= \\\\$initial_display \\\\? '\\\\''display: none;'\\\\'' : '\\\\'''\\\\''; \\\\?>\"/style=\"<?php echo esc_attr\\( \\\\$index >= \\\\$initial_display ? '\\\\''display: none;'\\\\'' : '\\\\'''\\\\'' \\); ?>\"/' src/Admin/Multisite/SiteSelectorUI.php)",
+      "Bash(perl -pi -e 's/class=\"swish-archive-mode-option <\\\\?php echo \\\\$mode\\\\['\\\\''value'\\\\''\\\\] === \\\\$selected_mode \\\\? '\\\\''selected'\\\\'' : '\\\\'''\\\\''; \\\\?>\"/class=\"swish-archive-mode-option <?php echo esc_attr\\( \\\\$mode['\\\\''value'\\\\''] === \\\\$selected_mode ? '\\\\''selected'\\\\'' : '\\\\'''\\\\'' \\); ?>\"/' src/Admin/Multisite/SiteSelectorUI.php)",
+      "Bash(perl -pi -e 's/<\\\\?php echo \\\\$mode\\\\['\\\\''value'\\\\''\\\\] === \\\\$selected_mode \\\\? '\\\\''border-color: var\\\\\\(--swish-primary-600\\\\\\); background: var\\\\\\(--swish-primary-50\\\\\\);'\\\\'' : '\\\\'''\\\\''; \\\\?>/<?php echo esc_attr\\( \\\\$mode['\\\\''value'\\\\''] === \\\\$selected_mode ? '\\\\''border-color: var\\(--swish-primary-600\\); background: var\\(--swish-primary-50\\);'\\\\'' : '\\\\'''\\\\'' \\); ?>/' src/Admin/Multisite/SiteSelectorUI.php)",
+      "Bash(grep -n 'esc_attr\\( $index\\\\|esc_attr\\( $mode' src/Admin/Multisite/SiteSelectorUI.php)",
+      "Bash(grep -n 'initial_display ? '\\\\''display\\\\|=== $selected_mode ?' src/Admin/Multisite/SiteSelectorUI.php)",
+      "Bash(grep -n -B2 -A10 'function get_base_directory\\\\|private.*backup_dir\\\\|$this->backup_dir =' src/Storage/LocalAdapter.php)",
+      "Bash(php -v)",
+      "Bash(ls node_modules)",
+      "Bash(npm -v)",
+      "Bash(npm run *)",
+      "Bash(perl -pi -e 's/^\\\\t \\\\* Boot the Pro plugin\\\\.$/\\\\t * Boot the multisite module./; s/^\\\\t\\\\t\\\\/\\\\/ Enqueue Pro assets\\\\.$/\\\\t\\\\t\\\\/\\\\/ Enqueue multisite admin assets./; s/^\\\\t \\\\* Enqueue Pro assets\\\\.$/\\\\t * Enqueue multisite admin assets./; s/^\\\\t\\\\t\\\\/\\\\/ Enqueue Pro CSS with file modification time for cache busting\\\\.$/\\\\t\\\\t\\\\/\\\\/ Enqueue multisite admin CSS with file modification time for cache busting./; s/^\\\\t\\\\t\\\\/\\\\/ Enqueue Pro JS with file modification time for cache busting\\\\.$/\\\\t\\\\t\\\\/\\\\/ Enqueue multisite admin JS with file modification time for cache busting./' src/Multisite/MultisiteModule.php)",
+      "Bash(/opt/homebrew/opt/php@8.3/bin/php -l src/Multisite/MultisiteModule.php)"
     ]
   }
 }

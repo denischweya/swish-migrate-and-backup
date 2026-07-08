@@ -120,7 +120,10 @@ final class BackupManager {
 	}
 
 	/**
-	 * Check if backup size exceeds the free version limit.
+	 * Check if backup size exceeds a configured limit.
+	 *
+	 * There is no limit by default; the filter allows constrained hosts to
+	 * impose one.
 	 *
 	 * @param string $backup_path Backup file path.
 	 * @param string $job_id      Job ID.
@@ -128,10 +131,9 @@ final class BackupManager {
 	 * @throws \Exception If size limit exceeded.
 	 */
 	private function check_backup_size_limit( string $backup_path, string $job_id ): bool {
-		// Apply filter to allow Pro version to bypass size limit.
-		$size_limit = apply_filters( 'swish_backup_size_limit', SWISH_BACKUP_FREE_SIZE_LIMIT );
+		$size_limit = apply_filters( 'swish_backup_size_limit', null );
 
-		// If size limit is null (Pro version), skip check.
+		// No limit configured (the default): skip check.
 		if ( null === $size_limit ) {
 			return true;
 		}
@@ -158,13 +160,13 @@ final class BackupManager {
 				array(
 					'size_limit_exceeded' => 1,
 					'status'              => 'failed',
-					'error_message'       => 'Backup exceeds 4GB limit for free version',
+					'error_message'       => 'Backup exceeds the configured size limit',
 				),
 				array( 'job_id' => $job_id )
 			);
 
 			$this->logger->warning(
-				'Backup exceeds 4GB limit',
+				'Backup exceeds the configured size limit',
 				array(
 					'job_id'      => $job_id,
 					'backup_size' => size_format( $backup_size ),
@@ -172,12 +174,11 @@ final class BackupManager {
 				)
 			);
 
-			// Throw exception with upgrade URL.
 			throw new \Exception(
 				sprintf(
-					'Your backup is %s which exceeds the 4GB limit for the free version. Upgrade to Pro to remove all limits: %s',
+					'Your backup is %s which exceeds the configured size limit of %s.',
 					esc_html( size_format( $backup_size ) ),
-					esc_url( SWISH_BACKUP_PRO_URL )
+					esc_html( size_format( $size_limit ) )
 				)
 			);
 		}

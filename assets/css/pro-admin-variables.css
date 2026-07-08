@@ -1,0 +1,272 @@
+/**
+ * Swish Migrate and Backup Pro - Design System Variables
+ *
+ * CSS Custom Properties for consistent theming across the plugin.
+ * Based on a blue/slate color palette with Material Design 3 influence.
+ */
+
+:root {
+    /* ========================================
+       Color Palette - Primary (Blue)
+       ======================================== */
+    --swish-primary-50: #eff6ff;
+    --swish-primary-100: #dbeafe;
+    --swish-primary-200: #bfdbfe;
+    --swish-primary-300: #93c5fd;
+    --swish-primary-400: #60a5fa;
+    --swish-primary-500: #3b82f6;
+    --swish-primary-600: #2563eb;
+    --swish-primary-700: #1d4ed8;
+    --swish-primary-800: #1e40af;
+    --swish-primary-900: #1e3a8a;
+    --swish-primary-950: #172554;
+
+    /* ========================================
+       Color Palette - Slate (Neutrals)
+       ======================================== */
+    --swish-slate-50: #f8fafc;
+    --swish-slate-100: #f1f5f9;
+    --swish-slate-200: #e2e8f0;
+    --swish-slate-300: #cbd5e1;
+    --swish-slate-400: #94a3b8;
+    --swish-slate-500: #64748b;
+    --swish-slate-600: #475569;
+    --swish-slate-700: #334155;
+    --swish-slate-800: #1e293b;
+    --swish-slate-900: #0f172a;
+    --swish-slate-950: #020617;
+
+    /* ========================================
+       Status Colors
+       ======================================== */
+    /* Success - Emerald */
+    --swish-success-50: #ecfdf5;
+    --swish-success-100: #d1fae5;
+    --swish-success-200: #a7f3d0;
+    --swish-success-500: #10b981;
+    --swish-success-600: #059669;
+    --swish-success-700: #047857;
+    --swish-success-800: #065f46;
+
+    /* Warning - Amber */
+    --swish-warning-50: #fffbeb;
+    --swish-warning-100: #fef3c7;
+    --swish-warning-500: #f59e0b;
+    --swish-warning-600: #d97706;
+
+    /* Error - Red */
+    --swish-error-50: #fef2f2;
+    --swish-error-100: #fee2e2;
+    --swish-error-500: #ef4444;
+    --swish-error-600: #dc2626;
+    --swish-error-700: #b91c1c;
+    --swish-error-800: #991b1b;
+
+    /* Info - Sky Blue */
+    --swish-info-50: #f0f9ff;
+    --swish-info-100: #e0f2fe;
+    --swish-info-500: #0ea5e9;
+    --swish-info-600: #0284c7;
+    --swish-info-800: #075985;
+
+    /* ========================================
+       Surface Colors (Light Theme)
+       ======================================== */
+    --swish-surface-primary: #f8f9ff;
+    --swish-surface-secondary: #f8fafc;
+    --swish-surface-tertiary: #ffffff;
+    --swish-surface-container: #e5eeff;
+    --swish-surface-container-low: #eff4ff;
+    --swish-surface-container-high: #dce9ff;
+    --swish-surface-container-highest: #d3e4fe;
+
+    /* ========================================
+       Typography
+       ======================================== */
+    --swish-font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --swish-font-mono: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+
+    /* Font Sizes */
+    --swish-text-xs: 0.625rem;      /* 10px */
+    --swish-text-sm: 0.75rem;       /* 12px */
+    --swish-text-base: 0.875rem;    /* 14px */
+    --swish-text-md: 1rem;          /* 16px */
+    --swish-text-lg: 1.125rem;      /* 18px */
+    --swish-text-xl: 1.25rem;       /* 20px */
+    --swish-text-2xl: 1.5rem;       /* 24px */
+    --swish-text-3xl: 1.875rem;     /* 30px */
+    --swish-text-4xl: 2.25rem;      /* 36px */
+
+    /* Font Weights */
+    --swish-font-light: 300;
+    --swish-font-normal: 400;
+    --swish-font-medium: 500;
+    --swish-font-semibold: 600;
+    --swish-font-bold: 700;
+    --swish-font-extrabold: 800;
+    --swish-font-black: 900;
+
+    /* Line Heights */
+    --swish-leading-tight: 1.25;
+    --swish-leading-normal: 1.5;
+    --swish-leading-relaxed: 1.625;
+
+    /* Letter Spacing */
+    --swish-tracking-tighter: -0.05em;
+    --swish-tracking-tight: -0.025em;
+    --swish-tracking-normal: 0;
+    --swish-tracking-wide: 0.025em;
+    --swish-tracking-wider: 0.05em;
+    --swish-tracking-widest: 0.15em;
+
+    /* ========================================
+       Spacing
+       ======================================== */
+    --swish-space-0: 0;
+    --swish-space-1: 0.25rem;    /* 4px */
+    --swish-space-2: 0.5rem;     /* 8px */
+    --swish-space-3: 0.75rem;    /* 12px */
+    --swish-space-4: 1rem;       /* 16px */
+    --swish-space-5: 1.25rem;    /* 20px */
+    --swish-space-6: 1.5rem;     /* 24px */
+    --swish-space-8: 2rem;       /* 32px */
+    --swish-space-10: 2.5rem;    /* 40px */
+    --swish-space-12: 3rem;      /* 48px */
+    --swish-space-16: 4rem;      /* 64px */
+    --swish-space-20: 5rem;      /* 80px */
+
+    /* ========================================
+       Border Radius
+       ======================================== */
+    --swish-radius-none: 0;
+    --swish-radius-sm: 0.25rem;     /* 4px */
+    --swish-radius-md: 0.5rem;      /* 8px */
+    --swish-radius-lg: 0.75rem;     /* 12px */
+    --swish-radius-xl: 1rem;        /* 16px */
+    --swish-radius-2xl: 1.5rem;     /* 24px */
+    --swish-radius-3xl: 2rem;       /* 32px */
+    --swish-radius-full: 9999px;
+
+    /* ========================================
+       Shadows
+       ======================================== */
+    --swish-shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --swish-shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    --swish-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --swish-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --swish-shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    --swish-shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+    --swish-shadow-inner: inset 0 2px 4px 0 rgb(0 0 0 / 0.05);
+
+    /* Colored shadows */
+    --swish-shadow-primary: 0 4px 14px -3px rgba(37, 99, 235, 0.3);
+    --swish-shadow-soft: 0 4px 20px -4px rgba(11, 28, 48, 0.05);
+    --swish-shadow-card: 0 8px 32px -4px rgba(11, 28, 48, 0.04);
+
+    /* ========================================
+       Transitions
+       ======================================== */
+    --swish-transition-fast: 150ms ease;
+    --swish-transition-base: 200ms ease;
+    --swish-transition-slow: 300ms ease;
+    --swish-transition-slower: 500ms ease;
+
+    /* ========================================
+       Layout
+       ======================================== */
+    --swish-sidebar-width: 260px;
+    --swish-sidebar-collapsed-width: 64px;
+    --swish-header-height: 64px;
+    --swish-content-max-width: 1400px;
+    --swish-mobile-nav-height: 80px;
+
+    /* ========================================
+       Z-Index Scale
+       ======================================== */
+    --swish-z-base: 1;
+    --swish-z-dropdown: 10;
+    --swish-z-sticky: 20;
+    --swish-z-fixed: 30;
+    --swish-z-sidebar: 40;
+    --swish-z-modal-backdrop: 50;
+    --swish-z-modal: 60;
+    --swish-z-popover: 70;
+    --swish-z-tooltip: 80;
+    --swish-z-toast: 90;
+
+    /* ========================================
+       Semantic Tokens (Light Theme Default)
+       ======================================== */
+    /* Backgrounds */
+    --swish-bg-app: var(--swish-surface-primary);
+    --swish-bg-sidebar: var(--swish-slate-50);
+    --swish-bg-card: var(--swish-surface-tertiary);
+    --swish-bg-card-hover: var(--swish-surface-primary);
+    --swish-bg-input: var(--swish-surface-tertiary);
+    --swish-bg-table-header: rgba(220, 233, 255, 0.5);
+    --swish-bg-table-row-alt: var(--swish-surface-container-low);
+
+    /* Text */
+    --swish-text-primary: var(--swish-slate-900);
+    --swish-text-secondary: var(--swish-slate-600);
+    --swish-text-tertiary: var(--swish-slate-500);
+    --swish-text-muted: var(--swish-slate-400);
+    --swish-text-inverse: var(--swish-slate-50);
+    --swish-text-link: var(--swish-primary-600);
+    --swish-text-link-hover: var(--swish-primary-700);
+
+    /* Borders */
+    --swish-border-default: var(--swish-slate-200);
+    --swish-border-light: var(--swish-slate-100);
+    --swish-border-focus: var(--swish-primary-500);
+
+    /* Interactive */
+    --swish-hover-bg: rgba(0, 0, 0, 0.04);
+    --swish-active-bg: rgba(0, 0, 0, 0.08);
+}
+
+/* ========================================
+   Dark Theme
+   ======================================== */
+[data-theme="dark"],
+.swish-dark-mode {
+    /* Backgrounds */
+    --swish-bg-app: var(--swish-slate-900);
+    --swish-bg-sidebar: var(--swish-slate-950);
+    --swish-bg-card: var(--swish-slate-800);
+    --swish-bg-card-hover: var(--swish-slate-700);
+    --swish-bg-input: var(--swish-slate-800);
+    --swish-bg-table-header: rgba(30, 41, 59, 0.5);
+    --swish-bg-table-row-alt: var(--swish-slate-800);
+
+    /* Surfaces */
+    --swish-surface-primary: var(--swish-slate-900);
+    --swish-surface-secondary: var(--swish-slate-800);
+    --swish-surface-tertiary: var(--swish-slate-800);
+    --swish-surface-container: var(--swish-slate-800);
+    --swish-surface-container-low: var(--swish-slate-850, #172033);
+    --swish-surface-container-high: var(--swish-slate-700);
+    --swish-surface-container-highest: var(--swish-slate-600);
+
+    /* Text */
+    --swish-text-primary: var(--swish-slate-100);
+    --swish-text-secondary: var(--swish-slate-300);
+    --swish-text-tertiary: var(--swish-slate-400);
+    --swish-text-muted: var(--swish-slate-500);
+    --swish-text-inverse: var(--swish-slate-900);
+    --swish-text-link: var(--swish-primary-400);
+    --swish-text-link-hover: var(--swish-primary-300);
+
+    /* Borders */
+    --swish-border-default: var(--swish-slate-700);
+    --swish-border-light: var(--swish-slate-800);
+    --swish-border-focus: var(--swish-primary-400);
+
+    /* Interactive */
+    --swish-hover-bg: rgba(255, 255, 255, 0.04);
+    --swish-active-bg: rgba(255, 255, 255, 0.08);
+
+    /* Shadows in dark mode */
+    --swish-shadow-soft: 0 4px 20px -4px rgba(0, 0, 0, 0.3);
+    --swish-shadow-card: 0 8px 32px -4px rgba(0, 0, 0, 0.4);
+}

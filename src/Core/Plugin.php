@@ -20,7 +20,6 @@ use SwishMigrateAndBackup\Admin\BackupsPage;
 use SwishMigrateAndBackup\Admin\SettingsPage;
 use SwishMigrateAndBackup\Admin\SchedulesPage;
 use SwishMigrateAndBackup\Admin\MigrationPage;
-use SwishMigrateAndBackup\Admin\ProPage;
 use SwishMigrateAndBackup\Admin\DocumentationPage;
 use SwishMigrateAndBackup\Admin\LogsPage;
 use SwishMigrateAndBackup\Api\RestController;
@@ -46,6 +45,7 @@ use SwishMigrateAndBackup\Storage\GoogleDriveAdapter;
 use SwishMigrateAndBackup\CLI\Commands as CLICommands;
 use SwishMigrateAndBackup\Import\ImportPipeline;
 use SwishMigrateAndBackup\Import\ImportSession;
+use SwishMigrateAndBackup\Multisite\MultisiteModule;
 
 /**
  * Plugin class responsible for bootstrapping all components.
@@ -256,11 +256,6 @@ final class Plugin {
 		);
 
 		$this->container->singleton(
-			ProPage::class,
-			fn() => new ProPage()
-		);
-
-		$this->container->singleton(
 			DocumentationPage::class,
 			fn() => new DocumentationPage()
 		);
@@ -280,7 +275,6 @@ final class Plugin {
 				$c->get( SettingsPage::class ),
 				$c->get( SchedulesPage::class ),
 				$c->get( MigrationPage::class ),
-				$c->get( ProPage::class ),
 				$c->get( DocumentationPage::class ),
 				$c->get( LogsPage::class )
 			)
@@ -311,6 +305,12 @@ final class Plugin {
 				$c->get( ExportController::class ),
 				$c->get( Logger::class )
 			)
+		);
+
+		// Multisite module (network backup, migration, site duplication).
+		$this->container->singleton(
+			MultisiteModule::class,
+			fn() => new MultisiteModule()
 		);
 
 		/**
@@ -367,10 +367,58 @@ final class Plugin {
 		add_action( 'wp_ajax_swish_import_continue', array( $this, 'ajax_import_continue' ) );
 		add_action( 'wp_ajax_nopriv_swish_import_continue', array( $this, 'ajax_import_continue' ) );
 
+		// Multisite module (network backup, migration, site duplication).
+		// If the legacy Pro add-on is still active it registers these same
+		// hooks itself; skip booting the module for this request and
+		// deactivate the add-on so subsequent requests run the built-in module.
+		if ( ! defined( 'SWISH_BACKUP_PRO_VERSION' ) ) {
+			$this->container->get( MultisiteModule::class )->boot();
+		} elseif ( is_admin() ) {
+			add_action( 'admin_init', array( $this, 'deactivate_legacy_pro_plugin' ) );
+		}
+
 		// Register WP-CLI commands.
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			$this->register_cli_commands();
 		}
+	}
+
+	/**
+	 * Deactivate the legacy Pro add-on.
+	 *
+	 * Its features (multisite backup, migration, site duplication) are now
+	 * built into this plugin, and running both would register every AJAX and
+	 * cron handler twice.
+	 *
+	 * @return void
+	 */
+	public function deactivate_legacy_pro_plugin(): void {
+		if ( ! current_user_can( 'activate_plugins' ) ) {
+			return;
+		}
+
+		require_once ABSPATH . 'wp-admin/includes/plugin.php';
+
+		$pro_basename = 'swish-migrate-and-backup-pro/swish-migrate-and-backup-pro.php';
+
+		deactivate_plugins( $pro_basename, true, is_plugin_active_for_network( $pro_basename ) );
+
+		add_action(
+			'admin_notices',
+			function (): void {
+				echo '<div class="notice notice-info is-dismissible"><p>';
+				esc_html_e( 'Swish Migrate and Backup: Pro features (multisite backup, migration, and site duplication) are now built into the main plugin. The separate Pro add-on has been deactivated and can be deleted.', 'swish-migrate-and-backup' );
+				echo '</p></div>';
+			}
+		);
+		add_action(
+			'network_admin_notices',
+			function (): void {
+				echo '<div class="notice notice-info is-dismissible"><p>';
+				esc_html_e( 'Swish Migrate and Backup: Pro features (multisite backup, migration, and site duplication) are now built into the main plugin. The separate Pro add-on has been deactivated and can be deleted.', 'swish-migrate-and-backup' );
+				echo '</p></div>';
+			}
+		);
 	}
 
 	/**
@@ -1116,8 +1164,7 @@ final class Plugin {
 				array(
 					'apiUrl'          => rest_url( 'swish-backup/v1' ),
 					'nonce'           => wp_create_nonce( 'wp_rest' ),
-					'proUrl'          => SWISH_BACKUP_PRO_URL,
-					'isProActive'     => apply_filters( 'swish_backup_is_pro', false ),
+					'isProActive'     => apply_filters( 'swish_backup_is_pro', true ),
 					'backupsPageUrl'  => admin_url( 'admin.php?page=swish-backup-backups' ),
 					'settingsPageUrl' => admin_url( 'admin.php?page=swish-backup-settings' ),
 				)
@@ -1155,8 +1202,7 @@ final class Plugin {
 			array(
 				'apiUrl'         => rest_url( 'swish-backup/v1' ),
 				'nonce'          => wp_create_nonce( 'wp_rest' ),
-				'proUrl'         => SWISH_BACKUP_PRO_URL,
-				'isProActive'    => apply_filters( 'swish_backup_is_pro', false ),
+				'isProActive'    => apply_filters( 'swish_backup_is_pro', true ),
 				'backupsPageUrl' => admin_url( 'admin.php?page=swish-backup-backups' ),
 				'maxUploadSize'  => wp_max_upload_size(),
 				'maxUploadSizeFormatted' => size_format( wp_max_upload_size() ),

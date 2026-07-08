@@ -1,14 +1,14 @@
 === Swish Migrate and Backup ===
 Contributors: afrothemes, fortisthemes
-Tags: backup, migration, restore, database, cloud storage
+Tags: backup, migration, restore, database, multisite
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.1.11
+Stable tag: 1.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-A WordPress backup and migration plugin with cloud storage support and no limits.
+A WordPress backup and migration plugin with cloud storage support, full multisite network backups, site duplication, and no limits.
 
 == Description ==
 
@@ -28,21 +28,17 @@ Swish Migrate and Backup is a powerful WordPress plugin that allows you to creat
 * **Encrypted Credentials** - Cloud storage credentials are encrypted using AES-256-CBC
 * **REST API** - Full REST API for integration with other tools
 * **WP-CLI Support** - Command line interface for backup and migration operations
+* **Multisite Support** - Network-wide backups, selective site backup, and multisite migration
+* **Site Duplication** - Clone any site within your multisite network to a new URL
+* **Flexible Archive Modes** - One archive for the whole network, or separate archives per site
+* **Unlimited Backup/Restore Size** - No file size limits on backups or restores
+* **Full Backups** - Complete backups including wp-core, wp-content, themes, plugins, uploads, and database
 
 = Remote Backup Storage =
 
 * Amazon S3
 * Dropbox
 * Google Drive
-
-= Swish Backup & Migrate PRO =
-
-Upgrade to PRO for advanced features: [Get PRO](https://swishbackup.swishfolio.com/)
-
-* **Multisite Support** - Full compatibility with WordPress multisite networks
-* **Multisite Clone Site** - Clone sites within your multisite network
-* **Unlimited Backup/Restore Size** - No file size limits on backups or restores
-* **Full Backups** - Complete backups including wp-core, wp-content, themes, plugins, uploads, and database
 
 = Requirements =
 
@@ -83,8 +79,7 @@ Swish Backup includes WP-CLI commands for backup and migration operations. Requi
 
 = How large of a site can this plugin handle? =
 
-The plugin uses chunked processing for both database and file operations, allowing it to handle sites of virtually any size without running into memory limits.
-The free plugin can only import up to 4GB backup, Pro version removed this limit [Get PRO](https://swishbackup.swishfolio.com/)
+The plugin uses chunked processing for both database and file operations, allowing it to handle sites of virtually any size without running into memory limits. There is no backup or import size limit.
 
 = Where are backups stored by default? =
 
@@ -111,7 +106,7 @@ Yes, you can download a backup and upload it to any WordPress site with this plu
 
 = Can I backup & migrate a multisite? =
 
-This feature is only available in the PRO version of this plugin [Get PRO](https://swishbackup.swishfolio.com/)
+Yes. On multisite installations, go to Network Admin → Swish Backup to create network-wide backups (all sites or a selection), migrate multisite backups, and duplicate sites within the network. You can also import a single site from a multisite backup into a standalone WordPress installation.
 
 == Screenshots ==
 
@@ -122,6 +117,17 @@ This feature is only available in the PRO version of this plugin [Get PRO](https
 5. Schedules - Set up automatic scheduled backups
 
 == Changelog ==
+
+= 1.2.0 =
+* All Pro features are now built into the free plugin - no separate Pro add-on needed
+* Added multisite network backups (all sites or a selection) with single or per-site archives
+* Added multisite migration: import network backups, or import a single site from a network backup into a standalone install
+* Added site duplication: clone any site in the network to a new URL
+* Removed the 4GB backup size limit and the 500MB per-file limit
+* The legacy Pro add-on is automatically deactivated if still active (its job history is preserved)
+* Security hardening: signed expiring download URLs for multisite archives, path containment on imports, stricter archive extraction, escaped progress/error output in the admin UI
+* Multisite REST endpoints now require super admin (manage_network) on multisite
+* Added PHPCS (WordPress Coding Standards) configuration
 
 = 1.1.11 =
 * SWISH is now the only archive format for new backups (Archive Format selector removed from Settings)
@@ -305,6 +311,9 @@ This feature is only available in the PRO version of this plugin [Get PRO](https
 * REST API endpoints
 
 == Upgrade Notice ==
+
+= 1.2.0 =
+All Pro features (multisite backups, migration, site duplication, unlimited sizes) are now included for free. If you have the separate Pro add-on installed it will be deactivated automatically and can be deleted.
 
 = 1.1.11 =
 SWISH is now the only archive format for new backups. Restore still works for existing .zip and .tar.gz files. Windows users can now copy curl/aria2c download commands as a single command.

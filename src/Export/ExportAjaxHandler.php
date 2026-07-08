@@ -119,6 +119,15 @@ class ExportAjaxHandler {
 	/**
 	 * Handle export process request (chained).
 	 *
+	 * Security model: this endpoint is intentionally reachable without a
+	 * valid nonce (and via nopriv) because export processing is chained
+	 * through loopback requests that can outlive nonce lifetime. The
+	 * effective authentication is the job ID itself: a UUIDv4 generated
+	 * server-side in handle_start() (which does require nonce + capability),
+	 * never exposed to unauthenticated users, and validated below against an
+	 * existing job started by an admin. Requests with unknown job IDs are
+	 * rejected before any work is done.
+	 *
 	 * @return void
 	 */
 	public function handle_process(): void {
@@ -137,7 +146,15 @@ class ExportAjaxHandler {
 
 		if ( ! wp_verify_nonce( $nonce, 'swish_export_' . $job_id ) ) {
 			// Log but don't fail - nonce might have expired during long processing.
+			// The job ID existence check below is the effective gate.
 			$this->logger->warning( 'Export nonce verification failed', array( 'job_id' => $job_id ) );
+		}
+
+		// The job must have been started by an authenticated admin via
+		// handle_start(); reject unknown job IDs outright.
+		if ( null === $this->controller->get_state( $job_id ) ) {
+			wp_send_json_error( array( 'message' => 'Export not found' ), 404 );
+			return;
 		}
 
 		// Process export phase.

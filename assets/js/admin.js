@@ -12,6 +12,18 @@
 		activeJobs: {},
 
 		/**
+		 * Escape a string for safe insertion into HTML.
+		 */
+		escapeHtml: function(text) {
+			return String(text == null ? '' : text)
+				.replace(/&/g, '&amp;')
+				.replace(/</g, '&lt;')
+				.replace(/>/g, '&gt;')
+				.replace(/"/g, '&quot;')
+				.replace(/'/g, '&#039;');
+		},
+
+		/**
 		 * Initialize.
 		 */
 		init: function() {
@@ -371,7 +383,7 @@
 				html += '    </div>';
 				html += '    <div class="swish-job-step">';
 				html += '      <span class="swish-job-step-icon"></span>';
-				html += '      <span class="swish-job-step-text">' + (job.step || 'Initializing...') + '</span>';
+				html += '      <span class="swish-job-step-text">' + SwishBackup.escapeHtml(job.step || 'Initializing...') + '</span>';
 				html += '    </div>';
 				html += '    <div class="swish-job-meta">';
 				html += '      <span class="swish-job-started">Started: ' + SwishBackup.formatTimeAgo(job.startedAt) + '</span>';
@@ -385,11 +397,11 @@
 				html += '    <div class="swish-job-steps-log" id="swish-job-log-' + jobId + '">';
 				if (job.steps && job.steps.length > 0) {
 					job.steps.forEach(function(step) {
-						html += '<div class="swish-step-entry swish-step-' + step.status + '">';
+						html += '<div class="swish-step-entry swish-step-' + SwishBackup.escapeHtml(step.status) + '">';
 						html += '  <span class="swish-step-icon"></span>';
-						html += '  <span class="swish-step-name">' + step.name + '</span>';
+						html += '  <span class="swish-step-name">' + SwishBackup.escapeHtml(step.name) + '</span>';
 						if (step.detail) {
-							html += '  <span class="swish-step-detail">' + step.detail + '</span>';
+							html += '  <span class="swish-step-detail">' + SwishBackup.escapeHtml(step.detail) + '</span>';
 						}
 						html += '</div>';
 					});
@@ -470,11 +482,11 @@
 				const log = card.find('.swish-job-steps-log');
 				let stepsHtml = '';
 				jobData.steps.forEach(function(step) {
-					stepsHtml += '<div class="swish-step-entry swish-step-' + step.status + '">';
+					stepsHtml += '<div class="swish-step-entry swish-step-' + SwishBackup.escapeHtml(step.status) + '">';
 					stepsHtml += '  <span class="swish-step-icon"></span>';
-					stepsHtml += '  <span class="swish-step-name">' + step.name + '</span>';
+					stepsHtml += '  <span class="swish-step-name">' + SwishBackup.escapeHtml(step.name) + '</span>';
 					if (step.detail) {
-						stepsHtml += '  <span class="swish-step-detail">' + step.detail + '</span>';
+						stepsHtml += '  <span class="swish-step-detail">' + SwishBackup.escapeHtml(step.detail) + '</span>';
 					}
 					stepsHtml += '</div>';
 				});
@@ -1379,7 +1391,7 @@
 						}
 
 						if (response.analysis && response.analysis.backup_url) {
-							analysisHtml += '<p><strong>Original Site URL:</strong> ' + response.analysis.backup_url + '</p>';
+							analysisHtml += '<p><strong>Original Site URL:</strong> ' + SwishBackup.escapeHtml(response.analysis.backup_url) + '</p>';
 							// Pre-fill the old URL field.
 							$('#old_url').val(response.analysis.backup_url);
 							// Add visual indicator that URL was auto-detected.
@@ -1392,7 +1404,7 @@
 							analysisHtml += '<div class="swish-backup-warning"><span class="dashicons dashicons-warning"></span>';
 							analysisHtml += '<ul>';
 							response.analysis.warnings.forEach(function(warning) {
-								analysisHtml += '<li>' + warning + '</li>';
+								analysisHtml += '<li>' + SwishBackup.escapeHtml(warning) + '</li>';
 							});
 							analysisHtml += '</ul></div>';
 						}
@@ -1402,7 +1414,7 @@
 							analysisHtml += '<div class="swish-docs-tip"><span class="dashicons dashicons-lightbulb"></span>';
 							analysisHtml += '<ul>';
 							response.analysis.recommendations.forEach(function(rec) {
-								analysisHtml += '<li>' + rec + '</li>';
+								analysisHtml += '<li>' + SwishBackup.escapeHtml(rec) + '</li>';
 							});
 							analysisHtml += '</ul></div>';
 						}
@@ -1447,8 +1459,8 @@
 					$('#swish-backup-file-info').html(
 						'<div class="swish-backup-error-notice">' +
 						'<span class="dashicons dashicons-warning"></span>' +
-						'<p><strong>' + errorMessage + '</strong></p>' +
-						(errorDetail ? '<p>' + errorDetail + '</p>' : '') +
+						'<p><strong>' + SwishBackup.escapeHtml(errorMessage) + '</strong></p>' +
+						(errorDetail ? '<p>' + SwishBackup.escapeHtml(errorDetail) + '</p>' : '') +
 						'</div>'
 					).show();
 
@@ -1482,11 +1494,11 @@
 
 						$tbody.append(
 							'<tr>' +
-							'<td><strong>' + file.filename + '</strong></td>' +
-							'<td><span class="swish-backup-type-badge swish-backup-type-' + file.type + '">' + typeLabel + '</span></td>' +
+							'<td><strong>' + SwishBackup.escapeHtml(file.filename) + '</strong></td>' +
+							'<td><span class="swish-backup-type-badge swish-backup-type-' + SwishBackup.escapeHtml(file.type) + '">' + SwishBackup.escapeHtml(typeLabel) + '</span></td>' +
 							'<td>' + SwishBackup.formatFileSize(file.size) + '</td>' +
 							'<td>' + dateStr + '</td>' +
-							'<td><button type="button" class="button button-small swish-backup-select-server-file" data-path="' + file.path + '">Select</button></td>' +
+							'<td><button type="button" class="button button-small swish-backup-select-server-file" data-path="' + SwishBackup.escapeHtml(file.path) + '">Select</button></td>' +
 							'</tr>'
 						);
 					});
@@ -1553,7 +1565,7 @@
 					if (response.analysis && response.analysis.warnings && response.analysis.warnings.length) {
 						analysisHtml += '<div class="swish-backup-warning"><span class="dashicons dashicons-warning"></span><ul>';
 						response.analysis.warnings.forEach(function(warning) {
-							analysisHtml += '<li>' + warning + '</li>';
+							analysisHtml += '<li>' + SwishBackup.escapeHtml(warning) + '</li>';
 						});
 						analysisHtml += '</ul></div>';
 					}
@@ -1597,9 +1609,9 @@
 				let html = '<div class="notice notice-info inline" style="margin: 0; padding: 10px;">';
 				html += '<p><strong>URL Replacement Preview</strong></p>';
 				html += '<p>During migration, all occurrences of:</p>';
-				html += '<p><code>' + oldUrl + '</code></p>';
+				html += '<p><code>' + SwishBackup.escapeHtml(oldUrl) + '</code></p>';
 				html += '<p>will be replaced with:</p>';
-				html += '<p><code>' + newUrl + '</code></p>';
+				html += '<p><code>' + SwishBackup.escapeHtml(newUrl) + '</code></p>';
 				html += '<p>This replacement will be performed on the imported database after it is restored, including serialized data in options, post meta, and other tables.</p>';
 				html += '</div>';
 				$('#swish-backup-preview-content').html(html);
@@ -1621,7 +1633,7 @@
 				if (response.preview && response.preview.length) {
 					html += '<table class="widefat"><thead><tr><th>Table</th><th>Before</th><th>After</th></tr></thead><tbody>';
 					response.preview.forEach(function(match) {
-						html += '<tr><td>' + match.table + '</td><td>' + match.before + '</td><td>' + match.after + '</td></tr>';
+						html += '<tr><td>' + SwishBackup.escapeHtml(match.table) + '</td><td>' + SwishBackup.escapeHtml(match.before) + '</td><td>' + SwishBackup.escapeHtml(match.after) + '</td></tr>';
 					});
 					html += '</tbody></table>';
 				}
@@ -1923,11 +1935,11 @@
 
 			if ($entry.length === 0) {
 				// Create new entry with provided label.
-				const html = '<div class="swish-log-entry swish-log-' + statusClass + '" data-stage="' + stage + '">' +
+				const html = '<div class="swish-log-entry swish-log-' + SwishBackup.escapeHtml(statusClass) + '" data-stage="' + SwishBackup.escapeHtml(stage) + '">' +
 					'<div class="swish-log-icon">' + this.getLogIcon(status) + '</div>' +
 					'<div class="swish-log-content">' +
-						'<div class="swish-log-title">' + label + '</div>' +
-						'<div class="swish-log-detail">' + (detail || '') + '</div>' +
+						'<div class="swish-log-title">' + SwishBackup.escapeHtml(label) + '</div>' +
+						'<div class="swish-log-detail">' + SwishBackup.escapeHtml(detail || '') + '</div>' +
 					'</div>' +
 				'</div>';
 				$log.append(html);

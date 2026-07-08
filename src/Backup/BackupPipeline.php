@@ -609,9 +609,9 @@ final class BackupPipeline {
 				continue;
 			}
 
-			// Check file size - skip very large files.
+			// Check file size - no per-file limit by default; filterable for constrained hosts.
 			$actual_size = filesize( $file_path );
-			$max_file_size = apply_filters( 'swish_backup_max_file_size', 500 * 1024 * 1024 );
+			$max_file_size = apply_filters( 'swish_backup_max_file_size', PHP_INT_MAX );
 
 			if ( $actual_size > $max_file_size ) {
 				FileQueue::mark_skipped( $file_id, 'File too large: ' . $this->format_bytes( $actual_size ) );
@@ -720,6 +720,16 @@ final class BackupPipeline {
 				'error'   => 'Archive file not found',
 			);
 		}
+
+		// Append EOF marker so SwishArchiver::is_valid() recognises the archive as complete.
+		$finalizer = new SwishArchiver( $archive_path );
+		if ( ! $finalizer->open_for_write() ) {
+			return array(
+				'success' => false,
+				'error'   => 'Failed to open archive to write EOF marker',
+			);
+		}
+		$finalizer->close( true );
 
 		// Calculate checksum.
 		$checksum = md5_file( $archive_path );

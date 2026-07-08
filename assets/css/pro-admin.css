@@ -1,0 +1,371 @@
+/**
+ * Swish Backup Pro - Admin Styles
+ *
+ * Main entry point that imports the design system.
+ */
+
+/* Import Design System */
+@import url('pro-admin-variables.css');
+@import url('pro-admin-components.css');
+
+/* ==========================================================================
+   Legacy Styles (For Dependency Notice & Installer)
+   These are used when the base plugin is not installed.
+   ========================================================================== */
+
+.swish-pro-dependency-notice {
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-left: 4px solid #f97316;
+    padding: 20px 24px;
+    margin: 20px 0;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.swish-pro-dependency-notice h2 {
+    margin: 0 0 12px 0;
+    color: #1d2327;
+    font-size: 18px;
+}
+
+.swish-pro-dependency-notice p {
+    margin: 0.5em 0;
+    color: #50575e;
+}
+
+.swish-pro-dependency-notice strong {
+    color: #f97316;
+}
+
+/* Installation Progress */
+.swish-install-progress {
+    margin-top: 20px;
+    padding: 20px;
+    background: #f8f9ff;
+    border-radius: 8px;
+    border: 1px solid #e5eeff;
+}
+
+.swish-progress-bar-container {
+    height: 24px;
+    background: #e2e8f0;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 12px;
+}
+
+.swish-progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--swish-primary-600, #2563eb), var(--swish-primary-400, #60a5fa));
+    border-radius: 12px;
+    transition: width 0.3s ease;
+    position: relative;
+}
+
+.swish-progress-bar-fill::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.3) 50%, transparent 100%);
+    animation: swish-shimmer 2s infinite;
+}
+
+.swish-progress-message {
+    margin: 0;
+    font-size: 14px;
+    color: #64748b;
+    text-align: center;
+}
+
+.swish-install-status {
+    display: inline-block;
+    margin-left: 10px;
+    font-weight: 600;
+    color: #10b981;
+}
+
+.swish-install-free-plugin {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background: linear-gradient(180deg, var(--swish-primary-700, #1d4ed8), var(--swish-primary-600, #2563eb));
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+}
+
+.swish-install-free-plugin:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+}
+
+.swish-install-free-plugin:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* ==========================================================================
+   Pro Badge (WordPress Admin Menu)
+   ========================================================================== */
+
+.swish-pro-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    margin-left: 6px;
+    background: linear-gradient(90deg, var(--swish-primary-600, #2563eb), var(--swish-primary-500, #3b82f6));
+    color: #fff;
+    font-size: 9px;
+    font-weight: 700;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    vertical-align: middle;
+}
+
+/* ==========================================================================
+   WordPress Admin Integration
+   These styles help integrate with the WP admin context.
+   ========================================================================== */
+
+/* Adjust for WordPress admin bar */
+.swish-app {
+    margin-top: 0;
+}
+
+body.admin-bar .swish-app {
+    min-height: calc(100vh - 32px);
+}
+
+body.admin-bar .swish-sidebar {
+    top: 32px;
+    height: calc(100vh - 32px);
+}
+
+body.admin-bar .swish-header {
+    top: 32px;
+}
+
+@media screen and (max-width: 782px) {
+    body.admin-bar .swish-app {
+        min-height: calc(100vh - 46px);
+    }
+
+    body.admin-bar .swish-sidebar {
+        top: 46px;
+        height: calc(100vh - 46px);
+    }
+
+    body.admin-bar .swish-header {
+        top: 46px;
+    }
+}
+
+/* ==========================================================================
+   Material Symbols Icon Font
+   ========================================================================== */
+
+.material-symbols-outlined {
+    font-family: 'Material Symbols Outlined';
+    font-weight: normal;
+    font-style: normal;
+    font-size: 24px;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    -webkit-font-feature-settings: 'liga';
+    -webkit-font-smoothing: antialiased;
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+/* ==========================================================================
+   Dark Mode Toggle Button
+   ========================================================================== */
+
+.swish-theme-toggle {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--swish-text-tertiary);
+    cursor: pointer;
+    transition: all var(--swish-transition-fast);
+}
+
+.swish-theme-toggle:hover {
+    background: var(--swish-hover-bg);
+    color: var(--swish-text-secondary);
+}
+
+.swish-theme-toggle .swish-icon-sun,
+.swish-theme-toggle .swish-icon-moon {
+    position: absolute;
+    transition: opacity var(--swish-transition-base), transform var(--swish-transition-base);
+}
+
+.swish-theme-toggle .swish-icon-sun {
+    opacity: 1;
+    transform: rotate(0deg);
+}
+
+.swish-theme-toggle .swish-icon-moon {
+    opacity: 0;
+    transform: rotate(-90deg);
+}
+
+[data-theme="dark"] .swish-theme-toggle .swish-icon-sun {
+    opacity: 0;
+    transform: rotate(90deg);
+}
+
+[data-theme="dark"] .swish-theme-toggle .swish-icon-moon {
+    opacity: 1;
+    transform: rotate(0deg);
+}
+
+/* ==========================================================================
+   Sidebar Collapse State
+   ========================================================================== */
+
+.swish-sidebar-collapsed .swish-sidebar {
+    width: var(--swish-sidebar-collapsed-width);
+    padding: var(--swish-space-4);
+}
+
+.swish-sidebar-collapsed .swish-sidebar-brand h1,
+.swish-sidebar-collapsed .swish-sidebar-nav-item span:not(.material-symbols-outlined),
+.swish-sidebar-collapsed .swish-sidebar-footer,
+.swish-sidebar-collapsed .swish-storage-widget {
+    display: none;
+}
+
+.swish-sidebar-collapsed .swish-sidebar-nav-item {
+    justify-content: center;
+    padding: var(--swish-space-3);
+}
+
+.swish-sidebar-collapsed .swish-main {
+    margin-left: var(--swish-sidebar-collapsed-width);
+}
+
+/* Sidebar toggle button */
+.swish-sidebar-toggle {
+    display: none;
+    position: fixed;
+    bottom: calc(var(--swish-mobile-nav-height) + var(--swish-space-4));
+    right: var(--swish-space-4);
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--swish-primary-600);
+    color: white;
+    border: none;
+    box-shadow: var(--swish-shadow-lg);
+    cursor: pointer;
+    z-index: var(--swish-z-fixed);
+    align-items: center;
+    justify-content: center;
+}
+
+@media (max-width: 782px) {
+    .swish-sidebar-toggle {
+        display: flex;
+    }
+}
+
+/* ==========================================================================
+   Tooltips
+   ========================================================================== */
+
+.swish-tooltip {
+    position: relative;
+}
+
+.swish-tooltip::before,
+.swish-tooltip::after {
+    position: absolute;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.2s ease;
+    z-index: var(--swish-z-tooltip, 80);
+    pointer-events: none;
+}
+
+/* Tooltip text bubble */
+.swish-tooltip::after {
+    content: attr(data-tooltip);
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    padding: 6px 10px;
+    background: var(--swish-surface-inverse, #1e293b);
+    color: var(--swish-on-inverse, #f8fafc);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.4;
+    white-space: nowrap;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    margin-bottom: 6px;
+}
+
+/* Tooltip arrow */
+.swish-tooltip::before {
+    content: '';
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: var(--swish-surface-inverse, #1e293b);
+    margin-bottom: -4px;
+}
+
+.swish-tooltip:hover::before,
+.swish-tooltip:hover::after,
+.swish-tooltip:focus::before,
+.swish-tooltip:focus::after {
+    opacity: 1;
+    visibility: visible;
+}
+
+.swish-tooltip:hover::after,
+.swish-tooltip:focus::after {
+    transform: translateX(-50%) translateY(0);
+}
+
+/* ==========================================================================
+   Print Styles
+   ========================================================================== */
+
+@media print {
+    .swish-sidebar,
+    .swish-mobile-nav,
+    .swish-header-actions,
+    .swish-sidebar-toggle {
+        display: none !important;
+    }
+
+    .swish-main {
+        margin-left: 0 !important;
+    }
+
+    .swish-app {
+        background: white;
+    }
+}

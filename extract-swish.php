@@ -6,6 +6,11 @@
  * Usage: php extract-swish.php <archive.swish> [destination]
  */
 
+// CLI-only tool; never serve over the web.
+if (PHP_SAPI !== 'cli') {
+    exit(1);
+}
+
 if ($argc < 2) {
     echo "Usage: php extract-swish.php <archive.swish> [destination]\n";
     echo "  archive.swish  - Path to the .swish backup file\n";
@@ -67,6 +72,16 @@ while (!feof($fp)) {
 
     // Build full path
     $relative_path = $prefix ? $prefix . '/' . $name : $name;
+
+    // Reject absolute paths and traversal segments so a crafted archive
+    // cannot write outside the destination directory.
+    $normalized = str_replace('\\', '/', $relative_path);
+    if (strpos($normalized, '/') === 0 || preg_match('#(^|/)\.\.(/|$)#', $normalized)) {
+        echo "Skipping unsafe entry (path traversal): $relative_path\n";
+        fseek($fp, $size, SEEK_CUR);
+        continue;
+    }
+
     $full_path = $destination . '/' . $relative_path;
 
     // Create directory

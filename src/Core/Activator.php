@@ -210,8 +210,74 @@ final class Activator {
 		// Create file queue table for chunked processing.
 		FileQueue::create_table();
 
+		// Create multisite job tracking tables.
+		self::create_multisite_tables();
+
 		// Store database version for future migrations.
 		update_option( 'swish_backup_db_version', '1.0.3' );
+	}
+
+	/**
+	 * Create the multisite job tracking tables.
+	 *
+	 * Uses the base prefix so the tables are network-scoped regardless of the
+	 * current blog context. Also called from MultisiteModule as a self-heal
+	 * when the tables are missing (e.g. plugin updated without re-activation).
+	 *
+	 * @return void
+	 */
+	public static function create_multisite_tables(): void {
+		global $wpdb;
+
+		$charset_collate = $wpdb->get_charset_collate();
+
+		// Multisite jobs table.
+		$multisite_jobs_table = $wpdb->base_prefix . 'swish_backup_multisite_jobs';
+		$multisite_jobs_sql   = "CREATE TABLE {$multisite_jobs_table} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			job_id varchar(64) NOT NULL,
+			network_id bigint(20) NOT NULL DEFAULT 1,
+			site_ids text NOT NULL,
+			archive_mode varchar(16) NOT NULL DEFAULT 'single',
+			total_sites int(11) NOT NULL DEFAULT 0,
+			completed_sites int(11) NOT NULL DEFAULT 0,
+			backup_files text DEFAULT NULL,
+			status varchar(32) NOT NULL DEFAULT 'pending',
+			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			completed_at datetime DEFAULT NULL,
+			PRIMARY KEY (id),
+			UNIQUE KEY job_id (job_id),
+			KEY status (status),
+			KEY network_id (network_id),
+			KEY created_at (created_at)
+		) {$charset_collate};";
+
+		// Per-site backups table.
+		$site_backups_table = $wpdb->base_prefix . 'swish_backup_site_backups';
+		$site_backups_sql   = "CREATE TABLE {$site_backups_table} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			parent_job_id varchar(64) NOT NULL,
+			site_id bigint(20) NOT NULL,
+			site_url varchar(255) NOT NULL,
+			archive_path varchar(512) DEFAULT NULL,
+			file_size bigint(20) unsigned DEFAULT 0,
+			status varchar(32) NOT NULL DEFAULT 'pending',
+			error_message text DEFAULT NULL,
+			started_at datetime DEFAULT NULL,
+			completed_at datetime DEFAULT NULL,
+			PRIMARY KEY (id),
+			KEY parent_job_id (parent_job_id),
+			KEY site_id (site_id),
+			KEY status (status)
+		) {$charset_collate};";
+
+		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+		dbDelta( $multisite_jobs_sql );
+		dbDelta( $site_backups_sql );
+
+		// Store multisite schema version (option name kept from the former
+		// Pro add-on so existing installs upgrade in place).
+		update_option( 'swish_backup_pro_db_version', '1.0.1' );
 	}
 
 	/**
@@ -221,6 +287,11 @@ final class Activator {
 	 */
 	private function set_default_options(): void {
 		$defaults = array(
+			// Multisite defaults (option name kept from the former Pro add-on).
+			'swish_backup_pro_settings' => array(
+				'archive_mode_default' => 'single',
+				'multisite_enabled'    => is_multisite(),
+			),
 			'swish_backup_settings' => array(
 				'default_storage'       => 'local',
 				'compression_level'     => 6,

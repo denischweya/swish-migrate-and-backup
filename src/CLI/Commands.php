@@ -300,15 +300,30 @@ class Commands {
 		// Phase 3: Finalize archive.
 		$final_result = $pipeline->finalize( $job_id, $archive_path );
 
-		if ( $final_result['success'] ) {
-			WP_CLI::success( sprintf(
-				'Backup complete: %s (%s)',
-				$final_result['file_path'],
-				size_format( $final_result['size'] )
-			) );
-		} else {
-			WP_CLI::error( 'Backup failed during finalization.' );
+		if ( ! $final_result['success'] ) {
+			WP_CLI::error( 'Backup failed during finalization: ' . ( $final_result['error'] ?? 'Unknown error' ) );
+			return;
 		}
+
+		// Register backup so it appears in the admin Backups list.
+		$backup_manager = Container::get_instance()->get( BackupManager::class );
+		$registered = $backup_manager->register_backup( array(
+			'job_id'    => $job_id,
+			'type'      => $type,
+			'file_path' => $final_result['file_path'],
+			'file_size' => $final_result['size'],
+			'checksum'  => $final_result['checksum'],
+		) );
+
+		if ( ! $registered ) {
+			WP_CLI::warning( 'Backup file created but failed to register in database. It may not appear in the admin UI.' );
+		}
+
+		WP_CLI::success( sprintf(
+			'Backup complete: %s (%s)',
+			$final_result['file_path'],
+			size_format( $final_result['size'] )
+		) );
 	}
 
 	/**

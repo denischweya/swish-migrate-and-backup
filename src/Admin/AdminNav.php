@@ -64,26 +64,7 @@ final class AdminNav {
 			),
 		);
 
-		// Add Pro page only if Pro is not installed.
-		if ( ! self::is_pro_installed() ) {
-			$items[] = array(
-				'slug'  => 'swish-backup-pro',
-				'label' => __( 'Go Pro', 'swish-migrate-and-backup' ),
-				'icon'  => 'dashicons-star-filled',
-				'class' => 'swish-nav-pro',
-			);
-		}
-
 		return $items;
-	}
-
-	/**
-	 * Check if Pro version is installed.
-	 *
-	 * @return bool True if Pro is installed.
-	 */
-	public static function is_pro_installed(): bool {
-		return defined( 'SWISH_BACKUP_PRO_VERSION' ) || is_plugin_active( 'swish-migrate-and-backup-pro/swish-migrate-and-backup-pro.php' );
 	}
 
 	/**
