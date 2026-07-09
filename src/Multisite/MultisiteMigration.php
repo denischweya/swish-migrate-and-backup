@@ -110,15 +110,15 @@ final class MultisiteMigration {
 		// Check file extension (use original filename if provided, otherwise use file path).
 		$filename_to_check = ! empty( $original_filename ) ? $original_filename : $file_path;
 		$extension = strtolower( pathinfo( $filename_to_check, PATHINFO_EXTENSION ) );
-		if ( $extension !== 'zip' ) {
+		if ( ! in_array( $extension, array( 'swish', 'zip' ), true ) ) {
 			return array(
 				'valid'   => false,
-				'message' => __( 'Invalid backup file format. Expected .zip file.', 'swish-migrate-and-backup' ),
+				'message' => __( 'Invalid backup file format. Expected a .swish or .zip file.', 'swish-migrate-and-backup' ),
 			);
 		}
 
-		// Try to read manifest from ZIP.
-		$manifest = $this->read_manifest_from_zip( $file_path );
+		// Try to read manifest from the archive (.swish or legacy .zip).
+		$manifest = $this->read_manifest_from_archive( $file_path );
 
 		if ( ! $manifest ) {
 			return array(
@@ -220,6 +220,76 @@ final class MultisiteMigration {
 		);
 
 		return $result;
+	}
+
+	/**
+	 * Read manifest from a backup archive (.swish or legacy .zip).
+	 *
+	 * Detects the format by content (ZIP magic bytes), not extension, since
+	 * uploaded temp files may have no extension.
+	 *
+	 * @param string $file_path Path to archive file.
+	 * @return array|null Manifest data or null on failure.
+	 */
+	public function read_manifest_from_archive( string $file_path ): ?array {
+		if ( $this->is_zip_file( $file_path ) ) {
+			return $this->read_manifest_from_zip( $file_path );
+		}
+
+		return $this->read_manifest_from_swish( $file_path );
+	}
+
+	/**
+	 * Check whether a file is a ZIP archive by magic bytes.
+	 *
+	 * @param string $file_path Path to file.
+	 * @return bool True if ZIP.
+	 */
+	private function is_zip_file( string $file_path ): bool {
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen
+		$handle = fopen( $file_path, 'rb' );
+		if ( ! $handle ) {
+			return false;
+		}
+
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fread
+		$magic = fread( $handle, 4 );
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+		fclose( $handle );
+
+		return "PK\x03\x04" === $magic;
+	}
+
+	/**
+	 * Read manifest from a .swish archive.
+	 *
+	 * @param string $swish_path Path to .swish file.
+	 * @return array|null Manifest data or null on failure.
+	 */
+	private function read_manifest_from_swish( string $swish_path ): ?array {
+		$extractor = new \SwishMigrateAndBackup\Archive\SwishExtractor( $swish_path );
+
+		if ( ! $extractor->open() ) {
+			return null;
+		}
+
+		$header = $extractor->find_file( 'manifest.json' );
+
+		if ( ! $header ) {
+			$extractor->close();
+			return null;
+		}
+
+		$manifest_content = $extractor->extract_content( $header );
+		$extractor->close();
+
+		if ( false === $manifest_content ) {
+			return null;
+		}
+
+		$manifest = json_decode( $manifest_content, true );
+
+		return is_array( $manifest ) ? $manifest : null;
 	}
 
 	/**
@@ -1894,22 +1964,35 @@ final class MultisiteMigration {
 	 * @return string|null Temp directory path or null on failure.
 	 */
 	private function extract_backup( string $file_path ): ?string {
-		if ( ! class_exists( 'ZipArchive' ) ) {
-			return null;
-		}
-
 		$temp_dir = sys_get_temp_dir() . '/swish-import-' . wp_generate_uuid4();
 		wp_mkdir_p( $temp_dir );
 
-		$zip = new \ZipArchive();
+		if ( $this->is_zip_file( $file_path ) ) {
+			if ( ! class_exists( 'ZipArchive' ) ) {
+				return null;
+			}
 
-		if ( $zip->open( $file_path ) !== true ) {
-			return null;
+			$zip = new \ZipArchive();
+
+			if ( $zip->open( $file_path ) !== true ) {
+				return null;
+			}
+
+			// Use safe extraction to prevent Zip Slip attacks.
+			$extracted = $this->safe_extract_zip( $zip, $temp_dir );
+			$zip->close();
+		} else {
+			// .swish archive: SwishExtractor::extract_all() rejects unsafe entry paths itself.
+			$extractor = new \SwishMigrateAndBackup\Archive\SwishExtractor( $file_path );
+			$extracted = false;
+
+			if ( $extractor->open() ) {
+				// This runs in a background job: disable time slicing with a very long timeout.
+				$result = $extractor->extract_all( $temp_dir, 0, 0, DAY_IN_SECONDS );
+				$extractor->close();
+				$extracted = ! empty( $result['completed'] );
+			}
 		}
-
-		// Use safe extraction to prevent Zip Slip attacks.
-		$extracted = $this->safe_extract_zip( $zip, $temp_dir );
-		$zip->close();
 
 		if ( ! $extracted ) {
 			$this->cleanup_temp_directory( $temp_dir );
@@ -2798,10 +2881,12 @@ final class MultisiteMigration {
 			return $backups;
 		}
 
-		$files = glob( $this->backup_dir . '/*.zip' );
+		$swish_files = glob( $this->backup_dir . '/*.swish' );
+		$zip_files   = glob( $this->backup_dir . '/*.zip' );
+		$files       = array_merge( $swish_files ? $swish_files : array(), $zip_files ? $zip_files : array() );
 
 		foreach ( $files as $file ) {
-			$manifest = $this->read_manifest_from_zip( $file );
+			$manifest = $this->read_manifest_from_archive( $file );
 
 			if ( $manifest ) {
 				$backup_type = $manifest['backup_type'] ?? 'full';

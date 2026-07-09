@@ -327,6 +327,9 @@ final class Plugin {
 	 * @return void
 	 */
 	private function init_hooks(): void {
+		// Upgrade database schema after plugin updates (activation hook does not fire on update).
+		add_action( 'init', array( Activator::class, 'maybe_upgrade_database' ) );
+
 		// Admin hooks.
 		if ( is_admin() ) {
 			add_action( 'admin_menu', array( $this->container->get( AdminMenu::class ), 'register' ) );

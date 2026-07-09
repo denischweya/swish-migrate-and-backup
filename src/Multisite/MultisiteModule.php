@@ -386,10 +386,10 @@ final class MultisiteModule {
 		// Add as submenu under the free plugin's menu.
 		add_submenu_page(
 			'swish-backup', // Parent slug (free plugin's menu).
-			__( 'Pro Migration', 'swish-migrate-and-backup' ),
-			__( 'Pro Migration', 'swish-migrate-and-backup' ),
+			__( 'Multisite Import', 'swish-migrate-and-backup' ),
+			__( 'Multisite Import', 'swish-migrate-and-backup' ),
 			'manage_options',
-			'swish-backup-pro-migration',
+			'swish-backup-pro-migration', // Slug kept for back-compat with saved links.
 			array( $this, 'render_migration_page' )
 		);
 	}
@@ -1259,7 +1259,9 @@ final class MultisiteModule {
 			if ( ! is_dir( $imports_dir ) ) {
 				wp_mkdir_p( $imports_dir );
 			}
-			$temp_file = $imports_dir . '/import-' . wp_generate_uuid4() . '.zip';
+			$upload_ext = strtolower( pathinfo( sanitize_file_name( wp_unslash( $_FILES['backup_file']['name'] ?? '' ) ), PATHINFO_EXTENSION ) );
+			$upload_ext = in_array( $upload_ext, array( 'swish', 'zip' ), true ) ? $upload_ext : 'zip';
+			$temp_file  = $imports_dir . '/import-' . wp_generate_uuid4() . '.' . $upload_ext;
 
 			if ( ! move_uploaded_file( $_FILES['backup_file']['tmp_name'], $temp_file ) ) {
 				wp_send_json_error(

@@ -4,7 +4,7 @@ Tags: backup, migration, restore, database, multisite
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.2.0
+Stable tag: 1.2.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -117,6 +117,19 @@ Yes. On multisite installations, go to Network Admin → Swish Backup to create 
 5. Schedules - Set up automatic scheduled backups
 
 == Changelog ==
+
+= 1.2.1 =
+* Fixed: full backups produced no archive - the streaming engine deleted its own output when finalizing (.swish path collision)
+* The streaming backup engine now writes the genuine .swish format directly (no tar/gzip intermediate)
+* Fixed: backups could be marked failed after completing, or corrupted, when cron and status polling processed the same job concurrently - jobs are now serialized with a per-job database lock
+* Fixed: database schema upgrades now run automatically after plugin updates (steps_log column was missing on updated installs, breaking progress logging)
+* Fixed: files were archived twice when core files were included (duplicate scan overlap), inflating archives by up to 40%
+* Fixed: fatal TypeError when the legacy synchronous backup path archived compressed files
+* Multisite network backups now produce .swish archives; multisite import accepts both .swish and legacy .zip backups
+* Fixed: multisite archive entry paths were corrupted on servers with non-canonical content paths
+* Unified .swish header timestamps to decimal across all writers/readers (restored files keep correct modification times)
+* Sync backup paths (WP-CLI --legacy, pre-migration backups) now use the same streaming .swish engine as the dashboard
+* Removed the leftover PRO badge and renamed the single-site "Pro Migration" page to "Multisite Import"
 
 = 1.2.0 =
 * All Pro features are now built into the free plugin - no separate Pro add-on needed

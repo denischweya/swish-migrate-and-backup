@@ -1606,6 +1606,18 @@ final class FileBackup {
 		}
 
 		$files = $this->get_file_list( $directories );
+
+		// The ABSPATH scan (core files enabled) overlaps the plugin/theme/upload
+		// directory scans - dedupe so files are not archived twice.
+		$unique = array();
+		foreach ( $files as $file ) {
+			$key = $file['path'] ?? '';
+			if ( ! isset( $unique[ $key ] ) ) {
+				$unique[ $key ] = $file;
+			}
+		}
+		$files = array_values( $unique );
+
 		$total_size = array_sum( array_column( $files, 'size' ) );
 
 		return array(

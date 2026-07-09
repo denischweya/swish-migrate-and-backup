@@ -809,7 +809,7 @@ final class NetworkBackup {
 		$timestamp = gmdate( 'Y-m-d-His' );
 		$site_url  = parse_url( get_site_url(), PHP_URL_HOST );
 
-		return sanitize_file_name( $site_url . '-multisite-' . $mode . '-' . $timestamp . '.zip' );
+		return sanitize_file_name( $site_url . '-multisite-' . $mode . '-' . $timestamp . '.swish' );
 	}
 
 	/**
@@ -823,7 +823,7 @@ final class NetworkBackup {
 		$timestamp = gmdate( 'Y-m-d-His' );
 		$safe_name = sanitize_file_name( $site_name );
 
-		return $safe_name . '-site-' . $site_id . '-' . $timestamp . '.zip';
+		return $safe_name . '-site-' . $site_id . '-' . $timestamp . '.swish';
 	}
 
 	/**
@@ -965,37 +965,48 @@ final class NetworkBackup {
 	}
 
 	/**
-	 * Create ZIP archive.
+	 * Create .swish archive.
 	 *
 	 * @param string $source_dir Source directory.
-	 * @param string $output_file Output ZIP file.
+	 * @param string $output_file Output .swish file.
 	 * @return bool True on success.
 	 */
 	private function create_archive( string $source_dir, string $output_file ): bool {
-		if ( ! class_exists( 'ZipArchive' ) ) {
-			throw new \Exception( 'ZipArchive class not available.' );
+		// Normalize: file paths come from getRealPath(), so the base must be
+		// the resolved path too (WP_CONTENT_DIR may contain './' segments).
+		$source_real = realpath( $source_dir );
+		if ( false === $source_real ) {
+			throw new \Exception( 'Archive source directory not found.' );
 		}
 
-		$zip = new \ZipArchive();
+		$archiver = new \SwishMigrateAndBackup\Backup\SwishArchiver( $output_file );
 
-		if ( $zip->open( $output_file, \ZipArchive::CREATE | \ZipArchive::OVERWRITE ) !== true ) {
-			throw new \Exception( 'Could not create ZIP archive.' );
+		if ( ! $archiver->open_for_write() ) {
+			throw new \Exception( 'Could not create .swish archive.' );
 		}
 
 		$files = new \RecursiveIteratorIterator(
-			new \RecursiveDirectoryIterator( $source_dir, \FilesystemIterator::SKIP_DOTS ),
+			new \RecursiveDirectoryIterator( $source_real, \FilesystemIterator::SKIP_DOTS ),
 			\RecursiveIteratorIterator::LEAVES_ONLY
 		);
 
 		foreach ( $files as $file ) {
 			if ( ! $file->isDir() ) {
 				$file_path     = $file->getRealPath();
-				$relative_path = substr( $file_path, strlen( $source_dir ) + 1 );
-				$zip->addFile( $file_path, $relative_path );
+				$relative_path = substr( $file_path, strlen( $source_real ) + 1 );
+				$relative_path = str_replace( '\\', '/', $relative_path );
+
+				$bytes_written = 0;
+				// Timeout 0 disables time slicing: this runs in a background cron job.
+				if ( ! $archiver->add_file( $file_path, $relative_path, 0, $bytes_written, 0 ) ) {
+					$archiver->close();
+					throw new \Exception( 'Failed to add file to .swish archive: ' . $relative_path );
+				}
 			}
 		}
 
-		$zip->close();
+		// Finalize writes the EOF marker so the archive validates as complete.
+		$archiver->close( true );
 
 		return file_exists( $output_file );
 	}

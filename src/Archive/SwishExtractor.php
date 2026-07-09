@@ -285,7 +285,15 @@ class SwishExtractor extends SwishArchiver {
 				);
 			}
 
-			$dest_path = $destination_dir . '/' . $header['path'];
+			// Reject unsafe entry paths (absolute or traversal) before any filesystem write.
+			$entry_path = str_replace( '\\', '/', $header['path'] );
+			if ( str_starts_with( $entry_path, '/' ) || preg_match( '#(^|/)\.\.(/|$)#', $entry_path ) ) {
+				$this->skip_file( $header );
+				$file_offset = 0;
+				continue;
+			}
+
+			$dest_path = $destination_dir . '/' . $entry_path;
 
 			$bytes = 0;
 			$completed = $this->extract_file(

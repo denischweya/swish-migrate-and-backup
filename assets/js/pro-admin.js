@@ -360,24 +360,11 @@
             SwishPagination.init();
         }
 
-        // Add Pro badge to admin menu (for non-app pages too).
-        addProBadge();
-
         // Log version.
         if ( typeof swishBackupPro !== 'undefined' ) {
-            console.log( 'Swish Backup Pro v' + swishBackupPro.version + ' loaded.' );
+            console.log( 'Swish Backup v' + swishBackupPro.version + ' loaded.' );
         }
     } );
-
-    /**
-     * Add Pro badge to admin menu.
-     */
-    function addProBadge() {
-        const $menuItem = $( '#toplevel_page_swish-backup .wp-menu-name' );
-        if ( $menuItem.length && ! $menuItem.find( '.swish-pro-badge' ).length ) {
-            $menuItem.append( ' <span class="swish-pro-badge">PRO</span>' );
-        }
-    }
 
     // Expose controllers for external use.
     window.SwishBackupPro = {

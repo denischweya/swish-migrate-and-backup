@@ -104,7 +104,7 @@ final class AdminLayout {
             <div class="swish-top-nav-brand">
                 <span class="material-symbols-outlined" style="color: var(--swish-primary-600);">security</span>
                 <h1><?php esc_html_e( 'Swish Backup', 'swish-migrate-and-backup' ); ?></h1>
-                <span class="swish-pro-tag">PRO</span>
+                <span class="swish-pro-tag"><?php esc_html_e( 'Multisite', 'swish-migrate-and-backup' ); ?></span>
             </div>
 
             <nav class="swish-top-nav-menu">

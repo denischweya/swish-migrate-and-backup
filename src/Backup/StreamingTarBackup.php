@@ -1,17 +1,21 @@
 <?php
 /**
- * Streaming Tar Backup - True streaming backup with 10-second chunks.
+ * Streaming Swish Backup - True streaming backup with 10-second chunks.
  *
- * This class creates tar.gz archives by streaming files directly to disk,
+ * This class creates .swish archives by streaming files directly to disk,
  * never loading more than 1MB at a time. Designed for large sites with
  * 50,000+ files without exhausting server resources.
  *
+ * Archive format (matches Archive\SwishArchiver / SwishExtractor):
+ * - Header block per file (4377 bytes): name (255) | size (14, decimal) | mtime (12, decimal) | prefix (4096)
+ * - Raw file content follows header (no padding)
+ * - EOF marker: 4377 null bytes
+ *
  * Key features:
- * - Pure PHP tar creation (no system commands)
+ * - Pure PHP archive creation (no system commands)
  * - 10-second time slices with state persistence
  * - Maximum 1MB memory per file chunk
  * - Resumable from exact file + byte offset
- * - Final gzip compression after tar is complete
  *
  * @package SwishMigrateAndBackup\Backup
  */
@@ -28,7 +32,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 use SwishMigrateAndBackup\Logger\Logger;
 
 /**
- * Streaming tar backup with chunked processing.
+ * Streaming .swish backup with chunked processing.
  */
 final class StreamingTarBackup {
 
@@ -41,6 +45,19 @@ final class StreamingTarBackup {
 	 * Maximum bytes to read per file chunk (1MB).
 	 */
 	private const CHUNK_SIZE = 1048576;
+
+	/**
+	 * Swish header block size: name (255) + size (14) + mtime (12) + prefix (4096).
+	 */
+	private const HEADER_SIZE = 4377;
+
+	/**
+	 * Swish header field sizes.
+	 */
+	private const NAME_SIZE   = 255;
+	private const SIZE_FIELD  = 14;
+	private const MTIME_SIZE  = 12;
+	private const PREFIX_SIZE = 4096;
 
 	/**
 	 * Result: backup completed successfully.
@@ -79,14 +96,7 @@ final class StreamingTarBackup {
 	private string $job_id = '';
 
 	/**
-	 * Output tar file path (uncompressed during creation).
-	 *
-	 * @var string
-	 */
-	private string $tar_path = '';
-
-	/**
-	 * Output tar.gz file path (final compressed).
+	 * Output .swish archive path.
 	 *
 	 * @var string
 	 */
@@ -173,7 +183,7 @@ final class StreamingTarBackup {
 	 *
 	 * @param string        $job_id            Job ID for state persistence.
 	 * @param array         $files             Array of file data ['path' => ..., 'relative' => ...].
-	 * @param string        $output_path       Output archive path (.tar.gz).
+	 * @param string        $output_path       Output archive path (.swish).
 	 * @param callable|null $progress_callback Progress callback (progress, message, processed, total).
 	 * @return array{result: string, progress: float, processed: int, total: int, error?: string, path?: string}
 	 */
@@ -185,7 +195,6 @@ final class StreamingTarBackup {
 	): array {
 		$this->job_id            = $job_id;
 		$this->output_path       = $output_path;
-		$this->tar_path          = preg_replace( '/\.gz$/', '', $output_path );
 		$this->progress_callback = $progress_callback;
 		$this->total_files       = count( $files );
 		$this->start_time        = microtime( true );
@@ -202,9 +211,9 @@ final class StreamingTarBackup {
 			'time_slice'   => self::TIME_SLICE,
 		) );
 
-		// Open tar file for append.
+		// Open archive file for append.
 		if ( ! $this->open_archive() ) {
-			return $this->error_result( 'Failed to open archive: ' . $this->tar_path );
+			return $this->error_result( 'Failed to open archive: ' . $this->output_path );
 		}
 
 		// Process files until time slice expires or all done.
@@ -290,14 +299,13 @@ final class StreamingTarBackup {
 
 		$file_size = filesize( $path );
 
-		// Write tar header for new files (byte_offset = 0).
+		// Write swish header for new files (byte_offset = 0).
 		if ( 0 === $this->byte_offset ) {
-			$this->write_tar_header( $relative, $file_size, filemtime( $path ) ?: time() );
+			$this->write_swish_header( $relative, $file_size, filemtime( $path ) ?: time() );
 		}
 
 		// Handle empty files (0 bytes) - header already written, no content needed.
 		if ( 0 === $file_size ) {
-			// No content or padding needed for empty files (0 % 512 = 0).
 			$this->byte_offset = 0;
 			return true;
 		}
@@ -338,13 +346,7 @@ final class StreamingTarBackup {
 
 		// Check if file is complete.
 		if ( $this->byte_offset >= $file_size ) {
-			// Pad to 512-byte boundary.
-			$padding = ( 512 - ( $file_size % 512 ) ) % 512;
-			if ( $padding > 0 ) {
-				fwrite( $this->archive_handle, str_repeat( "\0", $padding ) );
-			}
-
-			// Reset offset for next file.
+			// Reset offset for next file (swish content is stored raw, no padding).
 			$this->byte_offset = 0;
 		}
 
@@ -352,112 +354,32 @@ final class StreamingTarBackup {
 	}
 
 	/**
-	 * Write a tar header.
+	 * Write a swish header block (4377 bytes).
 	 *
-	 * @param string $name  File name in archive.
-	 * @param int    $size  File size in bytes.
-	 * @param int    $mtime Modification timestamp.
+	 * Field layout must match Archive\SwishArchiver::parse_header():
+	 * name (255, null-padded basename) | size (14, zero-padded decimal) |
+	 * mtime (12, zero-padded decimal) | prefix (4096, null-padded directory).
+	 *
+	 * @param string $relative Relative path of file in archive.
+	 * @param int    $size     File size in bytes.
+	 * @param int    $mtime    Modification timestamp.
 	 * @return void
 	 */
-	private function write_tar_header( string $name, int $size, int $mtime ): void {
-		// Handle long filenames (>100 chars) with extended header.
-		if ( strlen( $name ) > 100 ) {
-			$this->write_long_name_header( $name );
+	private function write_swish_header( string $relative, int $size, int $mtime ): void {
+		$relative = str_replace( '\\', '/', $relative );
+		$name     = basename( $relative );
+		$prefix   = dirname( $relative );
+
+		if ( '.' === $prefix ) {
+			$prefix = '';
 		}
 
-		// Build 512-byte header.
-		$header = str_repeat( "\0", 512 );
-
-		// File name (100 bytes) - truncate if needed.
-		$name_bytes = substr( $name, 0, 100 );
-		$header = substr_replace( $header, $name_bytes, 0, strlen( $name_bytes ) );
-
-		// File mode (8 bytes) - 0644.
-		$header = substr_replace( $header, sprintf( '%07o', 0644 ), 100, 7 );
-
-		// UID (8 bytes) - 0.
-		$header = substr_replace( $header, sprintf( '%07o', 0 ), 108, 7 );
-
-		// GID (8 bytes) - 0.
-		$header = substr_replace( $header, sprintf( '%07o', 0 ), 116, 7 );
-
-		// File size (12 bytes).
-		$header = substr_replace( $header, sprintf( '%011o', $size ), 124, 11 );
-
-		// Modification time (12 bytes).
-		$header = substr_replace( $header, sprintf( '%011o', $mtime ), 136, 11 );
-
-		// Checksum placeholder (8 spaces).
-		$header = substr_replace( $header, '        ', 148, 8 );
-
-		// Type flag - '0' for regular file.
-		$header[156] = '0';
-
-		// USTAR magic.
-		$header = substr_replace( $header, 'ustar', 257, 5 );
-		$header[262] = "\0";
-		$header = substr_replace( $header, '00', 263, 2 );
-
-		// Calculate and set checksum.
-		$checksum = 0;
-		for ( $i = 0; $i < 512; $i++ ) {
-			$checksum += ord( $header[ $i ] );
-		}
-		$header = substr_replace( $header, sprintf( '%06o', $checksum ) . "\0 ", 148, 8 );
+		$header  = pack( 'a' . self::NAME_SIZE, $name );
+		$header .= sprintf( '%0' . self::SIZE_FIELD . 'd', $size );
+		$header .= sprintf( '%0' . self::MTIME_SIZE . 'd', $mtime );
+		$header .= pack( 'a' . self::PREFIX_SIZE, $prefix );
 
 		fwrite( $this->archive_handle, $header );
-	}
-
-	/**
-	 * Write extended header for long filenames.
-	 *
-	 * @param string $name Full filename.
-	 * @return void
-	 */
-	private function write_long_name_header( string $name ): void {
-		$name_data = $name . "\0";
-		$name_size = strlen( $name_data );
-
-		// Build PAX extended header.
-		$header = str_repeat( "\0", 512 );
-
-		// Special name for extended header.
-		$header = substr_replace( $header, '././@LongLink', 0, 13 );
-
-		// File mode.
-		$header = substr_replace( $header, sprintf( '%07o', 0 ), 100, 7 );
-
-		// UID/GID.
-		$header = substr_replace( $header, sprintf( '%07o', 0 ), 108, 7 );
-		$header = substr_replace( $header, sprintf( '%07o', 0 ), 116, 7 );
-
-		// Size of name data.
-		$header = substr_replace( $header, sprintf( '%011o', $name_size ), 124, 11 );
-
-		// Mtime.
-		$header = substr_replace( $header, sprintf( '%011o', 0 ), 136, 11 );
-
-		// Checksum placeholder.
-		$header = substr_replace( $header, '        ', 148, 8 );
-
-		// Type 'L' for long name.
-		$header[156] = 'L';
-
-		// Calculate checksum.
-		$checksum = 0;
-		for ( $i = 0; $i < 512; $i++ ) {
-			$checksum += ord( $header[ $i ] );
-		}
-		$header = substr_replace( $header, sprintf( '%06o', $checksum ) . "\0 ", 148, 8 );
-
-		fwrite( $this->archive_handle, $header );
-
-		// Write name data padded to 512 bytes.
-		fwrite( $this->archive_handle, $name_data );
-		$padding = ( 512 - ( $name_size % 512 ) ) % 512;
-		if ( $padding > 0 ) {
-			fwrite( $this->archive_handle, str_repeat( "\0", $padding ) );
-		}
 	}
 
 	/**
@@ -467,7 +389,7 @@ final class StreamingTarBackup {
 	 */
 	private function open_archive(): bool {
 		// Ensure output directory exists.
-		$dir = dirname( $this->tar_path );
+		$dir = dirname( $this->output_path );
 		if ( ! is_dir( $dir ) ) {
 			wp_mkdir_p( $dir );
 		}
@@ -475,7 +397,7 @@ final class StreamingTarBackup {
 		// Append if file exists and we're resuming, otherwise create new.
 		$mode = ( $this->file_index > 0 || $this->byte_offset > 0 ) ? 'ab' : 'wb';
 
-		$this->archive_handle = fopen( $this->tar_path, $mode );
+		$this->archive_handle = fopen( $this->output_path, $mode );
 
 		return false !== $this->archive_handle;
 	}
@@ -483,7 +405,7 @@ final class StreamingTarBackup {
 	/**
 	 * Close archive file.
 	 *
-	 * @param bool $finalize Whether to finalize (add EOF markers).
+	 * @param bool $finalize Whether to finalize (add EOF marker).
 	 * @return void
 	 */
 	private function close_archive( bool $finalize ): void {
@@ -492,8 +414,8 @@ final class StreamingTarBackup {
 		}
 
 		if ( $finalize ) {
-			// Write two 512-byte null blocks for tar EOF.
-			fwrite( $this->archive_handle, str_repeat( "\0", 1024 ) );
+			// Write null header block as swish EOF marker.
+			fwrite( $this->archive_handle, str_repeat( "\0", self::HEADER_SIZE ) );
 		}
 
 		fclose( $this->archive_handle );
@@ -501,72 +423,17 @@ final class StreamingTarBackup {
 	}
 
 	/**
-	 * Finalize archive (add EOF and compress).
+	 * Finalize archive (write EOF marker).
 	 *
 	 * @return void
 	 */
 	private function finalize_archive(): void {
 		$this->close_archive( true );
 
-		// Compress the tar file to tar.gz.
-		$this->compress_archive();
-	}
-
-	/**
-	 * Compress tar to tar.gz using streaming.
-	 *
-	 * @return bool True on success.
-	 */
-	private function compress_archive(): bool {
-		if ( ! file_exists( $this->tar_path ) ) {
-			return false;
-		}
-
-		$tar_size = filesize( $this->tar_path );
-
-		$this->logger->info( 'Compressing archive', array(
-			'tar_path' => $this->tar_path,
-			'tar_size' => $tar_size,
-		) );
-
-		// Stream compress to gzip.
-		$in  = fopen( $this->tar_path, 'rb' );
-		$out = gzopen( $this->output_path, 'wb6' ); // Level 6 compression.
-
-		if ( ! $in || ! $out ) {
-			if ( $in ) {
-				fclose( $in );
-			}
-			if ( $out ) {
-				gzclose( $out );
-			}
-			return false;
-		}
-
-		// Stream in 1MB chunks.
-		while ( ! feof( $in ) ) {
-			$chunk = fread( $in, self::CHUNK_SIZE );
-			if ( false !== $chunk ) {
-				gzwrite( $out, $chunk );
-			}
-		}
-
-		fclose( $in );
-		gzclose( $out );
-
-		// Remove uncompressed tar.
-		// phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink
-		@unlink( $this->tar_path );
-
-		$gz_size = filesize( $this->output_path );
-
-		$this->logger->info( 'Archive compressed', array(
+		$this->logger->info( 'Archive finalized', array(
 			'output_path' => $this->output_path,
-			'gz_size'     => $gz_size,
-			'ratio'       => $tar_size > 0 ? round( ( 1 - $gz_size / $tar_size ) * 100, 1 ) . '%' : 'N/A',
+			'size'        => file_exists( $this->output_path ) ? filesize( $this->output_path ) : 0,
 		) );
-
-		return true;
 	}
 
 	/**
@@ -579,7 +446,6 @@ final class StreamingTarBackup {
 			'file_index'      => $this->file_index,
 			'byte_offset'     => $this->byte_offset,
 			'processed_files' => $this->processed_files,
-			'tar_path'        => $this->tar_path,
 			'output_path'     => $this->output_path,
 		);
 

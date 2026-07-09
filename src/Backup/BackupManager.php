@@ -331,6 +331,40 @@ final class BackupManager {
 	}
 
 	/**
+	 * Acquire an exclusive per-job lock.
+	 *
+	 * Prevents concurrent processing of the same job: the cron continuation
+	 * and the status-poll fallback can otherwise run simultaneously, truncate
+	 * the archive (mode 'wb' on a restarted chunk) or race job status updates.
+	 * MySQL named locks auto-release when the connection closes, so a crashed
+	 * process can never leave a job permanently locked.
+	 *
+	 * @param string $job_id Job ID.
+	 * @return bool True if the lock was acquired.
+	 */
+	private function acquire_job_lock( string $job_id ): bool {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$acquired = $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 0)', 'swish_backup_job_' . $job_id ) );
+
+		return '1' === (string) $acquired;
+	}
+
+	/**
+	 * Release the per-job lock.
+	 *
+	 * @param string $job_id Job ID.
+	 * @return void
+	 */
+	private function release_job_lock( string $job_id ): void {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', 'swish_backup_job_' . $job_id ) );
+	}
+
+	/**
 	 * Delete backup checkpoint.
 	 *
 	 * Cleans up all checkpoint data including file lists.
@@ -435,51 +469,75 @@ final class BackupManager {
 		// Disable Action Scheduler to prevent server hang from missing tables.
 		$this->disable_action_scheduler();
 
-		$checkpoint = $this->get_checkpoint( $job_id );
-
-		if ( ! $checkpoint ) {
-			$this->logger->error( 'No checkpoint found for backup continuation', array( 'job_id' => $job_id ) );
-			$this->fail_job( $job_id, 'Backup checkpoint expired or not found' );
+		// Stale continuation events can fire after the job already finished
+		// (cron unschedule can fail under concurrent requests). Exit quietly.
+		$job = $this->get_job_status( $job_id );
+		if ( $job && in_array( $job['status'], array( 'completed', 'failed', 'cancelled' ), true ) ) {
+			$this->logger->debug( 'Skipping continuation for finished job', array(
+				'job_id' => $job_id,
+				'status' => $job['status'],
+			) );
 			return;
 		}
 
-		$this->logger->set_job_id( $job_id );
-		$this->logger->info( 'Resuming backup from checkpoint', array(
-			'processed' => $checkpoint['processed'] ?? 0,
-			'total'     => $checkpoint['total'] ?? 0,
-			'phase'     => $checkpoint['phase'] ?? 'unknown',
-		) );
-
-		// Increase time limit for continuation.
-		// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
-		@set_time_limit( 300 );
-
-		// Initialize timing for this continuation request.
-		ServerLimits::init_timing();
-
-		$phase = $checkpoint['phase'] ?? 'files';
-		$options = $checkpoint['options'] ?? array();
-		$temp_dir = $checkpoint['temp_dir'] ?? '';
-
-		// Configure batch sizes.
-		$this->configure_batch_sizes( $options );
+		// Serialize processing: the cron event and the status-poll fallback can
+		// both fire; only one process may advance the job at a time.
+		if ( ! $this->acquire_job_lock( $job_id ) ) {
+			$this->logger->debug( 'Job is being processed by another request, skipping continuation', array(
+				'job_id' => $job_id,
+			) );
+			return;
+		}
 
 		try {
-			if ( 'database' === $phase ) {
-				$this->continue_database_backup( $job_id, $checkpoint );
-			} elseif ( 'streaming_files' === $phase ) {
-				$this->continue_streaming_backup( $job_id, $checkpoint );
-			} elseif ( 'files' === $phase ) {
-				$this->continue_file_backup( $job_id, $checkpoint );
-			} elseif ( 'archiving' === $phase ) {
-				$this->continue_archiving( $job_id, $checkpoint );
-			} else {
-				// For other phases, just run the full backup again.
-				$this->run_full_backup( $job_id, $options );
+			$checkpoint = $this->get_checkpoint( $job_id );
+
+			if ( ! $checkpoint ) {
+				$this->logger->error( 'No checkpoint found for backup continuation', array( 'job_id' => $job_id ) );
+				$this->fail_job( $job_id, 'Backup checkpoint expired or not found' );
+				return;
 			}
-		} catch ( \Exception $e ) {
-			$this->fail_job( $job_id, $e->getMessage() );
-			$this->delete_checkpoint( $job_id );
+
+			$this->logger->set_job_id( $job_id );
+			$this->logger->info( 'Resuming backup from checkpoint', array(
+				'processed' => $checkpoint['processed'] ?? 0,
+				'total'     => $checkpoint['total'] ?? 0,
+				'phase'     => $checkpoint['phase'] ?? 'unknown',
+			) );
+
+			// Increase time limit for continuation.
+			// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+			@set_time_limit( 300 );
+
+			// Initialize timing for this continuation request.
+			ServerLimits::init_timing();
+
+			$phase = $checkpoint['phase'] ?? 'files';
+			$options = $checkpoint['options'] ?? array();
+			$temp_dir = $checkpoint['temp_dir'] ?? '';
+
+			// Configure batch sizes.
+			$this->configure_batch_sizes( $options );
+
+			try {
+				if ( 'database' === $phase ) {
+					$this->continue_database_backup( $job_id, $checkpoint );
+				} elseif ( 'streaming_files' === $phase ) {
+					$this->continue_streaming_backup( $job_id, $checkpoint );
+				} elseif ( 'files' === $phase ) {
+					$this->continue_file_backup( $job_id, $checkpoint );
+				} elseif ( 'archiving' === $phase ) {
+					$this->continue_archiving( $job_id, $checkpoint );
+				} else {
+					// For other phases, just run the full backup again.
+					$this->run_full_backup( $job_id, $options );
+				}
+			} catch ( \Exception $e ) {
+				$this->fail_job( $job_id, $e->getMessage() );
+				$this->delete_checkpoint( $job_id );
+			}
+		} finally {
+			$this->release_job_lock( $job_id );
 		}
 	}
 
@@ -658,7 +716,7 @@ final class BackupManager {
 			'tables' => $this->database_backup->get_tables(),
 		);
 
-		if ( ! $this->archiver->create_archive(
+		if ( ! $this->create_swish_archive(
 			array( array( 'path' => $db_file, 'name' => 'database.sql' ) ),
 			$backup_path,
 			$metadata
@@ -800,6 +858,13 @@ final class BackupManager {
 	 */
 	private function finalize_streaming_backup( string $job_id, string $backup_path, string $backup_filename, string $temp_dir, array $options ): void {
 		$this->update_job_status( $job_id, 'processing', 92, 'Finalizing backup...' );
+
+		// Sanity check: the archive must exist before we report success.
+		if ( ! file_exists( $backup_path ) ) {
+			$this->fail_job( $job_id, 'Backup archive is missing after finalization: ' . $backup_filename );
+			$this->cleanup_temp_directory( $temp_dir );
+			return;
+		}
 
 		$this->check_backup_size_limit( $backup_path, $job_id );
 
@@ -1028,6 +1093,14 @@ final class BackupManager {
 
 		// Backup complete!
 		$this->update_job_status( $job_id, 'processing', 92, 'Finalizing backup...' );
+
+		// Sanity check: the archive must exist before we report success.
+		if ( ! file_exists( $backup_path ) ) {
+			$this->fail_job( $job_id, 'Backup archive is missing after finalization: ' . basename( $backup_path ) );
+			$this->cleanup_temp_directory( $temp_dir );
+			$this->delete_checkpoint( $job_id );
+			return;
+		}
 
 		// Store to configured destinations.
 		$this->update_job_status( $job_id, 'processing', 95, 'Uploading to storage...' );
@@ -1301,7 +1374,7 @@ final class BackupManager {
 			'chunked'    => true,
 		);
 
-		if ( ! $this->archiver->create_archive( $files_to_archive, $backup_path, $metadata ) ) {
+		if ( ! $this->create_swish_archive( $files_to_archive, $backup_path, $metadata ) ) {
 			throw new \RuntimeException( 'Archive creation failed' );
 		}
 
@@ -1339,28 +1412,6 @@ final class BackupManager {
 		do_action( 'swish_backup_after', $job_id, $result );
 
 		$this->logger->info( 'Full backup completed (chunked)', $result );
-	}
-
-	/**
-	 * Create file backup progress callback.
-	 *
-	 * @param string $job_id Job ID.
-	 * @return callable Progress callback function.
-	 */
-	private function create_file_progress_callback( string $job_id ): callable {
-		return function ( float $progress, string $file, int $processed, int $total, int $eta_seconds = 0 ) use ( $job_id ) {
-			// Map file backup progress (0-100%) to job progress (40-80%).
-			$job_progress = 40 + ( $progress * 0.4 );
-
-			$message = sprintf(
-				'Backing up files... %d/%d (%.2f%%)',
-				$processed,
-				$total,
-				$progress
-			);
-
-			$this->update_job_status( $job_id, 'processing', $job_progress, $message );
-		};
 	}
 
 	/**
@@ -1406,6 +1457,29 @@ final class BackupManager {
 		// Disable Action Scheduler to prevent server hang from missing tables.
 		$this->disable_action_scheduler();
 
+		// Serialize processing: a duplicate cron spawn must not run the same
+		// job concurrently (it would truncate the archive being written).
+		if ( ! $this->acquire_job_lock( $job_id ) ) {
+			$this->logger->debug( 'Job is being processed by another request, skipping async start', array(
+				'job_id' => $job_id,
+			) );
+			return;
+		}
+
+		try {
+			$this->run_async_backup_locked( $job_id );
+		} finally {
+			$this->release_job_lock( $job_id );
+		}
+	}
+
+	/**
+	 * Run the async backup while holding the per-job lock.
+	 *
+	 * @param string $job_id Job ID.
+	 * @return void
+	 */
+	private function run_async_backup_locked( string $job_id ): void {
 		// Clean up any orphaned temp files from previous failed backups.
 		$cleaned = $this->cleanup_orphaned_files();
 
@@ -1433,6 +1507,17 @@ final class BackupManager {
 		$options = get_transient( 'swish_backup_job_' . $job_id );
 
 		if ( false === $options ) {
+			// A duplicate spawn after the job already started consumes no
+			// options; only fail jobs that never started processing.
+			$job = $this->get_job_status( $job_id );
+			if ( $job && 'pending' !== $job['status'] ) {
+				$this->logger->debug( 'Options transient already consumed, job in progress - skipping', array(
+					'job_id' => $job_id,
+					'status' => $job['status'],
+				) );
+				return;
+			}
+
 			$this->fail_job( $job_id, 'Backup options expired or not found' );
 			return;
 		}
@@ -1530,184 +1615,6 @@ final class BackupManager {
 		// uses 10-second time slices, and never exhausts memory.
 		return $this->run_full_backup_streaming( $job_id, $options );
 
-		try {
-			$temp_dir = $this->get_temp_directory( $job_id );
-			$files_to_archive = array();
-
-			// Backup database.
-			if ( $options['backup_database'] ?? true ) {
-				$this->update_job_status( $job_id, 'processing', 10, 'Backing up database...' );
-				$db_file = $temp_dir . '/database.sql';
-
-				if ( ! $this->database_backup->backup( $db_file ) ) {
-					throw new \RuntimeException( 'Database backup failed' );
-				}
-
-				$files_to_archive[] = array(
-					'path' => $db_file,
-					'name' => 'database.sql',
-				);
-			}
-
-			// Backup files.
-			$this->update_job_status( $job_id, 'processing', 30, 'Preparing file list...' );
-			$file_list = $this->file_backup->prepare_file_list( $options );
-
-			if ( ! empty( $file_list['files'] ) ) {
-				$file_count = count( $file_list['files'] );
-				$this->update_job_status(
-					$job_id,
-					'processing',
-					40,
-					sprintf( 'Backing up files... 0/%d (calculating...)', $file_count )
-				);
-				$files_archive = $temp_dir . '/files.zip';
-
-				$progress_callback = $this->create_file_progress_callback( $job_id );
-				$backup_result = $this->file_backup->backup( $file_list['files'], $files_archive, $progress_callback );
-
-				// Check if we hit a timeout - need to checkpoint and continue later.
-				if ( is_array( $backup_result ) && ! empty( $backup_result['timeout'] ) ) {
-					$this->logger->info( 'File backup timed out, saving checkpoint', array(
-						'processed' => $backup_result['processed'],
-						'total'     => $backup_result['total'],
-						'remaining' => count( $backup_result['remaining_files'] ),
-					) );
-
-					// Save checkpoint for resumption.
-					$checkpoint = array(
-						'phase'            => 'files',
-						'processed'        => $backup_result['processed'],
-						'total'            => $backup_result['total'],
-						'output_path'      => $files_archive,
-						'remaining_files'  => $backup_result['remaining_files'],
-						'options'          => $options,
-						'temp_dir'         => $temp_dir,
-						'files_to_archive' => $files_to_archive,
-					);
-
-					$this->save_checkpoint( $job_id, $checkpoint );
-					$this->schedule_continuation( $job_id );
-
-					// Return - backup will continue via cron.
-					return array(
-						'job_id'  => $job_id,
-						'status'  => 'processing',
-						'message' => 'Backup in progress (chunked processing)...',
-						'chunked' => true,
-					);
-				}
-
-				// Handle different return types from file backup.
-				if ( true === $backup_result ) {
-					// Single file backup (no batching).
-					$files_to_archive[] = array(
-						'path' => $files_archive,
-						'name' => 'files.zip',
-					);
-				} elseif ( is_array( $backup_result ) && ! empty( $backup_result['success'] ) ) {
-					// Check if it's a swish backup.
-					if ( ! empty( $backup_result['format'] ) && in_array( $backup_result['format'], array( 'tar.gz', 'swish' ), true ) ) {
-						// Tar.gz backup - add the single tar.gz file.
-						$tar_path = $backup_result['path'];
-						if ( file_exists( $tar_path ) ) {
-							$files_to_archive[] = array(
-								'path' => $tar_path,
-								'name' => basename( $tar_path ),
-							);
-							$this->logger->info( 'Added swish archive to backup', array(
-								'path' => $tar_path,
-								'size' => ServerLimits::format_bytes( $backup_result['size'] ?? filesize( $tar_path ) ),
-							) );
-						}
-					} elseif ( ! empty( $backup_result['parts'] ) ) {
-						// Multiple batch parts (ZIP) - add each part to archive.
-						$part_num = 1;
-						foreach ( $backup_result['parts'] as $part_path ) {
-							if ( file_exists( $part_path ) ) {
-								$files_to_archive[] = array(
-									'path' => $part_path,
-									'name' => 'files-' . sprintf( '%03d', $part_num ) . '.zip',
-								);
-								++$part_num;
-							}
-						}
-						$this->logger->info( 'Added batch file parts to archive', array( 'parts' => $part_num - 1 ) );
-					}
-				} else {
-					throw new \RuntimeException( 'File backup failed' );
-				}
-			}
-
-			// Backup wp-config and special files.
-			$special_files = $this->file_backup->backup_wp_config( $temp_dir );
-			foreach ( $special_files as $file ) {
-				$files_to_archive[] = array(
-					'path' => $file,
-					'name' => basename( $file ),
-				);
-			}
-
-			// Create final archive.
-			$this->update_job_status( $job_id, 'processing', 80, 'Creating archive...' );
-			$backup_filename = $this->generate_backup_filename();
-			$backup_path = $this->get_backup_directory() . '/' . $backup_filename;
-
-			$metadata = array(
-				'job_id'      => $job_id,
-				'type'        => 'full',
-				'options'     => $options,
-				'file_count'  => $file_list['count'] ?? 0,
-				'total_size'  => $file_list['total_size'] ?? 0,
-			);
-
-			if ( ! $this->archiver->create_archive( $files_to_archive, $backup_path, $metadata ) ) {
-				throw new \RuntimeException( 'Archive creation failed' );
-			}
-
-			// Check backup size limit.
-			$this->check_backup_size_limit( $backup_path, $job_id );
-
-			// Upload to storage destinations.
-			$this->update_job_status( $job_id, 'processing', 90, 'Uploading to storage...' );
-			$destinations = $options['storage_destinations'] ?? array( 'local' );
-			$upload_results = $this->storage_manager->upload_to_destinations(
-				$backup_path,
-				$backup_filename,
-				$destinations
-			);
-
-			// Calculate checksum.
-			$checksum = $this->archiver->calculate_checksum( $backup_path );
-
-			// Clean up temp files.
-			$this->cleanup_temp_directory( $temp_dir );
-
-			// Update job as completed.
-			$result = array(
-				'job_id'      => $job_id,
-				'filename'    => $backup_filename,
-				'path'        => $backup_path,
-				'size'        => filesize( $backup_path ),
-				'checksum'    => $checksum,
-				'destinations' => $upload_results,
-				'manifest'    => $metadata,
-			);
-
-			$this->complete_job( $job_id, $result );
-
-			do_action( 'swish_backup_after', $job_id, $result );
-
-			return $result;
-		} catch ( \Exception $e ) {
-			$this->fail_job( $job_id, $e->getMessage() );
-
-			if ( isset( $temp_dir ) ) {
-				$this->cleanup_temp_directory( $temp_dir );
-			}
-
-			return array( 'error' => $e->getMessage() );
-		}
 	}
 
 	/**
@@ -1962,6 +1869,11 @@ final class BackupManager {
 			// Backup complete!
 			$this->update_job_status( $job_id, 'processing', 92, 'Finalizing backup...' );
 
+			// Sanity check: the archive must exist before we report success.
+			if ( ! file_exists( $backup_path ) ) {
+				throw new \RuntimeException( 'Backup archive is missing after finalization: ' . $backup_filename );
+			}
+
 			// Store to configured destinations.
 			$this->update_job_status( $job_id, 'processing', 95, 'Uploading to storage...' );
 			$destinations = $options['storage_destinations'] ?? array( 'local' );
@@ -2006,247 +1918,6 @@ final class BackupManager {
 		}
 	}
 
-	/**
-	 * Run full backup using optimized tar.gz format.
-	 *
-	 * This method creates the final backup directly as a tar.gz without
-	 * wrapping in a zip. Much faster for large backups.
-	 *
-	 * Optimized flow for large sites:
-	 * 1. Backup database to temp dir
-	 * 2. Scan files directly to temp file (not memory)
-	 * 3. Add wp-config and special files to temp dir
-	 * 4. Create manifest in temp dir
-	 * 5. Use tar with --files-from to archive without staging
-	 *
-	 * @param string $job_id  Job ID.
-	 * @param array  $options Backup options.
-	 * @return array Backup result.
-	 */
-	private function run_full_backup_tar( string $job_id, array $options ): array {
-		$this->logger->info( 'Starting optimized swish backup', array( 'job_id' => $job_id ) );
-
-		try {
-			$temp_dir = $this->get_temp_directory( $job_id );
-
-			// Step 1: Backup database directly to temp dir.
-			if ( $options['backup_database'] ?? true ) {
-				$this->update_job_status( $job_id, 'processing', 5, 'Backing up database...' );
-				$db_file = $temp_dir . '/database.sql';
-
-				if ( ! $this->database_backup->backup( $db_file ) ) {
-					throw new \RuntimeException( 'Database backup failed' );
-				}
-
-				$this->logger->info( 'Database backup completed', array(
-					'size' => ServerLimits::format_bytes( filesize( $db_file ) ),
-				) );
-			}
-
-			// Step 2: Scan files - use streaming approach for large sites.
-			$this->update_job_status( $job_id, 'processing', 10, 'Scanning files...' );
-
-			// Get directories to scan.
-			$directories = $this->file_backup->get_backup_directories( $options );
-
-			// For large sites, write file list directly to disk to avoid memory issues.
-			// Use generator-based scanning that writes to temp file.
-			$file_list_path = $temp_dir . '/file_list.txt';
-			$scan_result = $this->scan_files_to_disk( $directories, $file_list_path, $options, $job_id );
-
-			if ( ! $scan_result['success'] ) {
-				throw new \RuntimeException( 'File scanning failed: ' . ( $scan_result['error'] ?? 'Unknown error' ) );
-			}
-
-			$total_files = $scan_result['count'];
-			$this->logger->info( 'File scanning completed', array( 'count' => $total_files ) );
-
-			// Step 3: Add wp-config and special files to temp dir.
-			$this->update_job_status( $job_id, 'processing', 12, 'Adding configuration files...' );
-			$this->file_backup->backup_wp_config( $temp_dir );
-
-			// Step 4: Create manifest in temp dir.
-			$this->update_job_status( $job_id, 'processing', 14, 'Creating manifest...' );
-			$metadata = $this->create_backup_manifest( $job_id, 'full', $options, array(
-				'count'      => $total_files,
-				'total_size' => $scan_result['total_size'] ?? 0,
-			) );
-			$manifest_path = $temp_dir . '/manifest.json';
-			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
-			file_put_contents( $manifest_path, wp_json_encode( $metadata, JSON_PRETTY_PRINT ) );
-
-			// Step 5: Create archive using custom .swish format (resumable).
-			$this->update_job_status( $job_id, 'processing', 15, 'Creating archive...' );
-
-			$backup_filename = $this->generate_backup_filename_tar();
-			$backup_path = $this->get_backup_directory() . '/' . $backup_filename;
-
-			// Use SwishArchiver for true incremental archive creation.
-			$swish_archiver = new SwishArchiver( $backup_path );
-
-			// Use fixed 10-second time slices like Duplicator Pro.
-			// This is more reliable than trying to calculate from max_execution_time.
-			$timeout = 10;
-
-			$this->logger->info( 'Creating .swish archive', array(
-				'timeout'     => $timeout,
-				'total_files' => $total_files,
-			) );
-
-			// First, add manifest and config files to archive.
-			if ( ! $swish_archiver->open_for_write() ) {
-				throw new \RuntimeException( 'Failed to create archive file' );
-			}
-
-			// Add manifest.
-			$swish_archiver->add_file_direct( $manifest_path, 'manifest.json' );
-
-			// Add database if present.
-			$db_file = $temp_dir . '/database.sql';
-			if ( file_exists( $db_file ) ) {
-				$swish_archiver->add_file_direct( $db_file, 'database.sql' );
-			}
-
-			// Add wp-config backup if present.
-			$config_file = $temp_dir . '/wp-config.php';
-			if ( file_exists( $config_file ) ) {
-				$swish_archiver->add_file_direct( $config_file, 'wp-config.php' );
-			}
-
-			$swish_archiver->close( false ); // Don't finalize yet.
-
-			// Progress callback for archive creation.
-			$archive_progress = function ( int $processed, int $total, string $current_file ) use ( $job_id ) {
-				$percent = $total > 0 ? ( $processed / $total ) * 100 : 0;
-				// Map 0-100 to 15-90.
-				$job_progress = 15 + ( $percent * 0.75 );
-				$this->update_job_status(
-					$job_id,
-					'processing',
-					$job_progress,
-					sprintf( 'Archiving files... %d/%d (%d%%)', $processed, $total, $percent )
-				);
-			};
-
-			// Create archive incrementally from file list.
-			$result = $swish_archiver->create_from_file_list(
-				$file_list_path,
-				ABSPATH,
-				0,  // filemap_offset
-				0,  // file_offset
-				$swish_archiver->get_size(), // archive_offset (after manifest/db)
-				$archive_progress,
-				$timeout
-			);
-
-			// If not completed, schedule continuation.
-			if ( ! $result['completed'] ) {
-				$this->logger->info( 'Archive creation needs continuation', array(
-					'processed'      => $result['processed'],
-					'total'          => $result['total'],
-					'filemap_offset' => $result['filemap_offset'],
-					'file_offset'    => $result['file_offset'],
-					'archive_offset' => $result['archive_offset'],
-				) );
-
-				// Save state for continuation with all offsets.
-				$checkpoint = array(
-					'phase'           => 'archiving',
-					'backup_path'     => $backup_path,
-					'file_list_path'  => $file_list_path,
-					'temp_dir'        => $temp_dir,
-					'filemap_offset'  => $result['filemap_offset'],
-					'file_offset'     => $result['file_offset'],
-					'archive_offset'  => $result['archive_offset'],
-					'processed'       => $result['processed'],
-					'total'           => $result['total'],
-					'options'         => $options,
-					'metadata'        => $metadata,
-					'backup_filename' => $backup_filename,
-				);
-				$this->save_checkpoint( $job_id, $checkpoint );
-				$this->schedule_continuation( $job_id );
-
-				return array(
-					'status'  => 'continuing',
-					'job_id'  => $job_id,
-					'message' => 'Archive creation in progress...',
-				);
-			}
-
-			if ( isset( $result['error'] ) ) {
-				throw new \RuntimeException( 'Archive creation failed: ' . $result['error'] );
-			}
-
-			$this->logger->info( 'Archive creation completed', array(
-				'processed' => $result['processed'],
-				'total'     => $result['total'],
-			) );
-
-			// Verify archive file exists before proceeding.
-			if ( ! file_exists( $backup_path ) ) {
-				throw new \RuntimeException( 'Archive file not created: ' . $backup_path );
-			}
-
-			// Check backup size limit.
-			$this->check_backup_size_limit( $backup_path, $job_id );
-
-			// Verify archive is valid (has EOF marker).
-			if ( ! $swish_archiver->is_valid() ) {
-				$this->logger->warning( 'Archive may be incomplete (no EOF marker)', array(
-					'path' => $backup_path,
-					'size' => filesize( $backup_path ),
-				) );
-			}
-
-			// Step 6: Upload to storage.
-			$this->update_job_status( $job_id, 'processing', 92, 'Uploading to storage...' );
-			$destinations = $options['storage_destinations'] ?? array( 'local' );
-			$upload_results = $this->storage_manager->upload_to_destinations(
-				$backup_path,
-				$backup_filename,
-				$destinations
-			);
-
-			// Calculate checksum.
-			$checksum = hash_file( 'sha256', $backup_path );
-
-			// Clean up temp directory.
-			$this->cleanup_temp_directory( $temp_dir );
-
-			// Update job as completed.
-			$backup_result = array(
-				'job_id'       => $job_id,
-				'filename'     => $backup_filename,
-				'path'         => $backup_path,
-				'size'         => filesize( $backup_path ),
-				'checksum'     => $checksum,
-				'destinations' => $upload_results,
-				'manifest'     => $metadata,
-				'format'       => 'swish',
-			);
-
-			$this->complete_job( $job_id, $backup_result );
-
-			do_action( 'swish_backup_after', $job_id, $backup_result );
-
-			$this->logger->info( 'Optimized swish backup completed', array(
-				'filename' => $backup_filename,
-				'size'     => ServerLimits::format_bytes( $backup_result['size'] ),
-			) );
-
-			return $backup_result;
-		} catch ( \Exception $e ) {
-			$this->fail_job( $job_id, $e->getMessage() );
-			$this->logger->error( 'Tar.gz backup failed: ' . $e->getMessage() );
-
-			if ( isset( $temp_dir ) ) {
-				$this->cleanup_temp_directory( $temp_dir );
-			}
-
-			return array( 'error' => $e->getMessage() );
-		}
-	}
 
 	/**
 	 * Scan files directly to a disk file (memory efficient for large sites).
@@ -2347,29 +2018,6 @@ final class BackupManager {
 		);
 	}
 
-	/**
-	 * Fallback to ZIP-based backup when tar times out.
-	 *
-	 * This uses the chunked ZIP method which has better timeout handling.
-	 *
-	 * @param string $job_id  Job ID.
-	 * @param array  $options Backup options.
-	 * @return array Backup result.
-	 */
-	private function run_full_backup_fallback( string $job_id, array $options ): array {
-		$this->logger->info( 'Running fallback ZIP backup', array( 'job_id' => $job_id ) );
-
-		// Force ZIP mode for this backup by using the standard flow.
-		add_filter( 'swish_backup_force_zip', '__return_true' );
-
-		try {
-			$result = $this->run_full_backup( $job_id, $options );
-		} finally {
-			remove_filter( 'swish_backup_force_zip', '__return_true' );
-		}
-
-		return $result;
-	}
 
 	/**
 	 * Create backup manifest data.
@@ -2402,6 +2050,65 @@ final class BackupManager {
 			'options'           => $options,
 			'format'            => 'swish',
 		);
+	}
+
+	/**
+	 * Create a .swish archive from a list of files (manifest.json written first).
+	 *
+	 * Replaces the ZipArchive-based BackupArchiver for backup outputs so that
+	 * every archive named .swish is genuinely in the .swish format the
+	 * restore side expects.
+	 *
+	 * @param array  $files       Files: array of ['path' => ..., 'name' => ...] (or plain paths).
+	 * @param string $backup_path Output archive path.
+	 * @param array  $metadata    Extra manifest fields (job_id, type, ...).
+	 * @return bool True on success.
+	 */
+	private function create_swish_archive( array $files, string $backup_path, array $metadata = array() ): bool {
+		$archiver = new SwishArchiver( $backup_path );
+
+		if ( ! $archiver->open_for_write() ) {
+			$this->logger->error( 'Failed to open .swish archive for writing', array( 'path' => $backup_path ) );
+			return false;
+		}
+
+		// Rich manifest (site URL, versions, prefix...) merged with caller metadata.
+		$manifest = array_merge(
+			$this->create_backup_manifest(
+				(string) ( $metadata['job_id'] ?? '' ),
+				(string) ( $metadata['type'] ?? 'full' ),
+				array()
+			),
+			$metadata
+		);
+
+		if ( ! $archiver->add_content( 'manifest.json', (string) wp_json_encode( $manifest, JSON_PRETTY_PRINT ) ) ) {
+			$archiver->close();
+			return false;
+		}
+
+		foreach ( $files as $file ) {
+			$path = is_array( $file ) ? ( $file['path'] ?? '' ) : $file;
+			$name = is_array( $file ) ? ( $file['name'] ?? basename( $path ) ) : basename( $file );
+
+			if ( '' === $path || ! file_exists( $path ) ) {
+				$this->logger->warning( 'File not found for archive', array( 'path' => $path ) );
+				continue;
+			}
+
+			$bytes = 0;
+			// Timeout 0 disables time slicing; these archives hold few files.
+			if ( ! $archiver->add_file( $path, $name, 0, $bytes, 0 ) ) {
+				$archiver->close();
+				$this->logger->error( 'Failed to add file to .swish archive', array( 'path' => $path ) );
+				return false;
+			}
+		}
+
+		// Finalize writes the EOF marker.
+		$archiver->close( true );
+
+		return file_exists( $backup_path );
 	}
 
 	/**
@@ -2540,7 +2247,7 @@ final class BackupManager {
 				'tables' => $this->database_backup->get_tables(),
 			);
 
-			if ( ! $this->archiver->create_archive(
+			if ( ! $this->create_swish_archive(
 				array( array( 'path' => $temp_file, 'name' => 'database.sql' ) ),
 				$backup_path,
 				$metadata
@@ -2660,6 +2367,11 @@ final class BackupManager {
 			}
 
 			// Backup complete!
+			// Sanity check: the archive must exist before we report success.
+			if ( ! file_exists( $backup_path ) ) {
+				throw new \RuntimeException( 'Backup archive is missing after finalization: ' . $backup_filename );
+			}
+
 			$this->check_backup_size_limit( $backup_path, $job_id );
 
 			$this->update_job_status( $job_id, 'processing', 90, 'Uploading to storage...' );
@@ -2699,7 +2411,7 @@ final class BackupManager {
 	public function create_full_backup( array $options = array() ): ?array {
 		$job_id = $this->generate_job_id();
 		$this->logger->set_job_id( $job_id );
-		$this->logger->info( 'Starting full backup', array( 'options' => $options ) );
+		$this->logger->info( 'Starting full backup (sync mode)', array( 'options' => $options ) );
 
 		// Configure batch sizes for shared hosting compatibility.
 		$this->configure_batch_sizes( $options );
@@ -2707,207 +2419,49 @@ final class BackupManager {
 		// Initialize timing for this backup request.
 		ServerLimits::init_timing();
 
-		// Initialize timing for this backup request.
-		ServerLimits::init_timing();
-
-		/**
-		 * Fires before a backup starts.
-		 *
-		 * @param string $job_id  Backup job ID.
-		 * @param array  $options Backup options.
-		 */
-		do_action( 'swish_backup_before', $job_id, $options );
-
 		// Create job record.
 		$this->create_job_record( $job_id, 'full' );
 
-		try {
-			$temp_dir = $this->get_temp_directory( $job_id );
-			$files_to_archive = array();
+		// Run the streaming .swish backup (same engine as the async/dashboard path).
+		$result = $this->run_full_backup( $job_id, $options );
 
-			// Backup database.
-			if ( $options['backup_database'] ?? true ) {
-				$this->update_job_status( $job_id, 'processing', 10, 'Backing up database...' );
-				$db_file = $temp_dir . '/database.sql';
-
-				if ( ! $this->database_backup->backup( $db_file ) ) {
-					throw new \RuntimeException( 'Database backup failed' );
-				}
-
-				$files_to_archive[] = array(
-					'path' => $db_file,
-					'name' => 'database.sql',
-				);
-			}
-
-			// Backup files.
-			$this->update_job_status( $job_id, 'processing', 30, 'Preparing file list...' );
-			$file_list = $this->file_backup->prepare_file_list( $options );
-
-			if ( ! empty( $file_list['files'] ) ) {
-				$file_count = count( $file_list['files'] );
-				$this->update_job_status(
-					$job_id,
-					'processing',
-					40,
-					sprintf( 'Backing up files... 0/%d (calculating...)', $file_count )
-				);
-				$files_archive = $temp_dir . '/files.zip';
-
-				$progress_callback = $this->create_file_progress_callback( $job_id );
-				$backup_result = $this->file_backup->backup( $file_list['files'], $files_archive, $progress_callback );
-
-				// Check if we hit a timeout - need to checkpoint and continue later.
-				if ( is_array( $backup_result ) && ! empty( $backup_result['timeout'] ) ) {
-					$this->logger->info( 'File backup timed out, saving checkpoint', array(
-						'processed' => $backup_result['processed'],
-						'total'     => $backup_result['total'],
-						'remaining' => count( $backup_result['remaining_files'] ),
-					) );
-
-					// Save checkpoint for resumption.
-					$checkpoint = array(
-						'phase'            => 'files',
-						'processed'        => $backup_result['processed'],
-						'total'            => $backup_result['total'],
-						'output_path'      => $files_archive,
-						'remaining_files'  => $backup_result['remaining_files'],
-						'options'          => $options,
-						'temp_dir'         => $temp_dir,
-						'files_to_archive' => $files_to_archive,
-					);
-
-					$this->save_checkpoint( $job_id, $checkpoint );
-					$this->schedule_continuation( $job_id );
-
-					// Return - backup will continue via cron.
-					return array(
-						'job_id'  => $job_id,
-						'status'  => 'processing',
-						'message' => 'Backup in progress (chunked processing)...',
-						'chunked' => true,
-					);
-				}
-
-				// Handle different return types from file backup.
-				if ( true === $backup_result ) {
-					// Single file backup (no batching).
-					$files_to_archive[] = array(
-						'path' => $files_archive,
-						'name' => 'files.zip',
-					);
-				} elseif ( is_array( $backup_result ) && ! empty( $backup_result['success'] ) ) {
-					// Check if it's a swish backup.
-					if ( ! empty( $backup_result['format'] ) && in_array( $backup_result['format'], array( 'tar.gz', 'swish' ), true ) ) {
-						// Tar.gz backup - add the single tar.gz file.
-						$tar_path = $backup_result['path'];
-						if ( file_exists( $tar_path ) ) {
-							$files_to_archive[] = array(
-								'path' => $tar_path,
-								'name' => basename( $tar_path ),
-							);
-							$this->logger->info( 'Added swish archive to backup', array(
-								'path' => $tar_path,
-								'size' => ServerLimits::format_bytes( $backup_result['size'] ?? filesize( $tar_path ) ),
-							) );
-						}
-					} elseif ( ! empty( $backup_result['parts'] ) ) {
-						// Multiple batch parts (ZIP) - add each part to archive.
-						$part_num = 1;
-						foreach ( $backup_result['parts'] as $part_path ) {
-							if ( file_exists( $part_path ) ) {
-								$files_to_archive[] = array(
-									'path' => $part_path,
-									'name' => 'files-' . sprintf( '%03d', $part_num ) . '.zip',
-								);
-								++$part_num;
-							}
-						}
-						$this->logger->info( 'Added batch file parts to archive', array( 'parts' => $part_num - 1 ) );
-					}
-				} else {
-					throw new \RuntimeException( 'File backup failed' );
-				}
-			}
-
-			// Backup wp-config and special files.
-			$special_files = $this->file_backup->backup_wp_config( $temp_dir );
-			foreach ( $special_files as $file ) {
-				$files_to_archive[] = array(
-					'path' => $file,
-					'name' => basename( $file ),
-				);
-			}
-
-			// Create final archive.
-			$this->update_job_status( $job_id, 'processing', 80, 'Creating archive...' );
-			$backup_filename = $this->generate_backup_filename();
-			$backup_path = $this->get_backup_directory() . '/' . $backup_filename;
-
-			$metadata = array(
-				'job_id'      => $job_id,
-				'type'        => 'full',
-				'options'     => $options,
-				'file_count'  => $file_list['count'] ?? 0,
-				'total_size'  => $file_list['total_size'] ?? 0,
-			);
-
-			if ( ! $this->archiver->create_archive( $files_to_archive, $backup_path, $metadata ) ) {
-				throw new \RuntimeException( 'Archive creation failed' );
-			}
-
-			// Check backup size limit.
-			$this->check_backup_size_limit( $backup_path, $job_id );
-
-			// Upload to storage destinations.
-			$this->update_job_status( $job_id, 'processing', 90, 'Uploading to storage...' );
-			$destinations = $options['storage_destinations'] ?? array( 'local' );
-			$upload_results = $this->storage_manager->upload_to_destinations(
-				$backup_path,
-				$backup_filename,
-				$destinations
-			);
-
-			// Calculate checksum.
-			$checksum = $this->archiver->calculate_checksum( $backup_path );
-
-			// Clean up temp files.
-			$this->cleanup_temp_directory( $temp_dir );
-
-			// Update job as completed.
-			$result = array(
-				'job_id'      => $job_id,
-				'filename'    => $backup_filename,
-				'path'        => $backup_path,
-				'size'        => filesize( $backup_path ),
-				'checksum'    => $checksum,
-				'destinations' => $upload_results,
-				'manifest'    => $metadata,
-			);
-
-			$this->complete_job( $job_id, $result );
-
-			/**
-			 * Fires after a backup completes successfully.
-			 *
-			 * @param string $job_id Backup job ID.
-			 * @param array  $result Backup result.
-			 */
-			do_action( 'swish_backup_after', $job_id, $result );
-
-			$this->logger->info( 'Full backup completed', $result );
-
+		if ( isset( $result['error'] ) ) {
 			return $result;
-		} catch ( \Exception $e ) {
-			$this->fail_job( $job_id, $e->getMessage() );
-			$this->logger->error( 'Full backup failed: ' . $e->getMessage() );
+		}
 
-			if ( isset( $temp_dir ) ) {
-				$this->cleanup_temp_directory( $temp_dir );
+		// Drive continuations synchronously until the job finishes. Sync callers
+		// (WP-CLI, pre-migration backups) have no browser polling the cron fallback.
+		$max_iterations = 2000; // Safety cap (~5.5 hours of 10-second slices).
+
+		$status = $this->get_job_status( $job_id );
+		while ( $status
+			&& $max_iterations-- > 0
+			&& in_array( $status['status'], array( 'pending', 'processing' ), true ) ) {
+
+			if ( ! $this->get_checkpoint( $job_id ) ) {
+				// No checkpoint to resume from - avoid spinning forever.
+				break;
 			}
 
-			return array( 'error' => $e->getMessage() );
+			$this->continue_backup( $job_id );
+			$status = $this->get_job_status( $job_id );
 		}
+
+		if ( ! $status ) {
+			return array( 'error' => 'Backup job record not found' );
+		}
+
+		if ( 'completed' !== $status['status'] ) {
+			$error = ! empty( $status['message'] ) ? $status['message'] : 'Backup did not complete';
+			return array( 'error' => $error );
+		}
+
+		return array(
+			'job_id'   => $job_id,
+			'filename' => basename( (string) ( $status['path'] ?? '' ) ),
+			'path'     => $status['path'] ?? '',
+			'size'     => (int) ( $status['size'] ?? 0 ),
+		);
 	}
 
 	/**
@@ -2946,7 +2500,7 @@ final class BackupManager {
 				'tables' => $this->database_backup->get_tables(),
 			);
 
-			if ( ! $this->archiver->create_archive(
+			if ( ! $this->create_swish_archive(
 				array( array( 'path' => $temp_file, 'name' => 'database.sql' ) ),
 				$backup_path,
 				$metadata
@@ -3788,6 +3342,27 @@ final class BackupManager {
 		global $wpdb;
 
 		$table = $wpdb->prefix . 'swish_backup_jobs';
+
+		// Never downgrade a finished job: a stale continuation event can fire
+		// after completion (cron unschedule failures leave orphan events) and
+		// must not overwrite the completed status.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$current_status = $wpdb->get_var(
+			$wpdb->prepare(
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				"SELECT status FROM {$table} WHERE job_id = %s",
+				$job_id
+			)
+		);
+
+		if ( in_array( $current_status, array( 'completed', 'cancelled' ), true ) ) {
+			$this->logger->warning( 'Ignoring fail_job for already-finished job', array(
+				'job_id'  => $job_id,
+				'status'  => $current_status,
+				'message' => $message,
+			) );
+			return;
+		}
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->update(

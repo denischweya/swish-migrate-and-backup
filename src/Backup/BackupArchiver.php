@@ -101,7 +101,7 @@ final class BackupArchiver {
 
 				// For large files (>50MB) or already-compressed files, use streaming approach.
 				// This avoids memory issues with ZipArchive::addFile() on large files.
-				$is_compressed = preg_match( '/\.(gz|zip|tar\.gz|tgz|bz2|xz)$/i', $path );
+				$is_compressed = (bool) preg_match( '/\.(gz|zip|tar\.gz|tgz|bz2|xz)$/i', $path );
 				$is_large = $file_size > 50 * 1024 * 1024;
 
 				if ( $is_large || $is_compressed ) {

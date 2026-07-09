@@ -23,6 +23,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 final class Activator {
 
 	/**
+	 * Current database schema version.
+	 *
+	 * Bump whenever a CREATE TABLE statement changes so existing installs
+	 * get the schema update via maybe_upgrade_database().
+	 */
+	public const DB_VERSION = '1.0.4';
+
+	/**
 	 * Run activation tasks.
 	 *
 	 * @return void
@@ -214,7 +222,24 @@ final class Activator {
 		self::create_multisite_tables();
 
 		// Store database version for future migrations.
-		update_option( 'swish_backup_db_version', '1.0.3' );
+		update_option( 'swish_backup_db_version', self::DB_VERSION );
+	}
+
+	/**
+	 * Upgrade database tables if the stored schema version is outdated.
+	 *
+	 * Plugin updates do not fire the activation hook, so schema changes
+	 * (e.g. the steps_log column added to the jobs table) never reach
+	 * existing installs without this check. dbDelta() is additive-safe.
+	 *
+	 * @return void
+	 */
+	public static function maybe_upgrade_database(): void {
+		if ( get_option( 'swish_backup_db_version' ) === self::DB_VERSION ) {
+			return;
+		}
+
+		( new self() )->create_database_tables();
 	}
 
 	/**

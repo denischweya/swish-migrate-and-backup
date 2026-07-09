@@ -226,8 +226,8 @@ class SwishArchiver {
 		// File size (14 bytes, zero-padded decimal).
 		$header .= sprintf( '%014d', $size );
 
-		// Modification time (12 bytes, zero-padded octal).
-		$header .= sprintf( '%012o', $mtime );
+		// Modification time (12 bytes, zero-padded decimal).
+		$header .= sprintf( '%012d', $mtime );
 
 		// Path prefix (4096 bytes, null-padded).
 		$header .= pack( 'a' . self::PREFIX_SIZE, $prefix );
@@ -261,8 +261,8 @@ class SwishArchiver {
 		$size = (int) substr( $header, $offset, self::SIZE_FIELD );
 		$offset += self::SIZE_FIELD;
 
-		// Modification time.
-		$mtime = octdec( substr( $header, $offset, self::MTIME_SIZE ) );
+		// Modification time (zero-padded decimal, matches Backup\SwishArchiver and extract-swish.php).
+		$mtime = (int) substr( $header, $offset, self::MTIME_SIZE );
 		$offset += self::MTIME_SIZE;
 
 		// Path prefix.
