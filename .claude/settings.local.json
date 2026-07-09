@@ -29,7 +29,12 @@
       "Bash(/opt/homebrew/opt/php@8.3/bin/php -l src/Multisite/MultisiteModule.php)",
       "Bash(git ls-tree *)",
       "Bash(git -C \"/Volumes/M2 Cloud/projects/swish-backup-migrate/wp-content/plugins/swish-migrate-and-backup\" status --short)",
-      "Bash(git -C \"/Volumes/M2 Cloud/projects/swish-backup-migrate/wp-content/plugins/swish-migrate-and-backup\" log --oneline -3)"
+      "Bash(git -C \"/Volumes/M2 Cloud/projects/swish-backup-migrate/wp-content/plugins/swish-migrate-and-backup\" log --oneline -3)",
+      "Bash(git -C \"/Volumes/M2 Cloud/projects/swish-backup-migrate/wp-content/plugins/swish-migrate-and-backup\" branch -a)",
+      "Bash(git -C \"/Volumes/M2 Cloud/projects/swish-backup-migrate/wp-content/plugins/swish-migrate-and-backup\" status)",
+      "Bash(git -C \"/Volumes/M2 Cloud/projects/swish-backup-migrate/wp-content/plugins/swish-migrate-and-backup\" branch -m develope develop)",
+      "Bash(git -C \"/Volumes/M2 Cloud/projects/swish-backup-migrate/wp-content/plugins/swish-migrate-and-backup\" branch)",
+      "Bash(git *)"
     ]
   }
 }
