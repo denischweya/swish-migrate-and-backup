@@ -26,7 +26,10 @@
       "Bash(npm -v)",
       "Bash(npm run *)",
       "Bash(perl -pi -e 's/^\\\\t \\\\* Boot the Pro plugin\\\\.$/\\\\t * Boot the multisite module./; s/^\\\\t\\\\t\\\\/\\\\/ Enqueue Pro assets\\\\.$/\\\\t\\\\t\\\\/\\\\/ Enqueue multisite admin assets./; s/^\\\\t \\\\* Enqueue Pro assets\\\\.$/\\\\t * Enqueue multisite admin assets./; s/^\\\\t\\\\t\\\\/\\\\/ Enqueue Pro CSS with file modification time for cache busting\\\\.$/\\\\t\\\\t\\\\/\\\\/ Enqueue multisite admin CSS with file modification time for cache busting./; s/^\\\\t\\\\t\\\\/\\\\/ Enqueue Pro JS with file modification time for cache busting\\\\.$/\\\\t\\\\t\\\\/\\\\/ Enqueue multisite admin JS with file modification time for cache busting./' src/Multisite/MultisiteModule.php)",
-      "Bash(/opt/homebrew/opt/php@8.3/bin/php -l src/Multisite/MultisiteModule.php)"
+      "Bash(/opt/homebrew/opt/php@8.3/bin/php -l src/Multisite/MultisiteModule.php)",
+      "Bash(git ls-tree *)",
+      "Bash(git -C \"/Volumes/M2 Cloud/projects/swish-backup-migrate/wp-content/plugins/swish-migrate-and-backup\" status --short)",
+      "Bash(git -C \"/Volumes/M2 Cloud/projects/swish-backup-migrate/wp-content/plugins/swish-migrate-and-backup\" log --oneline -3)"
     ]
   }
 }
