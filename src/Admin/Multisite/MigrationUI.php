@@ -1123,6 +1123,10 @@ final class MigrationUI {
 				logEntries: {},
 				consecutiveErrors: 0,
 				maxConsecutiveErrors: 3,
+				// Once the database restore has started, the site is expected to be
+				// temporarily unreachable (half-restored tables can fatal destination
+				// plugins), so polls are tolerated failing for much longer (~6 min).
+				maxRestoreOutageErrors: 240,
 
 				stepLabels: {
 					init: { title: '<?php echo esc_js( __( 'Initializing', 'swish-migrate-and-backup' ) ); ?>' },
@@ -1284,26 +1288,36 @@ final class MigrationUI {
 							self.consecutiveErrors++;
 							console.log( 'Progress check failed (attempt ' + self.consecutiveErrors + '):', status, error, 'xhr.status:', xhr.status );
 
-							// After database import, user session becomes invalid.
-							// This can manifest as 401/403 errors, redirect loops (status 0), or other network errors.
-							// If we've had multiple consecutive errors, the import likely completed.
+							// Has the database restore started? From that point the site is
+							// expected to error temporarily: half-restored tables can fatal
+							// other plugins (500s) and the restored usermeta invalidates the
+							// admin session (0/400/401/403). The import keeps running in the
+							// background, so keep polling — the progress endpoint answers
+							// again once the restore finishes.
+							const restoreStarted = [ 'shared', 'database', 'files', 'search_replace', 'cleanup' ].some( function( step ) {
+								return self.logEntries[ step ] === 'completed' || self.logEntries[ step ] === 'in-progress';
+							} );
+
+							if ( restoreStarted ) {
+								self.updateMessage( '<?php echo esc_js( __( 'Restoring database — the site may be briefly unreachable. Waiting for it to come back...', 'swish-migrate-and-backup' ) ); ?>' );
+
+								if ( self.consecutiveErrors >= self.maxRestoreOutageErrors ) {
+									self.stopPolling();
+									self.showSessionExpired();
+								}
+								return;
+							}
+
+							// Restore has not started yet — these are real connection errors.
 							if ( self.consecutiveErrors >= self.maxConsecutiveErrors ) {
 								self.stopPolling();
 
-								// Check if we were past the database import stage.
-								const databaseDone = self.logEntries[ 'database' ] === 'completed' || self.logEntries[ 'database' ] === 'in-progress';
-								const sharedDone = self.logEntries[ 'shared' ] === 'completed' || self.logEntries[ 'shared' ] === 'in-progress';
-
-								// Detect session invalidation: auth errors, network errors (redirect loops), or past database stage.
 								// Status 0 = network error (includes redirect loops, CORS errors).
-								// Also check if error message mentions redirect.
 								const isRedirectError = error && error.toLowerCase().indexOf( 'redirect' ) !== -1;
 								const isNetworkError = xhr.status === 0;
 								const isAuthError = xhr.status === 400 || xhr.status === 401 || xhr.status === 403;
-								const isImportDone = databaseDone || sharedDone;
 
-								if ( isImportDone || isAuthError || isNetworkError || isRedirectError ) {
-									// Session likely invalidated after database import.
+								if ( isAuthError || isNetworkError || isRedirectError ) {
 									self.showSessionExpired();
 								} else {
 									self.showError( '<?php echo esc_js( __( 'Lost connection to the server. The import may still be running in the background.', 'swish-migrate-and-backup' ) ); ?>' );

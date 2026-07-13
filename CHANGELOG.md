@@ -5,6 +5,14 @@ All notable changes to Swish Migrate and Backup will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-07-13
+
+### Fixed
+- **Multisite migration imports failed with repeated 500/403 errors** and never reported completion, even when the import had actually finished. Three root causes, all fixed:
+  - The database restore overwrites `wp_usermeta`, invalidating the admin session's nonce so every progress poll returned 403. The progress handler now verifies the nonce softly and falls back to a read-only response gated by the unguessable job UUID, so the browser still receives the final status after its session is gone (also registered the `nopriv` AJAX variant).
+  - Import progress was stored only in a transient inside `wp_options` — the very table the restore replaces — so progress was lost. Progress is now mirrored to `wp-content/swish-backups/temp/import-job-{id}.json` and read from there first.
+  - Half-restored tables can fatal other destination plugins (500s) during the restore window. The progress dialog now tolerates 5xx/network errors for up to ~6 minutes once the restore has started, showing a "site may be briefly unreachable" message instead of failing after 3 attempts.
+
 ## [1.1.11] - 2026-05-27
 
 ### Changed

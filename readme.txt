@@ -4,7 +4,7 @@ Tags: backup, migration, restore, database, multisite
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.2.1
+Stable tag: 1.3.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -117,6 +117,12 @@ Yes. On multisite installations, go to Network Admin → Swish Backup to create 
 5. Schedules - Set up automatic scheduled backups
 
 == Changelog ==
+
+= 1.3.0 =
+* Fixed: multisite migration imports failed with repeated 500/403 errors and never showed completion, even when the import had actually finished
+* Import progress is now mirrored to a file so it survives the database restore that replaces the options table
+* The progress check now keeps working after the restore invalidates the admin session, so the browser reliably receives the final "Import completed" status
+* The import progress dialog now waits out the brief window where the site is unreachable during the database restore instead of failing
 
 = 1.2.1 =
 * Fixed: full backups produced no archive - the streaming engine deleted its own output when finalizing (.swish path collision)

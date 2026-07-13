@@ -333,6 +333,14 @@ final class MultisiteMigration {
 		// Generate unique job ID.
 		$job_id = 'import_' . wp_generate_uuid4();
 
+		// Remove stale progress file mirrors from previous jobs.
+		foreach ( glob( $this->backup_dir . '/temp/import-job-*.json' ) ?: array() as $old_file ) {
+			if ( ( time() - (int) filemtime( $old_file ) ) > HOUR_IN_SECONDS ) {
+				// phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink, WordPress.PHP.NoSilencedErrors.Discouraged
+				@unlink( $old_file );
+			}
+		}
+
 		// Validate backup first.
 		$validation = $this->validate_backup( $file_path, $original_filename );
 
@@ -403,6 +411,7 @@ final class MultisiteMigration {
 		);
 
 		set_transient( 'swish_import_job_' . $job_id, $job_data, HOUR_IN_SECONDS );
+		$this->save_progress_file( $job_data );
 
 		// Schedule the import to run immediately via WP Cron.
 		wp_schedule_single_event( time(), 'swish_backup_run_import', array( $job_id ) );
@@ -424,7 +433,7 @@ final class MultisiteMigration {
 	 * @return void
 	 */
 	public function run_import_job( string $job_id ): void {
-		$job_data = get_transient( 'swish_import_job_' . $job_id );
+		$job_data = $this->get_import_progress( $job_id );
 
 		if ( ! $job_data ) {
 			return;
@@ -433,6 +442,7 @@ final class MultisiteMigration {
 		// Mark as running.
 		$job_data['status'] = 'running';
 		set_transient( 'swish_import_job_' . $job_id, $job_data, HOUR_IN_SECONDS );
+		$this->save_progress_file( $job_data );
 
 		try {
 			$result = $this->import_backup_with_progress( $job_id, $job_data );
@@ -454,6 +464,7 @@ final class MultisiteMigration {
 
 		$job_data['completed_at'] = current_time( 'mysql' );
 		set_transient( 'swish_import_job_' . $job_id, $job_data, HOUR_IN_SECONDS );
+		$this->save_progress_file( $job_data );
 
 		// Cleanup the import file if it was a temp copy.
 		$import_dir = $this->backup_dir . '/imports';
@@ -464,12 +475,65 @@ final class MultisiteMigration {
 	}
 
 	/**
+	 * Get the path to the file-based progress mirror for a job.
+	 *
+	 * The progress transient lives in the options table, which the import
+	 * itself replaces, so progress is also mirrored to a file that survives
+	 * the database restore.
+	 *
+	 * @param string $job_id Job ID.
+	 * @return string|null File path, or null if the job ID is malformed.
+	 */
+	private function get_progress_file_path( string $job_id ): ?string {
+		if ( ! preg_match( '/^import_[a-f0-9\-]{36}$/', $job_id ) ) {
+			return null;
+		}
+
+		$temp_dir = $this->backup_dir . '/temp';
+		if ( ! file_exists( $temp_dir ) ) {
+			wp_mkdir_p( $temp_dir );
+		}
+
+		return $temp_dir . '/import-job-' . $job_id . '.json';
+	}
+
+	/**
+	 * Write job progress to the file mirror.
+	 *
+	 * @param array $job_data Job data.
+	 * @return void
+	 */
+	private function save_progress_file( array $job_data ): void {
+		$path = $this->get_progress_file_path( $job_data['job_id'] ?? '' );
+		if ( $path ) {
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents, WordPress.PHP.NoSilencedErrors.Discouraged
+			@file_put_contents( $path, wp_json_encode( $job_data ), LOCK_EX );
+		}
+	}
+
+	/**
 	 * Get import progress.
+	 *
+	 * Reads the file mirror first (it survives the database restore),
+	 * falling back to the transient.
 	 *
 	 * @param string $job_id Job ID.
 	 * @return array|null Progress data or null if not found.
 	 */
 	public function get_import_progress( string $job_id ): ?array {
+		$path = $this->get_progress_file_path( $job_id );
+		if ( $path && file_exists( $path ) ) {
+			clearstatcache( true, $path );
+			if ( ( time() - (int) filemtime( $path ) ) < HOUR_IN_SECONDS ) {
+				// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents, WordPress.PHP.NoSilencedErrors.Discouraged
+				$json = @file_get_contents( $path );
+				$data = $json ? json_decode( $json, true ) : null;
+				if ( is_array( $data ) && ! empty( $data ) ) {
+					return $data;
+				}
+			}
+		}
+
 		$job_data = get_transient( 'swish_import_job_' . $job_id );
 		return $job_data ?: null;
 	}
@@ -484,12 +548,13 @@ final class MultisiteMigration {
 	 * @return void
 	 */
 	private function update_import_progress( string $job_id, int|float $progress, string $step, string $message ): void {
-		$job_data = get_transient( 'swish_import_job_' . $job_id );
+		$job_data = $this->get_import_progress( $job_id );
 		if ( $job_data ) {
 			$job_data['progress']     = (int) $progress;
 			$job_data['current_step'] = $step;
 			$job_data['message']      = $message;
 			set_transient( 'swish_import_job_' . $job_id, $job_data, HOUR_IN_SECONDS );
+			$this->save_progress_file( $job_data );
 		}
 	}
 

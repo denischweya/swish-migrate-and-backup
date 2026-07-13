@@ -135,6 +135,10 @@ final class MultisiteModule {
 		add_action( 'wp_ajax_swish_backup_import_multisite', array( $this, 'handle_import_multisite' ) );
 		add_action( 'wp_ajax_swish_backup_import_multisite_async', array( $this, 'handle_import_multisite_async' ) );
 		add_action( 'wp_ajax_swish_backup_check_import_progress', array( $this, 'handle_check_import_progress' ) );
+		// The database restore invalidates the admin session mid-import, so the
+		// progress poll must also work without authentication. The handler is
+		// read-only and requires knowledge of the unguessable job UUID.
+		add_action( 'wp_ajax_nopriv_swish_backup_check_import_progress', array( $this, 'handle_check_import_progress_nopriv' ) );
 		add_action( 'wp_ajax_swish_backup_preview_search_replace', array( $this, 'handle_preview_search_replace' ) );
 
 		// AJAX handler for theme preference.
@@ -1539,19 +1543,22 @@ final class MultisiteModule {
 	 * @return void
 	 */
 	public function handle_check_import_progress(): void {
-		// Check nonce.
-		check_ajax_referer( 'swish_backup_pro_nonce', 'nonce' );
-
-		// Check permissions.
-		if ( ! current_user_can( 'manage_network' ) && ! current_user_can( 'manage_options' ) ) {
-			wp_send_json_error(
-				array(
-					'message' => __( 'You do not have permission to perform this action.', 'swish-migrate-and-backup' ),
-				)
-			);
-		}
-
 		$job_id = isset( $_POST['job_id'] ) ? sanitize_text_field( wp_unslash( $_POST['job_id'] ) ) : '';
+
+		// The database restore overwrites usermeta and invalidates the current
+		// session's nonce, so once the restore is underway this poll can no
+		// longer authenticate. Verify the nonce softly: a valid nonce grants
+		// full access (including triggering a pending job), while a failed
+		// nonce falls back to a read-only progress read gated by the
+		// unguessable job UUID — so the browser still receives the final
+		// "completed" status after its session is gone.
+		$authenticated = check_ajax_referer( 'swish_backup_pro_nonce', 'nonce', false )
+			&& ( current_user_can( 'manage_network' ) || current_user_can( 'manage_options' ) );
+
+		if ( ! $authenticated ) {
+			$this->handle_check_import_progress_nopriv();
+			return;
+		}
 
 		if ( empty( $job_id ) ) {
 			wp_send_json_error(
@@ -1587,6 +1594,51 @@ final class MultisiteModule {
 					)
 				);
 			}
+		}
+
+		wp_send_json_success(
+			array(
+				'status'       => $progress['status'],
+				'progress'     => $progress['progress'],
+				'current_step' => $progress['current_step'],
+				'message'      => $progress['message'],
+				'error'        => $progress['error'] ?? null,
+			)
+		);
+	}
+
+	/**
+	 * Handle unauthenticated import progress check.
+	 *
+	 * The database restore replaces usermeta and invalidates the admin
+	 * session, so the final "completed" status could never reach the UI
+	 * through the nonce-gated handler. This variant is read-only: it never
+	 * triggers job execution and only returns progress fields. Access is
+	 * gated by the job UUID, which is unguessable and only known to the
+	 * browser that started the import.
+	 *
+	 * @return void
+	 */
+	public function handle_check_import_progress_nopriv(): void {
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- read-only, gated by unguessable job UUID; nonces are invalid after the restore replaces usermeta.
+		$job_id = isset( $_POST['job_id'] ) ? sanitize_text_field( wp_unslash( $_POST['job_id'] ) ) : '';
+
+		if ( ! preg_match( '/^import_[a-f0-9\-]{36}$/', $job_id ) ) {
+			wp_send_json_error(
+				array(
+					'message' => __( 'Invalid job ID.', 'swish-migrate-and-backup' ),
+				)
+			);
+		}
+
+		$progress = $this->migration->get_import_progress( $job_id );
+
+		if ( ! $progress ) {
+			wp_send_json_error(
+				array(
+					'message' => __( 'Import job not found.', 'swish-migrate-and-backup' ),
+				)
+			);
 		}
 
 		wp_send_json_success(
