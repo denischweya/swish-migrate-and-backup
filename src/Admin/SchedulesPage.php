@@ -50,15 +50,18 @@ final class SchedulesPage {
 
 		$schedules = $this->scheduler->get_schedules();
 		?>
-		<div class="wrap swish-backup-wrap">
-			<h1 class="wp-heading-inline"><?php esc_html_e( 'Backup Schedules', 'swish-migrate-and-backup' ); ?></h1>
-			<button type="button" class="page-title-action" id="swish-backup-add-schedule">
-				<?php esc_html_e( 'Add Schedule', 'swish-migrate-and-backup' ); ?>
-			</button>
-			<hr class="wp-header-end">
-
-			<?php AdminNav::render(); ?>
-
+		<?php
+		AdminNav::render_start(
+			__( 'Backup Schedules', 'swish-migrate-and-backup' ),
+			'',
+			array(
+				'<button type="button" class="swish-btn swish-btn-primary" id="swish-backup-add-schedule">'
+					. '<span class="material-symbols-outlined" style="font-size: 18px;">add</span>'
+					. '<span>' . esc_html__( 'Add Schedule', 'swish-migrate-and-backup' ) . '</span>'
+					. '</button>',
+			)
+		);
+		?>
 			<!-- Schedule Form -->
 			<div id="swish-backup-schedule-form" class="swish-backup-card" style="display:none;">
 				<h2><?php esc_html_e( 'Add New Schedule', 'swish-migrate-and-backup' ); ?></h2>
@@ -202,8 +205,8 @@ final class SchedulesPage {
 					</tbody>
 				</table>
 			<?php endif; ?>
-		</div>
 		<?php
+		AdminNav::render_end();
 	}
 
 	/**

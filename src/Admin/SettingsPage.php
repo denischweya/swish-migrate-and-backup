@@ -62,12 +62,11 @@ final class SettingsPage {
 		$adapters = $this->storage_manager->get_all_adapters();
 		$active_tab = isset( $_GET['tab'] ) ? sanitize_text_field( wp_unslash( $_GET['tab'] ) ) : 'general';
 		?>
-		<div class="wrap swish-backup-wrap">
-			<h1><?php esc_html_e( 'Swish Backup Settings', 'swish-migrate-and-backup' ); ?></h1>
-			<hr class="wp-header-end">
-
-			<?php AdminNav::render(); ?>
-
+		<?php
+		AdminNav::render_start(
+			__( 'Swish Backup Settings', 'swish-migrate-and-backup' )
+		);
+		?>
 			<nav class="nav-tab-wrapper">
 				<a href="<?php echo esc_url( add_query_arg( 'tab', 'general' ) ); ?>" class="nav-tab <?php echo 'general' === $active_tab ? 'nav-tab-active' : ''; ?>">
 					<?php esc_html_e( 'General', 'swish-migrate-and-backup' ); ?>
@@ -96,7 +95,9 @@ final class SettingsPage {
 
 				<?php submit_button(); ?>
 			</form>
-		</div>
+		<?php
+		AdminNav::render_end();
+		?>
 
 		<?php if ( 'general' === $active_tab ) : ?>
 			<?php $this->render_folder_explorer_script( $settings ); ?>

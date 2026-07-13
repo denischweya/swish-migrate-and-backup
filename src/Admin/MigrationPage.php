@@ -45,12 +45,11 @@ final class MigrationPage {
 	public function render(): void {
 		$current_url = get_site_url();
 		?>
-		<div class="wrap swish-backup-wrap">
-			<h1><?php esc_html_e( 'Site Migration', 'swish-migrate-and-backup' ); ?></h1>
-			<hr class="wp-header-end">
-
-			<?php AdminNav::render(); ?>
-
+		<?php
+		AdminNav::render_start(
+			__( 'Site Migration', 'swish-migrate-and-backup' )
+		);
+		?>
 			<div class="swish-backup-migration-wizard">
 				<!-- Step 1: Choose Method -->
 				<div class="swish-backup-card swish-backup-migration-step" id="migration-step-1">
@@ -286,7 +285,7 @@ final class MigrationPage {
 					</div>
 				</div>
 			</div>
-		</div>
 		<?php
+		AdminNav::render_end();
 	}
 }

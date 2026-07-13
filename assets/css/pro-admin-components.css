@@ -224,6 +224,21 @@
     margin-bottom: var(--swish-space-10);
 }
 
+.swish-page-header:has(.swish-page-header-actions) {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--swish-space-4);
+    flex-wrap: wrap;
+}
+
+.swish-page-header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--swish-space-2);
+    flex-shrink: 0;
+}
+
 .swish-page-header h3 {
     font-size: var(--swish-text-4xl);
     font-weight: var(--swish-font-bold);

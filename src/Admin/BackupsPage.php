@@ -69,19 +69,22 @@ final class BackupsPage {
 	public function render(): void {
 		$backups = $this->backup_manager->get_backups( 50 );
 		?>
-		<div class="wrap swish-backup-wrap">
-			<h1 class="wp-heading-inline"><?php esc_html_e( 'Backups', 'swish-migrate-and-backup' ); ?></h1>
-			<button type="button" class="page-title-action" id="swish-backup-now">
-				<?php esc_html_e( 'Create Backup', 'swish-migrate-and-backup' ); ?>
-			</button>
-			<button type="button" class="page-title-action swish-backup-settings-btn" id="swish-backup-open-settings">
-				<span class="dashicons dashicons-admin-generic" style="vertical-align: middle; margin-top: -2px;"></span>
-				<?php esc_html_e( 'Settings', 'swish-migrate-and-backup' ); ?>
-			</button>
-			<hr class="wp-header-end">
-
-			<?php AdminNav::render(); ?>
-
+		<?php
+		AdminNav::render_start(
+			__( 'Backups', 'swish-migrate-and-backup' ),
+			'',
+			array(
+				'<button type="button" class="swish-btn swish-btn-primary" id="swish-backup-now">'
+					. '<span class="material-symbols-outlined" style="font-size: 18px;">backup</span>'
+					. '<span>' . esc_html__( 'Create Backup', 'swish-migrate-and-backup' ) . '</span>'
+					. '</button>',
+				'<button type="button" class="swish-btn swish-btn-secondary swish-backup-settings-btn" id="swish-backup-open-settings">'
+					. '<span class="material-symbols-outlined" style="font-size: 18px;">settings</span>'
+					. '<span>' . esc_html__( 'Settings', 'swish-migrate-and-backup' ) . '</span>'
+					. '</button>',
+			)
+		);
+		?>
 			<!-- Active Backup Jobs Container (populated by JavaScript) -->
 			<div id="swish-active-jobs-container"></div>
 
@@ -402,7 +405,7 @@ final class BackupsPage {
 					</div>
 				</div>
 			</div>
-		</div>
 		<?php
+		AdminNav::render_end();
 	}
 }

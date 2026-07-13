@@ -60,12 +60,11 @@ final class LogsPage {
 			$logs      = $this->logger->get_recent_logs( 200, $min_level );
 		}
 		?>
-		<div class="wrap swish-backup-wrap">
-			<h1><?php esc_html_e( 'Logs', 'swish-migrate-and-backup' ); ?></h1>
-			<hr class="wp-header-end">
-
-			<?php AdminNav::render(); ?>
-
+		<?php
+		AdminNav::render_start(
+			__( 'Logs', 'swish-migrate-and-backup' )
+		);
+		?>
 			<div class="swish-logs-container">
 				<!-- Logging Toggle -->
 				<div class="swish-logs-toggle-section">
@@ -173,7 +172,9 @@ final class LogsPage {
 					</div>
 				<?php endif; ?>
 			</div>
-		</div>
+		<?php
+		AdminNav::render_end();
+		?>
 
 		<style>
 			.swish-logs-container {

@@ -56,12 +56,11 @@ final class Dashboard {
 	 */
 	public function render(): void {
 		?>
-		<div class="wrap swish-backup-wrap">
-			<h1 class="wp-heading-inline"><?php esc_html_e( 'Swish Backup', 'swish-migrate-and-backup' ); ?></h1>
-			<hr class="wp-header-end">
-
-			<?php AdminNav::render(); ?>
-
+		<?php
+		AdminNav::render_start(
+			__( 'Dashboard', 'swish-migrate-and-backup' )
+		);
+		?>
 			<div id="swish-backup-dashboard">
 				<!-- React app will mount here -->
 				<div class="swish-loading">
@@ -78,7 +77,7 @@ final class Dashboard {
 			 */
 			do_action( 'swish_backup_admin_page_after_content' );
 			?>
-		</div>
 		<?php
+		AdminNav::render_end();
 	}
 }
