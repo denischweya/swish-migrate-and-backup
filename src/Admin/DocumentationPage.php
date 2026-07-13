@@ -28,43 +28,43 @@ final class DocumentationPage {
 		return array(
 			'getting-started' => array(
 				'title' => __( 'Getting Started', 'swish-migrate-and-backup' ),
-				'icon'  => 'dashicons-welcome-learn-more',
+				'icon'  => 'school',
 			),
 			'creating-backups' => array(
 				'title' => __( 'Creating Backups', 'swish-migrate-and-backup' ),
-				'icon'  => 'dashicons-database-add',
+				'icon'  => 'database',
 			),
 			'restoring-backups' => array(
 				'title' => __( 'Restoring Backups', 'swish-migrate-and-backup' ),
-				'icon'  => 'dashicons-backup',
+				'icon'  => 'backup',
 			),
 			'scheduled-backups' => array(
 				'title' => __( 'Scheduled Backups', 'swish-migrate-and-backup' ),
-				'icon'  => 'dashicons-calendar-alt',
+				'icon'  => 'calendar_month',
 			),
 			'cloud-storage' => array(
 				'title' => __( 'Cloud Storage', 'swish-migrate-and-backup' ),
-				'icon'  => 'dashicons-cloud',
+				'icon'  => 'cloud',
 			),
 			'migration' => array(
 				'title' => __( 'Site Migration', 'swish-migrate-and-backup' ),
-				'icon'  => 'dashicons-migrate',
+				'icon'  => 'swap_horiz',
 			),
 			'pro-features' => array(
 				'title' => __( 'Advanced Features', 'swish-migrate-and-backup' ),
-				'icon'  => 'dashicons-star-filled',
+				'icon'  => 'star',
 			),
 			'aria2c-installation' => array(
 				'title' => __( 'Installing aria2c', 'swish-migrate-and-backup' ),
-				'icon'  => 'dashicons-download',
+				'icon'  => 'download',
 			),
 			'troubleshooting' => array(
 				'title' => __( 'Troubleshooting', 'swish-migrate-and-backup' ),
-				'icon'  => 'dashicons-sos',
+				'icon'  => 'support',
 			),
 			'faq' => array(
 				'title' => __( 'FAQ', 'swish-migrate-and-backup' ),
-				'icon'  => 'dashicons-editor-help',
+				'icon'  => 'help',
 			),
 		);
 	}
@@ -120,7 +120,7 @@ final class DocumentationPage {
 						<nav class="swish-docs-nav">
 							<?php foreach ( $sections as $slug => $section ) : ?>
 								<a href="#<?php echo esc_attr( $slug ); ?>" class="swish-docs-nav-item">
-									<span class="dashicons <?php echo esc_attr( $section['icon'] ); ?>"></span>
+									<span class="material-symbols-outlined"><?php echo esc_html( $section['icon'] ); ?></span>
 									<?php echo esc_html( $section['title'] ); ?>
 								</a>
 							<?php endforeach; ?>
@@ -133,7 +133,7 @@ final class DocumentationPage {
 						<!-- Getting Started -->
 						<section id="getting-started" class="swish-docs-section">
 							<h2>
-								<span class="dashicons dashicons-welcome-learn-more"></span>
+								<span class="material-symbols-outlined">school</span>
 								<?php esc_html_e( 'Getting Started', 'swish-migrate-and-backup' ); ?>
 							</h2>
 
@@ -193,7 +193,7 @@ final class DocumentationPage {
 						<!-- Creating Backups -->
 						<section id="creating-backups" class="swish-docs-section">
 							<h2>
-								<span class="dashicons dashicons-database-add"></span>
+								<span class="material-symbols-outlined">database</span>
 								<?php esc_html_e( 'Creating Backups', 'swish-migrate-and-backup' ); ?>
 							</h2>
 
@@ -203,21 +203,21 @@ final class DocumentationPage {
 
 								<div class="swish-docs-feature-list">
 									<div class="swish-docs-feature">
-										<span class="dashicons dashicons-database-export"></span>
+										<span class="material-symbols-outlined">database</span>
 										<div>
 											<strong><?php esc_html_e( 'Full Backup', 'swish-migrate-and-backup' ); ?></strong>
 											<p><?php esc_html_e( 'Includes everything: database, themes, plugins, uploads, and media files. This is the most complete backup option and recommended for most users.', 'swish-migrate-and-backup' ); ?></p>
 										</div>
 									</div>
 									<div class="swish-docs-feature">
-										<span class="dashicons dashicons-database"></span>
+										<span class="material-symbols-outlined">database</span>
 										<div>
 											<strong><?php esc_html_e( 'Database Only', 'swish-migrate-and-backup' ); ?></strong>
 											<p><?php esc_html_e( 'Only backs up your WordPress database (posts, pages, settings, users). This is the fastest option and creates smaller backup files.', 'swish-migrate-and-backup' ); ?></p>
 										</div>
 									</div>
 									<div class="swish-docs-feature">
-										<span class="dashicons dashicons-media-archive"></span>
+										<span class="material-symbols-outlined">folder_zip</span>
 										<div>
 											<strong><?php esc_html_e( 'Files Only', 'swish-migrate-and-backup' ); ?></strong>
 											<p><?php esc_html_e( 'Backs up only your files (themes, plugins, uploads) without the database. Useful if you have a separate database backup solution.', 'swish-migrate-and-backup' ); ?></p>
@@ -245,7 +245,7 @@ final class DocumentationPage {
 									<li><?php esc_html_e( 'Once complete, your backup will appear in the backups list', 'swish-migrate-and-backup' ); ?></li>
 								</ol>
 								<div class="swish-docs-tip">
-									<span class="dashicons dashicons-lightbulb"></span>
+									<span class="material-symbols-outlined">lightbulb</span>
 									<p><?php esc_html_e( 'Tip: Create a full backup before making major changes to your site, such as updating WordPress, themes, or plugins.', 'swish-migrate-and-backup' ); ?></p>
 								</div>
 							</div>
@@ -254,7 +254,7 @@ final class DocumentationPage {
 						<!-- Restoring Backups -->
 						<section id="restoring-backups" class="swish-docs-section">
 							<h2>
-								<span class="dashicons dashicons-backup"></span>
+								<span class="material-symbols-outlined">backup</span>
 								<?php esc_html_e( 'Restoring Backups', 'swish-migrate-and-backup' ); ?>
 							</h2>
 
@@ -277,7 +277,7 @@ final class DocumentationPage {
 									<li><?php esc_html_e( 'Click "Restore Now" to begin', 'swish-migrate-and-backup' ); ?></li>
 								</ol>
 								<div class="swish-docs-warning">
-									<span class="dashicons dashicons-warning"></span>
+									<span class="material-symbols-outlined">warning</span>
 									<p><?php esc_html_e( 'Warning: Restoring a backup will overwrite your current site data. Always enable "Create backup before restore" unless you\'re sure you want to replace everything.', 'swish-migrate-and-backup' ); ?></p>
 								</div>
 							</div>
@@ -295,7 +295,7 @@ final class DocumentationPage {
 						<!-- Scheduled Backups -->
 						<section id="scheduled-backups" class="swish-docs-section">
 							<h2>
-								<span class="dashicons dashicons-calendar-alt"></span>
+								<span class="material-symbols-outlined">calendar_month</span>
 								<?php esc_html_e( 'Scheduled Backups', 'swish-migrate-and-backup' ); ?>
 							</h2>
 
@@ -333,7 +333,7 @@ final class DocumentationPage {
 						<!-- Cloud Storage -->
 						<section id="cloud-storage" class="swish-docs-section">
 							<h2>
-								<span class="dashicons dashicons-cloud"></span>
+								<span class="material-symbols-outlined">cloud</span>
 								<?php esc_html_e( 'Cloud Storage', 'swish-migrate-and-backup' ); ?>
 							</h2>
 
@@ -346,21 +346,21 @@ final class DocumentationPage {
 								<h3><?php esc_html_e( 'Supported Storage Providers', 'swish-migrate-and-backup' ); ?></h3>
 								<div class="swish-docs-feature-list">
 									<div class="swish-docs-feature">
-										<span class="dashicons dashicons-cloud"></span>
+										<span class="material-symbols-outlined">cloud</span>
 										<div>
 											<strong><?php esc_html_e( 'Amazon S3', 'swish-migrate-and-backup' ); ?></strong>
 											<p><?php esc_html_e( 'Professional-grade cloud storage from Amazon Web Services. Great for businesses needing reliable, scalable storage.', 'swish-migrate-and-backup' ); ?></p>
 										</div>
 									</div>
 									<div class="swish-docs-feature">
-										<span class="dashicons dashicons-cloud"></span>
+										<span class="material-symbols-outlined">cloud</span>
 										<div>
 											<strong><?php esc_html_e( 'Dropbox', 'swish-migrate-and-backup' ); ?></strong>
 											<p><?php esc_html_e( 'Easy-to-use cloud storage. Perfect if you already use Dropbox for other files.', 'swish-migrate-and-backup' ); ?></p>
 										</div>
 									</div>
 									<div class="swish-docs-feature">
-										<span class="dashicons dashicons-cloud"></span>
+										<span class="material-symbols-outlined">cloud</span>
 										<div>
 											<strong><?php esc_html_e( 'Google Drive', 'swish-migrate-and-backup' ); ?></strong>
 											<p><?php esc_html_e( 'Store backups in your Google Drive account. Great integration with Google Workspace.', 'swish-migrate-and-backup' ); ?></p>
@@ -393,7 +393,7 @@ final class DocumentationPage {
 						<!-- Migration -->
 						<section id="migration" class="swish-docs-section">
 							<h2>
-								<span class="dashicons dashicons-migrate"></span>
+								<span class="material-symbols-outlined">swap_horiz</span>
 								<?php esc_html_e( 'Site Migration', 'swish-migrate-and-backup' ); ?>
 							</h2>
 
@@ -428,7 +428,7 @@ final class DocumentationPage {
 									<li><?php esc_html_e( 'Fixing broken links after a domain change', 'swish-migrate-and-backup' ); ?></li>
 								</ul>
 								<div class="swish-docs-tip">
-									<span class="dashicons dashicons-lightbulb"></span>
+									<span class="material-symbols-outlined">lightbulb</span>
 									<p><?php esc_html_e( 'Tip: Always create a backup before running Search and Replace, just in case you need to undo the changes.', 'swish-migrate-and-backup' ); ?></p>
 								</div>
 							</div>
@@ -437,7 +437,7 @@ final class DocumentationPage {
 						<!-- Advanced Features -->
 						<section id="pro-features" class="swish-docs-section">
 							<h2>
-								<span class="dashicons dashicons-star-filled"></span>
+								<span class="material-symbols-outlined">star</span>
 								<?php esc_html_e( 'Advanced Features', 'swish-migrate-and-backup' ); ?>
 							</h2>
 
@@ -457,21 +457,21 @@ final class DocumentationPage {
 								<p><?php esc_html_e( 'Full support for WordPress Multisite networks:', 'swish-migrate-and-backup' ); ?></p>
 								<div class="swish-docs-feature-list">
 									<div class="swish-docs-feature">
-										<span class="dashicons dashicons-networking"></span>
+										<span class="material-symbols-outlined">lan</span>
 										<div>
 											<strong><?php esc_html_e( 'Network-wide Backups', 'swish-migrate-and-backup' ); ?></strong>
 											<p><?php esc_html_e( 'Backup your entire multisite network with all subsites in a single operation.', 'swish-migrate-and-backup' ); ?></p>
 										</div>
 									</div>
 									<div class="swish-docs-feature">
-										<span class="dashicons dashicons-yes-alt"></span>
+										<span class="material-symbols-outlined">check_circle</span>
 										<div>
 											<strong><?php esc_html_e( 'Selective Site Backup', 'swish-migrate-and-backup' ); ?></strong>
 											<p><?php esc_html_e( 'Choose specific sites to include in your backup instead of backing up the entire network.', 'swish-migrate-and-backup' ); ?></p>
 										</div>
 									</div>
 									<div class="swish-docs-feature">
-										<span class="dashicons dashicons-archive"></span>
+										<span class="material-symbols-outlined">inventory_2</span>
 										<div>
 											<strong><?php esc_html_e( 'Flexible Archive Modes', 'swish-migrate-and-backup' ); ?></strong>
 											<p><?php esc_html_e( 'Create a single archive containing all sites, or generate separate archives for each site.', 'swish-migrate-and-backup' ); ?></p>
@@ -500,7 +500,7 @@ final class DocumentationPage {
 									<li><strong><?php esc_html_e( 'MU-Plugins:', 'swish-migrate-and-backup' ); ?></strong> <?php esc_html_e( 'Must-use plugins', 'swish-migrate-and-backup' ); ?></li>
 								</ul>
 								<div class="swish-docs-tip">
-									<span class="dashicons dashicons-lightbulb"></span>
+									<span class="material-symbols-outlined">lightbulb</span>
 									<p><?php esc_html_e( 'Tip: Exclude large folders like uploads when you only need to backup code changes, making backups faster and smaller.', 'swish-migrate-and-backup' ); ?></p>
 								</div>
 							</div>
@@ -510,13 +510,13 @@ final class DocumentationPage {
 						<!-- Installing aria2c -->
 						<section id="aria2c-installation" class="swish-docs-section">
 							<h2>
-								<span class="dashicons dashicons-download"></span>
+								<span class="material-symbols-outlined">download</span>
 								<?php esc_html_e( 'Installing aria2c', 'swish-migrate-and-backup' ); ?>
 							</h2>
 
 							<div class="swish-docs-card">
 								<div class="swish-docs-tip" style="margin-bottom: 15px;">
-									<span class="dashicons dashicons-info"></span>
+									<span class="material-symbols-outlined">info</span>
 									<strong><?php esc_html_e( 'Recommended for large files (3GB+)', 'swish-migrate-and-backup' ); ?></strong>
 									<?php esc_html_e( 'aria2c is a lightweight download utility with better resume capabilities than curl. It handles connection drops more gracefully and is recommended for downloading large backup files.', 'swish-migrate-and-backup' ); ?>
 								</div>
@@ -563,7 +563,7 @@ sudo apt-get install aria2</pre>
 						<!-- Troubleshooting -->
 						<section id="troubleshooting" class="swish-docs-section">
 							<h2>
-								<span class="dashicons dashicons-sos"></span>
+								<span class="material-symbols-outlined">support</span>
 								<?php esc_html_e( 'Troubleshooting', 'swish-migrate-and-backup' ); ?>
 							</h2>
 
@@ -602,7 +602,7 @@ sudo apt-get install aria2</pre>
 						<!-- FAQ -->
 						<section id="faq" class="swish-docs-section">
 							<h2>
-								<span class="dashicons dashicons-editor-help"></span>
+								<span class="material-symbols-outlined">help</span>
 								<?php esc_html_e( 'Frequently Asked Questions', 'swish-migrate-and-backup' ); ?>
 							</h2>
 
