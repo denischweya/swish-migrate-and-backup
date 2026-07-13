@@ -17,6 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 use SwishMigrateAndBackup\Backup\BackupManager;
 use SwishMigrateAndBackup\Restore\RestoreManager;
 use SwishMigrateAndBackup\Storage\StorageManager;
+use SwishMigrateAndBackup\Admin\Multisite\AdminLayout;
 
 /**
  * Backups page controller.
@@ -93,17 +94,17 @@ final class BackupsPage {
 				<h2><?php esc_html_e( 'Select Backup Type', 'swish-migrate-and-backup' ); ?></h2>
 				<div class="swish-backup-type-options">
 					<div class="swish-backup-type-option" data-type="full">
-						<span class="dashicons dashicons-database-export"></span>
+						<span class="material-symbols-outlined">database</span>
 						<h3><?php esc_html_e( 'Full Backup', 'swish-migrate-and-backup' ); ?></h3>
 						<p><?php esc_html_e( 'Database, files, themes, plugins, and uploads', 'swish-migrate-and-backup' ); ?></p>
 					</div>
 					<div class="swish-backup-type-option" data-type="database">
-						<span class="dashicons dashicons-database"></span>
+						<span class="material-symbols-outlined">database</span>
 						<h3><?php esc_html_e( 'Database Only', 'swish-migrate-and-backup' ); ?></h3>
 						<p><?php esc_html_e( 'Just the database (fastest)', 'swish-migrate-and-backup' ); ?></p>
 					</div>
 					<div class="swish-backup-type-option" data-type="files">
-						<span class="dashicons dashicons-media-archive"></span>
+						<span class="material-symbols-outlined">folder_zip</span>
 						<h3><?php esc_html_e( 'Files Only', 'swish-migrate-and-backup' ); ?></h3>
 						<p><?php esc_html_e( 'Themes, plugins, and uploads', 'swish-migrate-and-backup' ); ?></p>
 					</div>
@@ -112,13 +113,21 @@ final class BackupsPage {
 
 			<!-- Backup List -->
 			<?php if ( empty( $backups ) ) : ?>
-				<div class="swish-backup-empty-state">
-					<span class="dashicons dashicons-cloud-saved"></span>
-					<h2><?php esc_html_e( 'No Backups Yet', 'swish-migrate-and-backup' ); ?></h2>
-					<p><?php esc_html_e( 'Create your first backup to protect your site.', 'swish-migrate-and-backup' ); ?></p>
-					<button type="button" class="button button-primary button-hero" id="swish-backup-first">
-						<?php esc_html_e( 'Create First Backup', 'swish-migrate-and-backup' ); ?>
-					</button>
+				<div class="swish-card swish-mt-4">
+					<div class="swish-card-body">
+						<?php
+						AdminLayout::render_empty_state(
+							__( 'No Backups Yet', 'swish-migrate-and-backup' ),
+							__( 'Create your first backup to protect your site.', 'swish-migrate-and-backup' ),
+							'backup',
+							array(
+								'label' => __( 'Create First Backup', 'swish-migrate-and-backup' ),
+								'icon'  => 'add',
+								'id'    => 'swish-backup-first',
+							)
+						);
+						?>
+					</div>
 				</div>
 			<?php else : ?>
 				<!-- Bulk Actions Bar -->
@@ -127,74 +136,88 @@ final class BackupsPage {
 						<span id="swish-backup-selected-count">0</span> <?php esc_html_e( 'backup(s) selected', 'swish-migrate-and-backup' ); ?>
 					</span>
 					<div class="swish-backup-bulk-buttons">
-						<button type="button" class="button button-secondary" id="swish-backup-bulk-download">
-							<span class="dashicons dashicons-download"></span>
+						<button type="button" class="swish-btn swish-btn-secondary swish-btn-sm" id="swish-backup-bulk-download">
+							<span class="material-symbols-outlined" style="font-size: 18px;">download</span>
 							<?php esc_html_e( 'Download Selected', 'swish-migrate-and-backup' ); ?>
 						</button>
-						<button type="button" class="button button-link-delete" id="swish-backup-bulk-delete">
-							<span class="dashicons dashicons-trash"></span>
+						<button type="button" class="swish-btn swish-btn-ghost swish-btn-sm swish-btn-danger" id="swish-backup-bulk-delete">
+							<span class="material-symbols-outlined" style="font-size: 18px;">delete</span>
 							<?php esc_html_e( 'Delete Selected', 'swish-migrate-and-backup' ); ?>
 						</button>
 					</div>
 				</div>
 
-				<table class="wp-list-table widefat fixed striped">
-					<thead>
-						<tr>
-							<th class="column-cb check-column">
-								<input type="checkbox" id="swish-backup-select-all" title="<?php esc_attr_e( 'Select All', 'swish-migrate-and-backup' ); ?>">
-							</th>
-							<th class="column-filename"><?php esc_html_e( 'Backup', 'swish-migrate-and-backup' ); ?></th>
-							<th class="column-type"><?php esc_html_e( 'Type', 'swish-migrate-and-backup' ); ?></th>
-							<th class="column-size"><?php esc_html_e( 'Size', 'swish-migrate-and-backup' ); ?></th>
-							<th class="column-date"><?php esc_html_e( 'Date', 'swish-migrate-and-backup' ); ?></th>
-							<th class="column-actions"><?php esc_html_e( 'Actions', 'swish-migrate-and-backup' ); ?></th>
-						</tr>
-					</thead>
-					<tbody>
-						<?php foreach ( $backups as $backup ) : ?>
-							<tr data-backup-id="<?php echo esc_attr( $backup['id'] ); ?>">
-								<td class="column-cb check-column">
-									<input type="checkbox" class="swish-backup-checkbox" value="<?php echo esc_attr( $backup['id'] ); ?>">
-								</td>
-								<td class="column-filename">
-									<strong><?php echo esc_html( $backup['filename'] ); ?></strong>
-									<?php if ( ! empty( $backup['checksum'] ) ) : ?>
-										<br><small class="swish-backup-checksum">
-											<?php
-											/* translators: %s: checksum value */
-											printf( esc_html__( 'SHA256: %s', 'swish-migrate-and-backup' ), esc_html( substr( $backup['checksum'], 0, 16 ) . '...' ) );
-											?>
-										</small>
-									<?php endif; ?>
-								</td>
-								<td class="column-type">
-									<span class="swish-backup-type-badge swish-backup-type-<?php echo esc_attr( $backup['type'] ); ?>">
-										<?php echo esc_html( ucfirst( $backup['type'] ) ); ?>
-									</span>
-								</td>
-								<td class="column-size"><?php echo esc_html( size_format( $backup['size'] ) ); ?></td>
-								<td class="column-date">
-									<?php echo esc_html( wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), strtotime( $backup['created_at'] ) ) ); ?>
-								</td>
-								<td class="column-actions">
-									<button type="button" class="button button-small swish-backup-restore" data-backup-id="<?php echo esc_attr( $backup['id'] ); ?>">
-										<?php esc_html_e( 'Restore', 'swish-migrate-and-backup' ); ?>
-									</button>
-									<button type="button" class="button button-small swish-backup-download" data-backup-id="<?php echo esc_attr( $backup['id'] ); ?>">
-										<?php esc_html_e( 'Download', 'swish-migrate-and-backup' ); ?>
-									</button>
-									<button type="button" class="button button-small swish-backup-cli-download" data-backup-id="<?php echo esc_attr( $backup['id'] ); ?>" data-filename="<?php echo esc_attr( $backup['filename'] ); ?>">
-										<?php esc_html_e( 'CLI', 'swish-migrate-and-backup' ); ?>
-									</button>
-									<button type="button" class="button button-small button-link-delete swish-backup-delete" data-backup-id="<?php echo esc_attr( $backup['id'] ); ?>">
-										<?php esc_html_e( 'Delete', 'swish-migrate-and-backup' ); ?>
-									</button>
-								</td>
-							</tr>
-						<?php endforeach; ?>
-					</tbody>
-				</table>
+				<div class="swish-card swish-mt-4">
+					<div class="swish-card-body" style="padding: 0;">
+						<table class="swish-table">
+							<thead>
+								<tr>
+									<th class="check-column">
+										<input type="checkbox" id="swish-backup-select-all" title="<?php esc_attr_e( 'Select All', 'swish-migrate-and-backup' ); ?>">
+									</th>
+									<th><?php esc_html_e( 'Backup', 'swish-migrate-and-backup' ); ?></th>
+									<th><?php esc_html_e( 'Type', 'swish-migrate-and-backup' ); ?></th>
+									<th><?php esc_html_e( 'Size', 'swish-migrate-and-backup' ); ?></th>
+									<th><?php esc_html_e( 'Date', 'swish-migrate-and-backup' ); ?></th>
+									<th style="text-align: right;"><?php esc_html_e( 'Actions', 'swish-migrate-and-backup' ); ?></th>
+								</tr>
+							</thead>
+							<tbody>
+								<?php foreach ( $backups as $backup ) : ?>
+									<?php
+									$type_variants = array(
+										'full'     => 'swish-badge-info',
+										'database' => 'swish-badge-neutral',
+										'files'    => 'swish-badge-success',
+									);
+									$type_variant  = $type_variants[ $backup['type'] ] ?? 'swish-badge-info';
+									?>
+									<tr data-backup-id="<?php echo esc_attr( $backup['id'] ); ?>">
+										<td class="check-column">
+											<input type="checkbox" class="swish-backup-checkbox" value="<?php echo esc_attr( $backup['id'] ); ?>">
+										</td>
+										<td>
+											<span class="swish-table-cell-primary"><?php echo esc_html( $backup['filename'] ); ?></span>
+											<?php if ( ! empty( $backup['checksum'] ) ) : ?>
+												<span class="swish-table-cell-secondary swish-backup-checksum">
+													<?php
+													/* translators: %s: checksum value */
+													printf( esc_html__( 'SHA256: %s', 'swish-migrate-and-backup' ), esc_html( substr( $backup['checksum'], 0, 16 ) . '...' ) );
+													?>
+												</span>
+											<?php endif; ?>
+										</td>
+										<td>
+											<span class="swish-badge <?php echo esc_attr( $type_variant ); ?>">
+												<?php echo esc_html( ucfirst( $backup['type'] ) ); ?>
+											</span>
+										</td>
+										<td><span class="swish-table-cell-mono"><?php echo esc_html( size_format( $backup['size'] ) ); ?></span></td>
+										<td>
+											<span class="swish-table-cell-secondary"><?php echo esc_html( wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), strtotime( $backup['created_at'] ) ) ); ?></span>
+										</td>
+										<td>
+											<div class="swish-table-actions">
+												<button type="button" class="swish-btn-icon swish-backup-restore" title="<?php esc_attr_e( 'Restore', 'swish-migrate-and-backup' ); ?>" data-backup-id="<?php echo esc_attr( $backup['id'] ); ?>">
+													<span class="material-symbols-outlined">settings_backup_restore</span>
+												</button>
+												<button type="button" class="swish-btn-icon swish-backup-download" title="<?php esc_attr_e( 'Download', 'swish-migrate-and-backup' ); ?>" data-backup-id="<?php echo esc_attr( $backup['id'] ); ?>">
+													<span class="material-symbols-outlined">download</span>
+												</button>
+												<button type="button" class="swish-btn-icon swish-backup-cli-download" title="<?php esc_attr_e( 'CLI Download', 'swish-migrate-and-backup' ); ?>" data-backup-id="<?php echo esc_attr( $backup['id'] ); ?>" data-filename="<?php echo esc_attr( $backup['filename'] ); ?>">
+													<span class="material-symbols-outlined">terminal</span>
+												</button>
+												<button type="button" class="swish-btn-icon danger swish-backup-delete" title="<?php esc_attr_e( 'Delete', 'swish-migrate-and-backup' ); ?>" data-backup-id="<?php echo esc_attr( $backup['id'] ); ?>">
+													<span class="material-symbols-outlined">delete</span>
+												</button>
+											</div>
+										</td>
+									</tr>
+								<?php endforeach; ?>
+							</tbody>
+						</table>
+					</div>
+				</div>
 			<?php endif; ?>
 
 			<!-- Modals -->
@@ -229,10 +252,10 @@ final class BackupsPage {
 						</label>
 					</div>
 					<div class="swish-backup-modal-actions">
-						<button type="button" class="button button-primary" id="swish-backup-restore-confirm">
+						<button type="button" class="swish-btn swish-btn-primary" id="swish-backup-restore-confirm">
 							<?php esc_html_e( 'Restore Now', 'swish-migrate-and-backup' ); ?>
 						</button>
-						<button type="button" class="button swish-backup-modal-cancel">
+						<button type="button" class="swish-btn swish-btn-secondary swish-backup-modal-cancel">
 							<?php esc_html_e( 'Cancel', 'swish-migrate-and-backup' ); ?>
 						</button>
 					</div>
@@ -261,8 +284,8 @@ final class BackupsPage {
 					<div id="swish-cli-curl" class="swish-cli-tool-section">
 						<div class="swish-backup-cli-command-wrapper">
 							<pre id="swish-backup-cli-command" class="swish-backup-cli-command"></pre>
-							<button type="button" class="button button-small swish-backup-cli-copy" data-target="swish-backup-cli-command">
-								<span class="dashicons dashicons-clipboard"></span>
+							<button type="button" class="swish-btn swish-btn-secondary swish-btn-sm swish-backup-cli-copy" data-target="swish-backup-cli-command">
+								<span class="material-symbols-outlined" style="font-size: 16px;">content_copy</span>
 								<?php esc_html_e( 'Copy', 'swish-migrate-and-backup' ); ?>
 							</button>
 						</div>
@@ -272,13 +295,13 @@ final class BackupsPage {
 					<div id="swish-cli-aria2c" class="swish-cli-tool-section" style="display:none;">
 						<div class="swish-backup-cli-command-wrapper">
 							<pre id="swish-backup-aria2c-command" class="swish-backup-cli-command"></pre>
-							<button type="button" class="button button-small swish-backup-cli-copy" data-target="swish-backup-aria2c-command">
-								<span class="dashicons dashicons-clipboard"></span>
+							<button type="button" class="swish-btn swish-btn-secondary swish-btn-sm swish-backup-cli-copy" data-target="swish-backup-aria2c-command">
+								<span class="material-symbols-outlined" style="font-size: 16px;">content_copy</span>
 								<?php esc_html_e( 'Copy', 'swish-migrate-and-backup' ); ?>
 							</button>
 						</div>
 						<p class="swish-backup-cli-tip">
-							<span class="dashicons dashicons-info-outline"></span>
+							<span class="material-symbols-outlined" style="font-size: 16px; vertical-align: middle;">info</span>
 							<?php
 							printf(
 								/* translators: %s: link to documentation */
@@ -294,7 +317,7 @@ final class BackupsPage {
 						<?php esc_html_e( 'The download link expires in 24 hours. If interrupted, re-run the same command to resume.', 'swish-migrate-and-backup' ); ?>
 					</p>
 					<div class="swish-backup-modal-actions">
-						<button type="button" class="button swish-backup-modal-cancel">
+						<button type="button" class="swish-btn swish-btn-secondary swish-backup-modal-cancel">
 							<?php esc_html_e( 'Close', 'swish-migrate-and-backup' ); ?>
 						</button>
 					</div>
@@ -306,11 +329,11 @@ final class BackupsPage {
 				<div class="swish-backup-modal-content swish-backup-settings-modal-content">
 					<div class="swish-modal-header">
 						<h3>
-							<span class="dashicons dashicons-admin-settings"></span>
+							<span class="material-symbols-outlined">settings</span>
 							<?php esc_html_e( 'Backup Settings', 'swish-migrate-and-backup' ); ?>
 						</h3>
 						<button type="button" class="swish-modal-close swish-backup-modal-cancel">
-							<span class="dashicons dashicons-no-alt"></span>
+							<span class="material-symbols-outlined">close</span>
 						</button>
 					</div>
 
@@ -327,9 +350,9 @@ final class BackupsPage {
 									<span class="swish-range-value">150</span>
 								</div>
 								<div class="swish-preset-buttons">
-									<button type="button" class="button button-small" data-value="50"><?php esc_html_e( 'Shared (50)', 'swish-migrate-and-backup' ); ?></button>
-									<button type="button" class="button button-small" data-value="150"><?php esc_html_e( 'VPS (150)', 'swish-migrate-and-backup' ); ?></button>
-									<button type="button" class="button button-small" data-value="300"><?php esc_html_e( 'Dedicated (300)', 'swish-migrate-and-backup' ); ?></button>
+									<button type="button" class="swish-btn swish-btn-secondary swish-btn-sm" data-value="50"><?php esc_html_e( 'Shared (50)', 'swish-migrate-and-backup' ); ?></button>
+									<button type="button" class="swish-btn swish-btn-secondary swish-btn-sm" data-value="150"><?php esc_html_e( 'VPS (150)', 'swish-migrate-and-backup' ); ?></button>
+									<button type="button" class="swish-btn swish-btn-secondary swish-btn-sm" data-value="300"><?php esc_html_e( 'Dedicated (300)', 'swish-migrate-and-backup' ); ?></button>
 								</div>
 							</div>
 
@@ -349,27 +372,27 @@ final class BackupsPage {
 							<div class="swish-checkbox-grid">
 								<label class="swish-checkbox-item">
 									<input type="checkbox" id="swish-backup-database" checked>
-									<span class="dashicons dashicons-database"></span>
+									<span class="material-symbols-outlined">database</span>
 									<?php esc_html_e( 'Database', 'swish-migrate-and-backup' ); ?>
 								</label>
 								<label class="swish-checkbox-item">
 									<input type="checkbox" id="swish-backup-plugins" checked>
-									<span class="dashicons dashicons-admin-plugins"></span>
+									<span class="material-symbols-outlined">extension</span>
 									<?php esc_html_e( 'Plugins', 'swish-migrate-and-backup' ); ?>
 								</label>
 								<label class="swish-checkbox-item">
 									<input type="checkbox" id="swish-backup-themes" checked>
-									<span class="dashicons dashicons-admin-appearance"></span>
+									<span class="material-symbols-outlined">palette</span>
 									<?php esc_html_e( 'Themes', 'swish-migrate-and-backup' ); ?>
 								</label>
 								<label class="swish-checkbox-item">
 									<input type="checkbox" id="swish-backup-uploads" checked>
-									<span class="dashicons dashicons-admin-media"></span>
+									<span class="material-symbols-outlined">image</span>
 									<?php esc_html_e( 'Uploads', 'swish-migrate-and-backup' ); ?>
 								</label>
 								<label class="swish-checkbox-item">
 									<input type="checkbox" id="swish-backup-core">
-									<span class="dashicons dashicons-wordpress"></span>
+									<span class="material-symbols-outlined">public</span>
 									<?php esc_html_e( 'Core Files', 'swish-migrate-and-backup' ); ?>
 								</label>
 							</div>
@@ -379,16 +402,16 @@ final class BackupsPage {
 						<div class="swish-settings-section">
 							<h4><?php esc_html_e( 'Quick Presets', 'swish-migrate-and-backup' ); ?></h4>
 							<div class="swish-hosting-presets">
-								<button type="button" class="button" data-preset="shared">
-									<span class="dashicons dashicons-cloud"></span>
+								<button type="button" class="swish-btn swish-btn-secondary" data-preset="shared">
+									<span class="material-symbols-outlined">cloud</span>
 									<?php esc_html_e( 'Shared Hosting', 'swish-migrate-and-backup' ); ?>
 								</button>
-								<button type="button" class="button" data-preset="vps">
-									<span class="dashicons dashicons-desktop"></span>
+								<button type="button" class="swish-btn swish-btn-secondary" data-preset="vps">
+									<span class="material-symbols-outlined">computer</span>
 									<?php esc_html_e( 'VPS / Managed', 'swish-migrate-and-backup' ); ?>
 								</button>
-								<button type="button" class="button" data-preset="dedicated">
-									<span class="dashicons dashicons-building"></span>
+								<button type="button" class="swish-btn swish-btn-secondary" data-preset="dedicated">
+									<span class="material-symbols-outlined">apartment</span>
 									<?php esc_html_e( 'Dedicated', 'swish-migrate-and-backup' ); ?>
 								</button>
 							</div>
@@ -396,10 +419,10 @@ final class BackupsPage {
 					</div>
 
 					<div class="swish-modal-footer">
-						<button type="button" class="button swish-backup-modal-cancel">
+						<button type="button" class="swish-btn swish-btn-secondary swish-backup-modal-cancel">
 							<?php esc_html_e( 'Cancel', 'swish-migrate-and-backup' ); ?>
 						</button>
-						<button type="button" class="button button-primary" id="swish-backup-save-settings">
+						<button type="button" class="swish-btn swish-btn-primary" id="swish-backup-save-settings">
 							<?php esc_html_e( 'Save Settings', 'swish-migrate-and-backup' ); ?>
 						</button>
 					</div>
