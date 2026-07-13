@@ -15,6 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 use SwishMigrateAndBackup\Queue\Scheduler;
+use SwishMigrateAndBackup\Admin\Multisite\AdminLayout;
 
 /**
  * Schedules page controller.
@@ -63,147 +64,139 @@ final class SchedulesPage {
 		);
 		?>
 			<!-- Schedule Form -->
-			<div id="swish-backup-schedule-form" class="swish-backup-card" style="display:none;">
-				<h2><?php esc_html_e( 'Add New Schedule', 'swish-migrate-and-backup' ); ?></h2>
-				<form method="post" action="">
-					<?php wp_nonce_field( 'swish_backup_schedule', 'swish_backup_schedule_nonce' ); ?>
-					<input type="hidden" name="schedule_id" id="schedule_id" value="">
+			<div id="swish-backup-schedule-form" class="swish-card" style="display:none;">
+				<div class="swish-card-header">
+					<h4 style="margin: 0; font-size: var(--swish-text-lg); font-weight: var(--swish-font-semibold);"><?php esc_html_e( 'Add New Schedule', 'swish-migrate-and-backup' ); ?></h4>
+				</div>
+				<div class="swish-card-body">
+					<form method="post" action="">
+						<?php wp_nonce_field( 'swish_backup_schedule', 'swish_backup_schedule_nonce' ); ?>
+						<input type="hidden" name="schedule_id" id="schedule_id" value="">
 
-					<table class="form-table">
-						<tr>
-							<th scope="row">
-								<label for="schedule_name"><?php esc_html_e( 'Schedule Name', 'swish-migrate-and-backup' ); ?></label>
-							</th>
-							<td>
-								<input type="text" name="schedule_name" id="schedule_name" class="regular-text" required>
-							</td>
-						</tr>
-						<tr>
-							<th scope="row">
-								<label for="schedule_frequency"><?php esc_html_e( 'Frequency', 'swish-migrate-and-backup' ); ?></label>
-							</th>
-							<td>
-								<select name="schedule_frequency" id="schedule_frequency">
+						<div class="swish-form-group">
+							<label class="swish-form-label" for="schedule_name"><?php esc_html_e( 'Schedule Name', 'swish-migrate-and-backup' ); ?></label>
+							<input type="text" name="schedule_name" id="schedule_name" class="swish-input" required>
+						</div>
+						<div class="swish-form-group">
+							<label class="swish-form-label" for="schedule_frequency"><?php esc_html_e( 'Frequency', 'swish-migrate-and-backup' ); ?></label>
+							<div class="swish-select-wrapper">
+								<select name="schedule_frequency" id="schedule_frequency" class="swish-select">
 									<option value="hourly"><?php esc_html_e( 'Hourly', 'swish-migrate-and-backup' ); ?></option>
 									<option value="twicedaily"><?php esc_html_e( 'Twice Daily', 'swish-migrate-and-backup' ); ?></option>
 									<option value="daily" selected><?php esc_html_e( 'Daily', 'swish-migrate-and-backup' ); ?></option>
 									<option value="weekly"><?php esc_html_e( 'Weekly', 'swish-migrate-and-backup' ); ?></option>
 									<option value="monthly"><?php esc_html_e( 'Monthly', 'swish-migrate-and-backup' ); ?></option>
 								</select>
-							</td>
-						</tr>
-						<tr>
-							<th scope="row">
-								<label for="backup_type"><?php esc_html_e( 'Backup Type', 'swish-migrate-and-backup' ); ?></label>
-							</th>
-							<td>
-								<select name="backup_type" id="backup_type">
+							</div>
+						</div>
+						<div class="swish-form-group">
+							<label class="swish-form-label" for="backup_type"><?php esc_html_e( 'Backup Type', 'swish-migrate-and-backup' ); ?></label>
+							<div class="swish-select-wrapper">
+								<select name="backup_type" id="backup_type" class="swish-select">
 									<option value="full"><?php esc_html_e( 'Full Backup', 'swish-migrate-and-backup' ); ?></option>
 									<option value="database"><?php esc_html_e( 'Database Only', 'swish-migrate-and-backup' ); ?></option>
 									<option value="files"><?php esc_html_e( 'Files Only', 'swish-migrate-and-backup' ); ?></option>
 								</select>
-							</td>
-						</tr>
-						<tr>
-							<th scope="row">
-								<label for="retention_count"><?php esc_html_e( 'Keep Backups', 'swish-migrate-and-backup' ); ?></label>
-							</th>
-							<td>
-								<input type="number" name="retention_count" id="retention_count" value="5" min="1" max="100" class="small-text">
-								<p class="description"><?php esc_html_e( 'Number of backups to retain. Older backups will be automatically deleted.', 'swish-migrate-and-backup' ); ?></p>
-							</td>
-						</tr>
-						<tr>
-							<th scope="row"><?php esc_html_e( 'Storage Destinations', 'swish-migrate-and-backup' ); ?></th>
-							<td>
-								<fieldset>
-									<label>
-										<input type="checkbox" name="storage_destinations[]" value="local" checked>
-										<?php esc_html_e( 'Local Storage', 'swish-migrate-and-backup' ); ?>
-									</label><br>
-									<label>
-										<input type="checkbox" name="storage_destinations[]" value="s3">
-										<?php esc_html_e( 'Amazon S3', 'swish-migrate-and-backup' ); ?>
-									</label><br>
-									<label>
-										<input type="checkbox" name="storage_destinations[]" value="dropbox">
-										<?php esc_html_e( 'Dropbox', 'swish-migrate-and-backup' ); ?>
-									</label><br>
-									<label>
-										<input type="checkbox" name="storage_destinations[]" value="googledrive">
-										<?php esc_html_e( 'Google Drive', 'swish-migrate-and-backup' ); ?>
-									</label>
-								</fieldset>
-							</td>
-						</tr>
-					</table>
+							</div>
+						</div>
+						<div class="swish-form-group">
+							<label class="swish-form-label" for="retention_count"><?php esc_html_e( 'Keep Backups', 'swish-migrate-and-backup' ); ?></label>
+							<input type="number" name="retention_count" id="retention_count" value="5" min="1" max="100" class="swish-input" style="max-width: 120px;">
+							<p class="swish-help-text"><?php esc_html_e( 'Number of backups to retain. Older backups will be automatically deleted.', 'swish-migrate-and-backup' ); ?></p>
+						</div>
+						<div class="swish-form-group">
+							<label class="swish-form-label"><?php esc_html_e( 'Storage Destinations', 'swish-migrate-and-backup' ); ?></label>
+							<div class="swish-checkbox-wrapper">
+								<label class="swish-checkbox-label"><input type="checkbox" name="storage_destinations[]" value="local" class="swish-checkbox" checked> <span class="swish-checkbox-text"><?php esc_html_e( 'Local Storage', 'swish-migrate-and-backup' ); ?></span></label>
+								<label class="swish-checkbox-label"><input type="checkbox" name="storage_destinations[]" value="s3" class="swish-checkbox"> <span class="swish-checkbox-text"><?php esc_html_e( 'Amazon S3', 'swish-migrate-and-backup' ); ?></span></label>
+								<label class="swish-checkbox-label"><input type="checkbox" name="storage_destinations[]" value="dropbox" class="swish-checkbox"> <span class="swish-checkbox-text"><?php esc_html_e( 'Dropbox', 'swish-migrate-and-backup' ); ?></span></label>
+								<label class="swish-checkbox-label"><input type="checkbox" name="storage_destinations[]" value="googledrive" class="swish-checkbox"> <span class="swish-checkbox-text"><?php esc_html_e( 'Google Drive', 'swish-migrate-and-backup' ); ?></span></label>
+							</div>
+						</div>
 
-					<p class="submit">
-						<button type="submit" class="button button-primary"><?php esc_html_e( 'Save Schedule', 'swish-migrate-and-backup' ); ?></button>
-						<button type="button" class="button" id="swish-backup-cancel-schedule"><?php esc_html_e( 'Cancel', 'swish-migrate-and-backup' ); ?></button>
-					</p>
-				</form>
+						<p class="swish-flex swish-gap-2">
+							<button type="submit" class="swish-btn swish-btn-primary"><?php esc_html_e( 'Save Schedule', 'swish-migrate-and-backup' ); ?></button>
+							<button type="button" class="swish-btn swish-btn-secondary" id="swish-backup-cancel-schedule"><?php esc_html_e( 'Cancel', 'swish-migrate-and-backup' ); ?></button>
+						</p>
+					</form>
+				</div>
 			</div>
 
 			<!-- Schedules List -->
 			<?php if ( empty( $schedules ) ) : ?>
-				<div class="swish-backup-empty-state">
-					<span class="dashicons dashicons-calendar-alt"></span>
-					<h2><?php esc_html_e( 'No Schedules', 'swish-migrate-and-backup' ); ?></h2>
-					<p><?php esc_html_e( 'Create a backup schedule to automate your backups.', 'swish-migrate-and-backup' ); ?></p>
-					<button type="button" class="button button-primary" id="swish-backup-add-schedule-empty">
-						<?php esc_html_e( 'Schedule Backup', 'swish-migrate-and-backup' ); ?>
-					</button>
+				<div class="swish-card swish-mt-4">
+					<div class="swish-card-body">
+						<?php
+						AdminLayout::render_empty_state(
+							__( 'No Schedules', 'swish-migrate-and-backup' ),
+							__( 'Create a backup schedule to automate your backups.', 'swish-migrate-and-backup' ),
+							'calendar_month',
+							array(
+								'label' => __( 'Schedule Backup', 'swish-migrate-and-backup' ),
+								'icon'  => 'add',
+								'id'    => 'swish-backup-add-schedule-empty',
+							)
+						);
+						?>
+					</div>
 				</div>
 			<?php else : ?>
-				<table class="wp-list-table widefat fixed striped">
-					<thead>
-						<tr>
-							<th><?php esc_html_e( 'Name', 'swish-migrate-and-backup' ); ?></th>
-							<th><?php esc_html_e( 'Frequency', 'swish-migrate-and-backup' ); ?></th>
-							<th><?php esc_html_e( 'Type', 'swish-migrate-and-backup' ); ?></th>
-							<th><?php esc_html_e( 'Next Run', 'swish-migrate-and-backup' ); ?></th>
-							<th><?php esc_html_e( 'Status', 'swish-migrate-and-backup' ); ?></th>
-							<th><?php esc_html_e( 'Actions', 'swish-migrate-and-backup' ); ?></th>
-						</tr>
-					</thead>
-					<tbody>
-						<?php foreach ( $schedules as $schedule ) : ?>
-							<tr data-schedule-id="<?php echo esc_attr( (string) $schedule['id'] ); ?>">
-								<td><strong><?php echo esc_html( $schedule['name'] ); ?></strong></td>
-								<td><?php echo esc_html( ucfirst( $schedule['frequency'] ) ); ?></td>
-								<td><?php echo esc_html( ucfirst( $schedule['backup_type'] ) ); ?></td>
-								<td>
-									<?php
-									if ( $schedule['next_run'] ) {
-										echo esc_html( wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), strtotime( $schedule['next_run'] ) ) );
-									} else {
-										esc_html_e( 'Not scheduled', 'swish-migrate-and-backup' );
-									}
-									?>
-								</td>
-								<td>
-									<?php if ( $schedule['is_active'] ) : ?>
-										<span class="swish-backup-status-badge swish-backup-status-success"><?php esc_html_e( 'Active', 'swish-migrate-and-backup' ); ?></span>
-									<?php else : ?>
-										<span class="swish-backup-status-badge swish-backup-status-warning"><?php esc_html_e( 'Paused', 'swish-migrate-and-backup' ); ?></span>
-									<?php endif; ?>
-								</td>
-								<td>
-									<button type="button" class="button button-small swish-backup-run-schedule" data-schedule-id="<?php echo esc_attr( (string) $schedule['id'] ); ?>">
-										<?php esc_html_e( 'Run Now', 'swish-migrate-and-backup' ); ?>
-									</button>
-									<button type="button" class="button button-small swish-backup-toggle-schedule" data-schedule-id="<?php echo esc_attr( (string) $schedule['id'] ); ?>">
-										<?php echo $schedule['is_active'] ? esc_html__( 'Pause', 'swish-migrate-and-backup' ) : esc_html__( 'Activate', 'swish-migrate-and-backup' ); ?>
-									</button>
-									<button type="button" class="button button-small button-link-delete swish-backup-delete-schedule" data-schedule-id="<?php echo esc_attr( (string) $schedule['id'] ); ?>">
-										<?php esc_html_e( 'Delete', 'swish-migrate-and-backup' ); ?>
-									</button>
-								</td>
-							</tr>
-						<?php endforeach; ?>
-					</tbody>
-				</table>
+				<div class="swish-card swish-mt-4">
+					<div class="swish-card-body" style="padding: 0;">
+						<table class="swish-table">
+							<thead>
+								<tr>
+									<th><?php esc_html_e( 'Name', 'swish-migrate-and-backup' ); ?></th>
+									<th><?php esc_html_e( 'Frequency', 'swish-migrate-and-backup' ); ?></th>
+									<th><?php esc_html_e( 'Type', 'swish-migrate-and-backup' ); ?></th>
+									<th><?php esc_html_e( 'Next Run', 'swish-migrate-and-backup' ); ?></th>
+									<th><?php esc_html_e( 'Status', 'swish-migrate-and-backup' ); ?></th>
+									<th style="text-align: right;"><?php esc_html_e( 'Actions', 'swish-migrate-and-backup' ); ?></th>
+								</tr>
+							</thead>
+							<tbody>
+								<?php foreach ( $schedules as $schedule ) : ?>
+									<tr data-schedule-id="<?php echo esc_attr( (string) $schedule['id'] ); ?>">
+										<td><span class="swish-table-cell-primary"><?php echo esc_html( $schedule['name'] ); ?></span></td>
+										<td><span class="swish-table-cell-secondary"><?php echo esc_html( ucfirst( $schedule['frequency'] ) ); ?></span></td>
+										<td><span class="swish-badge swish-badge-neutral"><?php echo esc_html( ucfirst( $schedule['backup_type'] ) ); ?></span></td>
+										<td>
+											<span class="swish-table-cell-secondary">
+											<?php
+											if ( $schedule['next_run'] ) {
+												echo esc_html( wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), strtotime( $schedule['next_run'] ) ) );
+											} else {
+												esc_html_e( 'Not scheduled', 'swish-migrate-and-backup' );
+											}
+											?>
+											</span>
+										</td>
+										<td>
+											<?php if ( $schedule['is_active'] ) : ?>
+												<span class="swish-badge swish-badge-success"><?php esc_html_e( 'Active', 'swish-migrate-and-backup' ); ?></span>
+											<?php else : ?>
+												<span class="swish-badge swish-badge-warning"><?php esc_html_e( 'Paused', 'swish-migrate-and-backup' ); ?></span>
+											<?php endif; ?>
+										</td>
+										<td>
+											<div class="swish-table-actions">
+												<button type="button" class="swish-btn-icon swish-backup-run-schedule" title="<?php esc_attr_e( 'Run Now', 'swish-migrate-and-backup' ); ?>" data-schedule-id="<?php echo esc_attr( (string) $schedule['id'] ); ?>">
+													<span class="material-symbols-outlined">play_circle</span>
+												</button>
+												<button type="button" class="swish-btn-icon swish-backup-toggle-schedule" title="<?php echo $schedule['is_active'] ? esc_attr__( 'Pause', 'swish-migrate-and-backup' ) : esc_attr__( 'Activate', 'swish-migrate-and-backup' ); ?>" data-schedule-id="<?php echo esc_attr( (string) $schedule['id'] ); ?>">
+													<span class="material-symbols-outlined"><?php echo $schedule['is_active'] ? 'pause_circle' : 'play_arrow'; ?></span>
+												</button>
+												<button type="button" class="swish-btn-icon danger swish-backup-delete-schedule" title="<?php esc_attr_e( 'Delete', 'swish-migrate-and-backup' ); ?>" data-schedule-id="<?php echo esc_attr( (string) $schedule['id'] ); ?>">
+													<span class="material-symbols-outlined">delete</span>
+												</button>
+											</div>
+										</td>
+									</tr>
+								<?php endforeach; ?>
+							</tbody>
+						</table>
+					</div>
+				</div>
 			<?php endif; ?>
 		<?php
 		AdminNav::render_end();
