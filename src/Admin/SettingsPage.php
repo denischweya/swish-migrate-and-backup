@@ -67,12 +67,12 @@ final class SettingsPage {
 			__( 'Swish Backup Settings', 'swish-migrate-and-backup' )
 		);
 		?>
-			<nav class="nav-tab-wrapper">
-				<a href="<?php echo esc_url( add_query_arg( 'tab', 'general' ) ); ?>" class="nav-tab <?php echo 'general' === $active_tab ? 'nav-tab-active' : ''; ?>">
+			<nav class="swish-tabs">
+				<a href="<?php echo esc_url( add_query_arg( 'tab', 'general' ) ); ?>" class="swish-tab <?php echo 'general' === $active_tab ? 'active' : ''; ?>">
 					<?php esc_html_e( 'General', 'swish-migrate-and-backup' ); ?>
 				</a>
 				<?php foreach ( $adapters as $id => $adapter ) : ?>
-					<a href="<?php echo esc_url( add_query_arg( 'tab', $id ) ); ?>" class="nav-tab <?php echo $id === $active_tab ? 'nav-tab-active' : ''; ?>">
+					<a href="<?php echo esc_url( add_query_arg( 'tab', $id ) ); ?>" class="swish-tab <?php echo $id === $active_tab ? 'active' : ''; ?>">
 						<?php echo esc_html( $adapter->get_name() ); ?>
 					</a>
 				<?php endforeach; ?>
@@ -93,7 +93,9 @@ final class SettingsPage {
 					?>
 				<?php endif; ?>
 
-				<?php submit_button(); ?>
+				<p style="margin-top: var(--swish-space-6);">
+					<button type="submit" class="swish-btn swish-btn-primary"><?php esc_html_e( 'Save Changes', 'swish-migrate-and-backup' ); ?></button>
+				</p>
 			</form>
 		<?php
 		AdminNav::render_end();
@@ -114,17 +116,17 @@ final class SettingsPage {
 	private function render_general_settings( array $settings ): void {
 		?>
 		<!-- Performance Section -->
-		<h2 class="title"><?php esc_html_e( 'Performance', 'swish-migrate-and-backup' ); ?></h2>
-		<p class="description">
-			<?php esc_html_e( 'Adjust batch sizes based on your hosting environment. Lower values are safer for shared hosting.', 'swish-migrate-and-backup' ); ?>
-		</p>
+		<div class="swish-card">
+			<div class="swish-card-header">
+				<h4 style="margin: 0; font-size: var(--swish-text-lg); font-weight: var(--swish-font-semibold);"><?php esc_html_e( 'Performance', 'swish-migrate-and-backup' ); ?></h4>
+			</div>
+			<div class="swish-card-body">
+				<p class="swish-help-text">
+					<?php esc_html_e( 'Adjust batch sizes based on your hosting environment. Lower values are safer for shared hosting.', 'swish-migrate-and-backup' ); ?>
+				</p>
 
-		<table class="form-table">
-			<tr>
-				<th scope="row">
-					<label for="pipeline_batch_size"><?php esc_html_e( 'Files per Request', 'swish-migrate-and-backup' ); ?></label>
-				</th>
-				<td>
+				<div class="swish-form-group">
+					<label class="swish-form-label" for="pipeline_batch_size"><?php esc_html_e( 'Files per Request', 'swish-migrate-and-backup' ); ?></label>
 					<div class="swish-range-wrapper">
 						<input type="range" name="swish_backup_settings[pipeline_batch_size]" id="pipeline_batch_size"
 							min="25" max="500" step="25"
@@ -132,24 +134,20 @@ final class SettingsPage {
 							oninput="document.getElementById('pipeline_batch_size_value').textContent = this.value">
 						<span id="pipeline_batch_size_value" class="swish-range-value"><?php echo esc_html( $settings['pipeline_batch_size'] ?? 150 ); ?></span>
 					</div>
-					<p class="description">
-						<button type="button" class="button button-small" onclick="document.getElementById('pipeline_batch_size').value=50;document.getElementById('pipeline_batch_size_value').textContent='50';">
+					<p class="swish-help-text swish-flex swish-gap-2" style="margin-top: var(--swish-space-2);">
+						<button type="button" class="swish-btn swish-btn-secondary swish-btn-sm" onclick="document.getElementById('pipeline_batch_size').value=50;document.getElementById('pipeline_batch_size_value').textContent='50';">
 							<?php esc_html_e( 'Shared (50)', 'swish-migrate-and-backup' ); ?>
 						</button>
-						<button type="button" class="button button-small" onclick="document.getElementById('pipeline_batch_size').value=150;document.getElementById('pipeline_batch_size_value').textContent='150';">
+						<button type="button" class="swish-btn swish-btn-secondary swish-btn-sm" onclick="document.getElementById('pipeline_batch_size').value=150;document.getElementById('pipeline_batch_size_value').textContent='150';">
 							<?php esc_html_e( 'VPS (150)', 'swish-migrate-and-backup' ); ?>
 						</button>
-						<button type="button" class="button button-small" onclick="document.getElementById('pipeline_batch_size').value=300;document.getElementById('pipeline_batch_size_value').textContent='300';">
+						<button type="button" class="swish-btn swish-btn-secondary swish-btn-sm" onclick="document.getElementById('pipeline_batch_size').value=300;document.getElementById('pipeline_batch_size_value').textContent='300';">
 							<?php esc_html_e( 'Dedicated (300)', 'swish-migrate-and-backup' ); ?>
 						</button>
 					</p>
-				</td>
-			</tr>
-			<tr>
-				<th scope="row">
-					<label for="db_batch_size"><?php esc_html_e( 'Database Rows per Batch', 'swish-migrate-and-backup' ); ?></label>
-				</th>
-				<td>
+				</div>
+				<div class="swish-form-group">
+					<label class="swish-form-label" for="db_batch_size"><?php esc_html_e( 'Database Rows per Batch', 'swish-migrate-and-backup' ); ?></label>
 					<div class="swish-range-wrapper">
 						<input type="range" name="swish_backup_settings[db_batch_size]" id="db_batch_size"
 							min="100" max="2000" step="100"
@@ -157,75 +155,77 @@ final class SettingsPage {
 							oninput="document.getElementById('db_batch_size_value').textContent = this.value">
 						<span id="db_batch_size_value" class="swish-range-value"><?php echo esc_html( $settings['db_batch_size'] ?? 500 ); ?></span>
 					</div>
-				</td>
-			</tr>
-			<tr>
-				<th scope="row"><?php esc_html_e( 'Quick Presets', 'swish-migrate-and-backup' ); ?></th>
-				<td>
-					<button type="button" class="button" onclick="swishSetPreset(50, 200);">
-						<span class="dashicons dashicons-cloud" style="margin-top:4px;"></span>
-						<?php esc_html_e( 'Shared Hosting', 'swish-migrate-and-backup' ); ?>
-					</button>
-					<button type="button" class="button" onclick="swishSetPreset(150, 500);">
-						<span class="dashicons dashicons-desktop" style="margin-top:4px;"></span>
-						<?php esc_html_e( 'VPS / Managed', 'swish-migrate-and-backup' ); ?>
-					</button>
-					<button type="button" class="button" onclick="swishSetPreset(300, 1000);">
-						<span class="dashicons dashicons-building" style="margin-top:4px;"></span>
-						<?php esc_html_e( 'Dedicated', 'swish-migrate-and-backup' ); ?>
-					</button>
-				</td>
-			</tr>
-		</table>
+				</div>
+				<div class="swish-form-group">
+					<label class="swish-form-label"><?php esc_html_e( 'Quick Presets', 'swish-migrate-and-backup' ); ?></label>
+					<div class="swish-flex swish-gap-2">
+						<button type="button" class="swish-btn swish-btn-secondary" onclick="swishSetPreset(50, 200);">
+							<span class="material-symbols-outlined" style="font-size: 18px;">cloud</span>
+							<?php esc_html_e( 'Shared Hosting', 'swish-migrate-and-backup' ); ?>
+						</button>
+						<button type="button" class="swish-btn swish-btn-secondary" onclick="swishSetPreset(150, 500);">
+							<span class="material-symbols-outlined" style="font-size: 18px;">computer</span>
+							<?php esc_html_e( 'VPS / Managed', 'swish-migrate-and-backup' ); ?>
+						</button>
+						<button type="button" class="swish-btn swish-btn-secondary" onclick="swishSetPreset(300, 1000);">
+							<span class="material-symbols-outlined" style="font-size: 18px;">apartment</span>
+							<?php esc_html_e( 'Dedicated', 'swish-migrate-and-backup' ); ?>
+						</button>
+					</div>
+				</div>
+			</div>
+		</div>
 
 		<!-- Archive & Storage Section -->
-		<h2 class="title"><?php esc_html_e( 'Archive & Storage', 'swish-migrate-and-backup' ); ?></h2>
-		<table class="form-table">
-			<tr>
-				<th scope="row">
-					<label for="archive_format"><?php esc_html_e( 'Archive Format', 'swish-migrate-and-backup' ); ?></label>
-				</th>
-				<td>
-					<select name="swish_backup_settings[archive_format]" id="archive_format">
-						<option value="swish" selected><?php esc_html_e( 'SWISH - Streaming format with resume support', 'swish-migrate-and-backup' ); ?></option>
-					</select>
-					<p class="description">
+		<div class="swish-card swish-mt-4">
+			<div class="swish-card-header">
+				<h4 style="margin: 0; font-size: var(--swish-text-lg); font-weight: var(--swish-font-semibold);"><?php esc_html_e( 'Archive & Storage', 'swish-migrate-and-backup' ); ?></h4>
+			</div>
+			<div class="swish-card-body">
+				<div class="swish-form-group">
+					<label class="swish-form-label" for="archive_format"><?php esc_html_e( 'Archive Format', 'swish-migrate-and-backup' ); ?></label>
+					<div class="swish-select-wrapper">
+						<select name="swish_backup_settings[archive_format]" id="archive_format" class="swish-select">
+							<option value="swish" selected><?php esc_html_e( 'SWISH - Streaming format with resume support', 'swish-migrate-and-backup' ); ?></option>
+						</select>
+					</div>
+					<p class="swish-help-text">
 						<?php esc_html_e( 'SWISH is our custom streaming format with true append support and resume capability.', 'swish-migrate-and-backup' ); ?>
 					</p>
-				</td>
-			</tr>
-			<tr>
-				<th scope="row">
-					<label for="compression_level"><?php esc_html_e( 'Compression Level', 'swish-migrate-and-backup' ); ?></label>
-				</th>
-				<td>
-					<select name="swish_backup_settings[compression_level]" id="compression_level">
-						<option value="0" <?php selected( $settings['compression_level'] ?? 6, 0 ); ?>><?php esc_html_e( 'None (fastest)', 'swish-migrate-and-backup' ); ?></option>
-						<option value="1" <?php selected( $settings['compression_level'] ?? 6, 1 ); ?>><?php esc_html_e( 'Low', 'swish-migrate-and-backup' ); ?></option>
-						<option value="6" <?php selected( $settings['compression_level'] ?? 6, 6 ); ?>><?php esc_html_e( 'Normal', 'swish-migrate-and-backup' ); ?></option>
-						<option value="9" <?php selected( $settings['compression_level'] ?? 6, 9 ); ?>><?php esc_html_e( 'Maximum (slowest)', 'swish-migrate-and-backup' ); ?></option>
-					</select>
-				</td>
-			</tr>
-			<tr>
-				<th scope="row">
-					<label for="default_storage"><?php esc_html_e( 'Default Storage', 'swish-migrate-and-backup' ); ?></label>
-				</th>
-				<td>
-					<select name="swish_backup_settings[default_storage]" id="default_storage">
-						<?php foreach ( $this->storage_manager->get_all_adapters() as $id => $adapter ) : ?>
-							<option value="<?php echo esc_attr( $id ); ?>" <?php selected( $settings['default_storage'] ?? 'local', $id ); ?>>
-								<?php echo esc_html( $adapter->get_name() ); ?>
-							</option>
-						<?php endforeach; ?>
-					</select>
-				</td>
-			</tr>
-		</table>
+				</div>
+				<div class="swish-form-group">
+					<label class="swish-form-label" for="compression_level"><?php esc_html_e( 'Compression Level', 'swish-migrate-and-backup' ); ?></label>
+					<div class="swish-select-wrapper">
+						<select name="swish_backup_settings[compression_level]" id="compression_level" class="swish-select">
+							<option value="0" <?php selected( $settings['compression_level'] ?? 6, 0 ); ?>><?php esc_html_e( 'None (fastest)', 'swish-migrate-and-backup' ); ?></option>
+							<option value="1" <?php selected( $settings['compression_level'] ?? 6, 1 ); ?>><?php esc_html_e( 'Low', 'swish-migrate-and-backup' ); ?></option>
+							<option value="6" <?php selected( $settings['compression_level'] ?? 6, 6 ); ?>><?php esc_html_e( 'Normal', 'swish-migrate-and-backup' ); ?></option>
+							<option value="9" <?php selected( $settings['compression_level'] ?? 6, 9 ); ?>><?php esc_html_e( 'Maximum (slowest)', 'swish-migrate-and-backup' ); ?></option>
+						</select>
+					</div>
+				</div>
+				<div class="swish-form-group">
+					<label class="swish-form-label" for="default_storage"><?php esc_html_e( 'Default Storage', 'swish-migrate-and-backup' ); ?></label>
+					<div class="swish-select-wrapper">
+						<select name="swish_backup_settings[default_storage]" id="default_storage" class="swish-select">
+							<?php foreach ( $this->storage_manager->get_all_adapters() as $id => $adapter ) : ?>
+								<option value="<?php echo esc_attr( $id ); ?>" <?php selected( $settings['default_storage'] ?? 'local', $id ); ?>>
+									<?php echo esc_html( $adapter->get_name() ); ?>
+								</option>
+							<?php endforeach; ?>
+						</select>
+					</div>
+				</div>
+			</div>
+		</div>
 
 		<!-- Backup Contents Section -->
-		<h2 class="title"><?php esc_html_e( 'Backup Contents', 'swish-migrate-and-backup' ); ?></h2>
-		<p class="description">
+		<div class="swish-card swish-mt-4">
+			<div class="swish-card-header">
+				<h4 style="margin: 0; font-size: var(--swish-text-lg); font-weight: var(--swish-font-semibold);"><?php esc_html_e( 'Backup Contents', 'swish-migrate-and-backup' ); ?></h4>
+			</div>
+			<div class="swish-card-body">
+		<p class="swish-help-text">
 			<?php esc_html_e( 'Select what to include in backups. Click on each section to choose specific items.', 'swish-migrate-and-backup' ); ?>
 		</p>
 
@@ -234,7 +234,7 @@ final class SettingsPage {
 			<div class="swish-content-section">
 				<label class="swish-content-toggle">
 					<input type="checkbox" name="swish_backup_settings[backup_database]" value="1" <?php checked( $settings['backup_database'] ?? true ); ?>>
-					<span class="dashicons dashicons-database"></span>
+					<span class="material-symbols-outlined">database</span>
 					<?php esc_html_e( 'Database', 'swish-migrate-and-backup' ); ?>
 				</label>
 			</div>
@@ -243,12 +243,12 @@ final class SettingsPage {
 			<div class="swish-content-section">
 				<label class="swish-content-toggle">
 					<input type="checkbox" name="swish_backup_settings[backup_plugins]" value="1" id="backup_plugins" <?php checked( $settings['backup_plugins'] ?? true ); ?>>
-					<span class="dashicons dashicons-admin-plugins"></span>
+					<span class="material-symbols-outlined">extension</span>
 					<?php esc_html_e( 'Plugins', 'swish-migrate-and-backup' ); ?>
 				</label>
 				<div class="swish-folder-tree" id="plugins-tree" data-type="plugins">
-					<button type="button" class="swish-tree-toggle button button-small">
-						<span class="dashicons dashicons-arrow-right-alt2"></span>
+					<button type="button" class="swish-tree-toggle swish-btn swish-btn-secondary swish-btn-sm">
+						<span class="material-symbols-outlined" style="font-size: 16px;">chevron_right</span>
 						<?php esc_html_e( 'Select plugins to include', 'swish-migrate-and-backup' ); ?>
 						<span class="swish-tree-count"></span>
 					</button>
@@ -266,12 +266,12 @@ final class SettingsPage {
 			<div class="swish-content-section">
 				<label class="swish-content-toggle">
 					<input type="checkbox" name="swish_backup_settings[backup_themes]" value="1" id="backup_themes" <?php checked( $settings['backup_themes'] ?? true ); ?>>
-					<span class="dashicons dashicons-admin-appearance"></span>
+					<span class="material-symbols-outlined">palette</span>
 					<?php esc_html_e( 'Themes', 'swish-migrate-and-backup' ); ?>
 				</label>
 				<div class="swish-folder-tree" id="themes-tree" data-type="themes">
-					<button type="button" class="swish-tree-toggle button button-small">
-						<span class="dashicons dashicons-arrow-right-alt2"></span>
+					<button type="button" class="swish-tree-toggle swish-btn swish-btn-secondary swish-btn-sm">
+						<span class="material-symbols-outlined" style="font-size: 16px;">chevron_right</span>
 						<?php esc_html_e( 'Select themes to include', 'swish-migrate-and-backup' ); ?>
 						<span class="swish-tree-count"></span>
 					</button>
@@ -289,12 +289,12 @@ final class SettingsPage {
 			<div class="swish-content-section">
 				<label class="swish-content-toggle">
 					<input type="checkbox" name="swish_backup_settings[backup_uploads]" value="1" id="backup_uploads" <?php checked( $settings['backup_uploads'] ?? true ); ?>>
-					<span class="dashicons dashicons-admin-media"></span>
+					<span class="material-symbols-outlined">image</span>
 					<?php esc_html_e( 'Uploads', 'swish-migrate-and-backup' ); ?>
 				</label>
 				<div class="swish-folder-tree" id="uploads-tree" data-type="uploads">
-					<button type="button" class="swish-tree-toggle button button-small">
-						<span class="dashicons dashicons-arrow-right-alt2"></span>
+					<button type="button" class="swish-tree-toggle swish-btn swish-btn-secondary swish-btn-sm">
+						<span class="material-symbols-outlined" style="font-size: 16px;">chevron_right</span>
 						<?php esc_html_e( 'Select upload folders to include', 'swish-migrate-and-backup' ); ?>
 						<span class="swish-tree-count"></span>
 					</button>
@@ -312,7 +312,7 @@ final class SettingsPage {
 			<div class="swish-content-section">
 				<label class="swish-content-toggle">
 					<input type="checkbox" name="swish_backup_settings[backup_core_files]" value="1" <?php checked( $settings['backup_core_files'] ?? false ); ?>>
-					<span class="dashicons dashicons-wordpress"></span>
+					<span class="material-symbols-outlined">public</span>
 					<?php esc_html_e( 'WordPress Core Files', 'swish-migrate-and-backup' ); ?>
 				</label>
 				<p class="description" style="margin-left: 28px;">
@@ -321,38 +321,42 @@ final class SettingsPage {
 			</div>
 		</div>
 
-		<!-- Exclusions Section -->
-		<h2 class="title"><?php esc_html_e( 'File Exclusions', 'swish-migrate-and-backup' ); ?></h2>
-		<table class="form-table">
-			<tr>
-				<th scope="row">
-					<label for="exclude_files"><?php esc_html_e( 'Exclude Files/Patterns', 'swish-migrate-and-backup' ); ?></label>
-				</th>
-				<td>
-					<textarea name="swish_backup_settings[exclude_files]" id="exclude_files" rows="5" class="large-text"><?php echo esc_textarea( implode( "\n", $settings['exclude_files'] ?? array() ) ); ?></textarea>
-					<p class="description"><?php esc_html_e( 'One pattern per line. Use * for wildcards. Example: *.log, cache/*', 'swish-migrate-and-backup' ); ?></p>
-				</td>
-			</tr>
-		</table>
+		</div>
+			</div>
+
+			<!-- Exclusions Section -->
+		<div class="swish-card swish-mt-4">
+			<div class="swish-card-header">
+				<h4 style="margin: 0; font-size: var(--swish-text-lg); font-weight: var(--swish-font-semibold);"><?php esc_html_e( 'File Exclusions', 'swish-migrate-and-backup' ); ?></h4>
+			</div>
+			<div class="swish-card-body">
+				<div class="swish-form-group">
+					<label class="swish-form-label" for="exclude_files"><?php esc_html_e( 'Exclude Files/Patterns', 'swish-migrate-and-backup' ); ?></label>
+					<textarea name="swish_backup_settings[exclude_files]" id="exclude_files" rows="5" class="swish-input" style="font-family: var(--swish-font-mono, monospace);"><?php echo esc_textarea( implode( "
+", $settings['exclude_files'] ?? array() ) ); ?></textarea>
+					<p class="swish-help-text"><?php esc_html_e( 'One pattern per line. Use * for wildcards. Example: *.log, cache/*', 'swish-migrate-and-backup' ); ?></p>
+				</div>
+			</div>
+		</div>
 
 		<!-- Notifications Section -->
-		<h2 class="title"><?php esc_html_e( 'Notifications', 'swish-migrate-and-backup' ); ?></h2>
-		<table class="form-table">
-			<tr>
-				<th scope="row"><?php esc_html_e( 'Email Notifications', 'swish-migrate-and-backup' ); ?></th>
-				<td>
-					<label>
-						<input type="checkbox" name="swish_backup_settings[email_notifications]" value="1" <?php checked( $settings['email_notifications'] ?? false ); ?>>
-						<?php esc_html_e( 'Send email after backup completes', 'swish-migrate-and-backup' ); ?>
-					</label>
-					<br><br>
-					<label>
-						<?php esc_html_e( 'Notification Email:', 'swish-migrate-and-backup' ); ?>
-						<input type="email" name="swish_backup_settings[notification_email]" value="<?php echo esc_attr( $settings['notification_email'] ?? get_option( 'admin_email' ) ); ?>" class="regular-text">
-					</label>
-				</td>
-			</tr>
-		</table>
+		<div class="swish-card swish-mt-4">
+			<div class="swish-card-header">
+				<h4 style="margin: 0; font-size: var(--swish-text-lg); font-weight: var(--swish-font-semibold);"><?php esc_html_e( 'Notifications', 'swish-migrate-and-backup' ); ?></h4>
+			</div>
+			<div class="swish-card-body">
+				<div class="swish-form-group">
+					<label class="swish-form-label"><?php esc_html_e( 'Email Notifications', 'swish-migrate-and-backup' ); ?></label>
+					<div class="swish-checkbox-wrapper">
+						<label class="swish-checkbox-label"><input type="checkbox" name="swish_backup_settings[email_notifications]" value="1" class="swish-checkbox" <?php checked( $settings['email_notifications'] ?? false ); ?>> <span class="swish-checkbox-text"><?php esc_html_e( 'Send email after backup completes', 'swish-migrate-and-backup' ); ?></span></label>
+					</div>
+				</div>
+				<div class="swish-form-group">
+					<label class="swish-form-label" for="notification_email"><?php esc_html_e( 'Notification Email', 'swish-migrate-and-backup' ); ?></label>
+					<input type="email" name="swish_backup_settings[notification_email]" id="notification_email" value="<?php echo esc_attr( $settings['notification_email'] ?? get_option( 'admin_email' ) ); ?>" class="swish-input">
+				</div>
+			</div>
+		</div>
 		<?php
 	}
 
@@ -367,21 +371,19 @@ final class SettingsPage {
 		$fields = $adapter->get_settings_fields();
 		$adapter_settings = $adapter->get_settings();
 		?>
-		<table class="form-table">
-			<?php foreach ( $fields as $field ) : ?>
-				<?php if ( 'hidden' === ( $field['type'] ?? 'text' ) ) : ?>
-					<input type="hidden" name="swish_backup_storage[<?php echo esc_attr( $active_tab ); ?>][<?php echo esc_attr( $field['name'] ); ?>]" value="<?php echo esc_attr( $adapter_settings[ $field['name'] ] ?? '' ); ?>">
-				<?php else : ?>
-					<tr>
-						<th scope="row">
-							<label for="<?php echo esc_attr( $field['name'] ); ?>">
+		<div class="swish-card">
+			<div class="swish-card-body">
+				<?php foreach ( $fields as $field ) : ?>
+					<?php if ( 'hidden' === ( $field['type'] ?? 'text' ) ) : ?>
+						<input type="hidden" name="swish_backup_storage[<?php echo esc_attr( $active_tab ); ?>][<?php echo esc_attr( $field['name'] ); ?>]" value="<?php echo esc_attr( $adapter_settings[ $field['name'] ] ?? '' ); ?>">
+					<?php else : ?>
+						<div class="swish-form-group">
+							<label class="swish-form-label" for="<?php echo esc_attr( $field['name'] ); ?>">
 								<?php echo esc_html( $field['label'] ); ?>
 								<?php if ( ! empty( $field['required'] ) ) : ?>
-									<span class="required">*</span>
+									<span style="color: var(--swish-error-600);">*</span>
 								<?php endif; ?>
 							</label>
-						</th>
-						<td>
 							<?php
 							$field_type = $field['type'] ?? 'text';
 							$field_value = $adapter_settings[ $field['name'] ] ?? ( $field['default'] ?? '' );
@@ -391,58 +393,60 @@ final class SettingsPage {
 							switch ( $field_type ) :
 								case 'select':
 									?>
-									<select name="<?php echo esc_attr( $field_name ); ?>" id="<?php echo esc_attr( $field_id ); ?>">
-										<?php foreach ( $field['options'] as $value => $label ) : ?>
-											<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $field_value, $value ); ?>>
-												<?php echo esc_html( $label ); ?>
-											</option>
-										<?php endforeach; ?>
-									</select>
+									<div class="swish-select-wrapper">
+										<select name="<?php echo esc_attr( $field_name ); ?>" id="<?php echo esc_attr( $field_id ); ?>" class="swish-select">
+											<?php foreach ( $field['options'] as $value => $label ) : ?>
+												<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $field_value, $value ); ?>>
+													<?php echo esc_html( $label ); ?>
+												</option>
+											<?php endforeach; ?>
+										</select>
+									</div>
 									<?php
 									break;
 								case 'password':
 									?>
-									<input type="password" name="<?php echo esc_attr( $field_name ); ?>" id="<?php echo esc_attr( $field_id ); ?>" value="" class="regular-text" autocomplete="new-password">
+									<input type="password" name="<?php echo esc_attr( $field_name ); ?>" id="<?php echo esc_attr( $field_id ); ?>" value="" class="swish-input" autocomplete="new-password">
 									<?php if ( ! empty( $field_value ) ) : ?>
-										<p class="description"><?php esc_html_e( 'Leave blank to keep current value.', 'swish-migrate-and-backup' ); ?></p>
+										<p class="swish-help-text"><?php esc_html_e( 'Leave blank to keep current value.', 'swish-migrate-and-backup' ); ?></p>
 									<?php endif; ?>
 									<?php
 									break;
 								case 'checkbox':
 									?>
-									<label>
-										<input type="checkbox" name="<?php echo esc_attr( $field_name ); ?>" id="<?php echo esc_attr( $field_id ); ?>" value="1" <?php checked( $field_value ); ?>>
-										<?php echo esc_html( $field['description'] ?? '' ); ?>
-									</label>
+									<div class="swish-checkbox-wrapper">
+										<label class="swish-checkbox-label"><input type="checkbox" name="<?php echo esc_attr( $field_name ); ?>" id="<?php echo esc_attr( $field_id ); ?>" value="1" class="swish-checkbox" <?php checked( $field_value ); ?>> <span class="swish-checkbox-text"><?php echo esc_html( $field['description'] ?? '' ); ?></span></label>
+									</div>
 									<?php
 									break;
 								case 'number':
 									?>
-									<input type="number" name="<?php echo esc_attr( $field_name ); ?>" id="<?php echo esc_attr( $field_id ); ?>" value="<?php echo esc_attr( $field_value ); ?>" class="regular-text">
+									<input type="number" name="<?php echo esc_attr( $field_name ); ?>" id="<?php echo esc_attr( $field_id ); ?>" value="<?php echo esc_attr( $field_value ); ?>" class="swish-input">
 									<?php
 									break;
 								default:
 									?>
-									<input type="text" name="<?php echo esc_attr( $field_name ); ?>" id="<?php echo esc_attr( $field_id ); ?>" value="<?php echo esc_attr( $field_value ); ?>" class="regular-text">
+									<input type="text" name="<?php echo esc_attr( $field_name ); ?>" id="<?php echo esc_attr( $field_id ); ?>" value="<?php echo esc_attr( $field_value ); ?>" class="swish-input">
 									<?php
 							endswitch;
 
 							if ( ! empty( $field['description'] ) && 'checkbox' !== $field_type ) :
 								?>
-								<p class="description"><?php echo esc_html( $field['description'] ); ?></p>
+								<p class="swish-help-text"><?php echo esc_html( $field['description'] ); ?></p>
 							<?php endif; ?>
-						</td>
-					</tr>
-				<?php endif; ?>
-			<?php endforeach; ?>
-		</table>
+						</div>
+					<?php endif; ?>
+				<?php endforeach; ?>
 
-		<p>
-			<button type="button" class="button" id="swish-backup-test-connection" data-adapter="<?php echo esc_attr( $active_tab ); ?>">
-				<?php esc_html_e( 'Test Connection', 'swish-migrate-and-backup' ); ?>
-			</button>
-			<span id="swish-backup-connection-status"></span>
-		</p>
+				<div class="swish-form-group">
+					<button type="button" class="swish-btn swish-btn-secondary" id="swish-backup-test-connection" data-adapter="<?php echo esc_attr( $active_tab ); ?>">
+						<span class="material-symbols-outlined" style="font-size: 18px;">wifi_tethering</span>
+						<?php esc_html_e( 'Test Connection', 'swish-migrate-and-backup' ); ?>
+					</button>
+					<span id="swish-backup-connection-status"></span>
+				</div>
+			</div>
+		</div>
 		<?php
 	}
 
@@ -468,14 +472,14 @@ final class SettingsPage {
 				min-width: 40px;
 			}
 			.swish-backup-contents-settings {
-				background: #fff;
-				border: 1px solid #c3c4c7;
+				background: var(--swish-surface, #fff);
+				border: 1px solid var(--swish-border, #c3c4c7);
 				padding: 15px;
 				max-width: 800px;
 			}
 			.swish-content-section {
 				padding: 10px 0;
-				border-bottom: 1px solid #f0f0f1;
+				border-bottom: 1px solid var(--swish-border, #f0f0f1);
 			}
 			.swish-content-section:last-child {
 				border-bottom: none;
@@ -487,8 +491,8 @@ final class SettingsPage {
 				font-weight: 500;
 				cursor: pointer;
 			}
-			.swish-content-toggle .dashicons {
-				color: #2271b1;
+			.swish-content-toggle .material-symbols-outlined {
+				color: var(--swish-primary-600, #2271b1);
 			}
 			.swish-folder-tree {
 				margin-left: 28px;
@@ -499,10 +503,10 @@ final class SettingsPage {
 				align-items: center;
 				gap: 5px;
 			}
-			.swish-tree-toggle .dashicons {
+			.swish-tree-toggle .material-symbols-outlined {
 				transition: transform 0.2s;
 			}
-			.swish-tree-toggle.expanded .dashicons {
+			.swish-tree-toggle.expanded .material-symbols-outlined {
 				transform: rotate(90deg);
 			}
 			.swish-tree-count {
@@ -543,7 +547,7 @@ final class SettingsPage {
 			}
 			.swish-tree-item .active-badge {
 				background: #00a32a;
-				color: #fff;
+				color: var(--swish-surface, #fff);
 				font-size: 10px;
 				padding: 2px 6px;
 				border-radius: 3px;
@@ -559,7 +563,7 @@ final class SettingsPage {
 				margin-left: 20px;
 				margin-top: 5px;
 				font-size: 12px;
-				color: #2271b1;
+				color: var(--swish-primary-600, #2271b1);
 				cursor: pointer;
 				background: none;
 				border: none;
@@ -653,8 +657,8 @@ final class SettingsPage {
 				const actions = document.createElement('div');
 				actions.className = 'swish-tree-actions';
 				actions.innerHTML = `
-					<button type="button" class="button button-small" data-action="select-all"><?php esc_html_e( 'Select All', 'swish-migrate-and-backup' ); ?></button>
-					<button type="button" class="button button-small" data-action="select-none"><?php esc_html_e( 'Select None', 'swish-migrate-and-backup' ); ?></button>
+					<button type="button" class="swish-btn swish-btn-secondary swish-btn-sm" data-action="select-all"><?php esc_html_e( 'Select All', 'swish-migrate-and-backup' ); ?></button>
+					<button type="button" class="swish-btn swish-btn-secondary swish-btn-sm" data-action="select-none"><?php esc_html_e( 'Select None', 'swish-migrate-and-backup' ); ?></button>
 				`;
 				container.appendChild(actions);
 
@@ -706,7 +710,7 @@ final class SettingsPage {
 						const yearToggle = document.createElement('button');
 						yearToggle.type = 'button';
 						yearToggle.className = 'swish-year-toggle';
-						yearToggle.innerHTML = '<span class="dashicons dashicons-arrow-right-alt2"></span> <?php esc_html_e( 'Show months', 'swish-migrate-and-backup' ); ?> (' + item.children.length + ')';
+						yearToggle.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;">chevron_right</span> <?php esc_html_e( 'Show months', 'swish-migrate-and-backup' ); ?> (' + item.children.length + ')';
 
 						const monthsContainer = document.createElement('div');
 						monthsContainer.className = 'swish-month-items';
@@ -715,7 +719,7 @@ final class SettingsPage {
 						yearToggle.addEventListener('click', function() {
 							const isHidden = monthsContainer.style.display === 'none';
 							monthsContainer.style.display = isHidden ? 'block' : 'none';
-							this.querySelector('.dashicons').style.transform = isHidden ? 'rotate(90deg)' : '';
+							this.querySelector('.material-symbols-outlined').style.transform = isHidden ? 'rotate(90deg)' : '';
 						});
 
 						item.children.forEach(function(month) {
