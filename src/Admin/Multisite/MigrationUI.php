@@ -724,6 +724,28 @@ final class MigrationUI {
 							'</div>' +
 						'</div>';
 					this.show( '<?php echo esc_js( __( 'File Too Large', 'swish-migrate-and-backup' ) ); ?>', content );
+				},
+				showUploadBlockedError: function( fileSize ) {
+					const sizeRow = fileSize
+						? '<div class="swish-error-row">' +
+								'<span class="swish-error-label"><?php esc_html_e( 'Your file size:', 'swish-migrate-and-backup' ); ?></span>' +
+								'<span class="swish-error-value">' + formatFileSize( fileSize ) + '</span>' +
+							'</div>'
+						: '';
+					const content =
+						'<p><?php echo esc_js( __( 'The upload was blocked before it reached WordPress. This usually means the file is larger than an upload limit set by your host, server, or a CDN/proxy in front of your site.', 'swish-migrate-and-backup' ) ); ?></p>' +
+						'<p><?php echo esc_js( __( 'For example, Cloudflare rejects request bodies larger than about 100 MB and closes the connection before the upload finishes.', 'swish-migrate-and-backup' ) ); ?></p>' +
+						'<div class="swish-error-details">' +
+							sizeRow +
+							'<div style="margin-top: var(--swish-space-3);">' +
+								'<strong><?php echo esc_js( __( 'Recommended workaround (no upload needed):', 'swish-migrate-and-backup' ) ); ?></strong>' +
+								'<ol class="swish-error-list">' +
+									'<li><?php esc_html_e( 'Copy the backup file to', 'swish-migrate-and-backup' ); ?> <code>wp-content/swish-backups/</code> <?php esc_html_e( 'on the server (via SFTP/FTP or your host file manager)', 'swish-migrate-and-backup' ); ?></li>' +
+									'<li><?php esc_html_e( 'Then pick it from the "Or Select Existing Backup" dropdown above and click Continue', 'swish-migrate-and-backup' ); ?></li>' +
+								'</ol>' +
+							'</div>' +
+						'</div>';
+					this.show( '<?php echo esc_js( __( 'Upload Blocked by a Size Limit', 'swish-migrate-and-backup' ) ); ?>', content );
 				}
 			};
 
@@ -938,6 +960,10 @@ final class MigrationUI {
 					data: formData,
 					processData: false,
 					contentType: false,
+					// Only time out file uploads; a stalled/half-open connection (e.g. a CDN
+					// dropping an oversized body) would otherwise spin forever. Existing-backup
+					// validation sends no body, so it is left without a timeout.
+					timeout: file ? 120000 : 0,
 					success: function( response ) {
 						if ( response.success ) {
 							backupValidated = true;
@@ -1086,8 +1112,9 @@ final class MigrationUI {
 					error: function( xhr, status, error ) {
 						console.error( 'Validation error:', status, error, xhr.responseText );
 
-						// Check for PHP upload limit errors.
 						const response = xhr.responseText || '';
+
+						// Check for PHP upload limit errors (exact sizes reported by PHP).
 						if ( response.indexOf( 'POST Content-Length' ) !== -1 && response.indexOf( 'exceeds the limit' ) !== -1 ) {
 							// Parse the actual sizes from the error message.
 							const match = response.match( /POST Content-Length of (\d+) bytes exceeds the limit of (\d+) bytes/ );
@@ -1100,13 +1127,23 @@ final class MigrationUI {
 								// Fallback if we can't parse the sizes.
 								SwishUploadError.showFileSizeError( 0, maxUploadSize );
 							}
-						} else {
-							SwishUploadError.show(
-								'<?php echo esc_js( __( 'Validation Error', 'swish-migrate-and-backup' ) ); ?>',
-								'<p><?php esc_html_e( 'An error occurred while validating the backup.', 'swish-migrate-and-backup' ); ?></p>' +
-								'<p style="color: var(--swish-text-tertiary); font-size: var(--swish-text-sm);"><?php esc_html_e( 'Check the browser console for more details.', 'swish-migrate-and-backup' ); ?></p>'
-							);
+							return;
 						}
+
+						// Upload blocked/dropped before reaching WordPress: connection closed or
+						// reset ( status 0 ), Payload Too Large ( 413 ), a request timeout, or an
+						// HTML/plain-text proxy/CDN error page instead of the expected JSON.
+						const looksLikeJson = response.trim().charAt( 0 ) === '{';
+						if ( file && ( xhr.status === 0 || xhr.status === 413 || status === 'timeout' || ( response && ! looksLikeJson ) ) ) {
+							SwishUploadError.showUploadBlockedError( file.size );
+							return;
+						}
+
+						SwishUploadError.show(
+							'<?php echo esc_js( __( 'Validation Error', 'swish-migrate-and-backup' ) ); ?>',
+							'<p><?php esc_html_e( 'An error occurred while validating the backup.', 'swish-migrate-and-backup' ); ?></p>' +
+							'<p style="color: var(--swish-text-tertiary); font-size: var(--swish-text-sm);"><?php esc_html_e( 'Check the browser console for more details.', 'swish-migrate-and-backup' ); ?></p>'
+						);
 					},
 					complete: function() {
 						$button.prop( 'disabled', false );
