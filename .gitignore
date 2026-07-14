@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+vendor/
+
+# OS
+.DS_Store
+
+# Tooling artifacts
+.claude/worktrees/
+.claude/settings.local.json
+.playwright-mcp/
+
+# Build source maps
+build/*.map
