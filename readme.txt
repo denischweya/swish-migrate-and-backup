@@ -4,7 +4,7 @@ Tags: backup, migration, restore, database, multisite
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.3.0
+Stable tag: 1.3.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -117,6 +117,10 @@ Yes. On multisite installations, go to Network Admin → Swish Backup to create 
 5. Schedules - Set up automatic scheduled backups
 
 == Changelog ==
+
+= 1.3.1 =
+* Fixed: literal % characters in database content were written to backups as long {hash} placeholder tokens, corrupting serialized settings (e.g. currency formats) on restore and leaking the token into post content
+* The plugin can now be activated in SQLite-based environments such as WordPress Playground and WordPress Studio (useful for previewing translations); a notice explains that backup, restore, and migration features require a MySQL/MariaDB database with the mysqli extension
 
 = 1.3.0 =
 * Fixed: multisite migration imports failed with repeated 500/403 errors and never showed completion, even when the import had actually finished

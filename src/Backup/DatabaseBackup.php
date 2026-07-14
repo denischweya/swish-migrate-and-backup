@@ -606,8 +606,10 @@ final class DatabaseBackup {
 				} elseif ( 'numeric' === $type_map[ $column ] && is_numeric( $value ) ) {
 					$values[] = $value;
 				} else {
-					// Escape special characters.
-					$escaped = $wpdb->_real_escape( $value );
+					// Escape special characters. _real_escape() replaces literal %
+					// with a placeholder-escape token that core only strips when the
+					// query executes — undo it here or the token leaks into the dump.
+					$escaped = $wpdb->remove_placeholder_escape( $wpdb->_real_escape( $value ) );
 					$values[] = "'{$escaped}'";
 				}
 			}

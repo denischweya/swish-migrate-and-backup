@@ -74,8 +74,11 @@ final class Activator {
 			);
 		}
 
-		// Check for required PHP extensions.
-		$required_extensions = array( 'zip', 'json', 'mysqli' );
+		// Check for required PHP extensions. mysqli is intentionally NOT here:
+		// SQLite-based environments (WordPress Playground / Studio) lack it, and
+		// blocking activation there prevents translators from previewing the UI.
+		// A persistent admin notice covers the degraded mode instead (Plugin).
+		$required_extensions = array( 'zip', 'json' );
 		$missing_extensions  = array();
 
 		foreach ( $required_extensions as $extension ) {

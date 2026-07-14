@@ -335,6 +335,14 @@ final class Plugin {
 			add_action( 'admin_menu', array( $this->container->get( AdminMenu::class ), 'register' ) );
 			add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
 			add_filter( 'plugin_action_links_' . SWISH_BACKUP_PLUGIN_BASENAME, array( $this, 'add_plugin_action_links' ) );
+
+			// SQLite environments (WordPress Playground / Studio) have no mysqli;
+			// the plugin activates so the UI can be browsed (e.g. by translators),
+			// but backup/restore/migration need MySQL — warn on our admin pages.
+			if ( ! extension_loaded( 'mysqli' ) ) {
+				add_action( 'admin_notices', array( $this, 'render_mysqli_missing_notice' ) );
+				add_action( 'network_admin_notices', array( $this, 'render_mysqli_missing_notice' ) );
+			}
 		}
 
 		// REST API.
@@ -422,6 +430,27 @@ final class Plugin {
 				echo '</p></div>';
 			}
 		);
+	}
+
+	/**
+	 * Warn that backup/restore/migration features need the mysqli extension.
+	 *
+	 * Shown only on this plugin's admin pages so SQLite-based environments
+	 * (WordPress Playground, WordPress Studio) can still browse the UI.
+	 *
+	 * @return void
+	 */
+	public function render_mysqli_missing_notice(): void {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only page check for notice targeting.
+		$page = isset( $_GET['page'] ) ? sanitize_text_field( wp_unslash( $_GET['page'] ) ) : '';
+
+		if ( 0 !== strpos( $page, 'swish-backup' ) ) {
+			return;
+		}
+
+		echo '<div class="notice notice-warning"><p>';
+		esc_html_e( 'Swish Migrate and Backup: the PHP mysqli extension is not available on this site (common in SQLite-based environments such as WordPress Playground or WordPress Studio). You can browse the plugin screens, but backup, restore, and migration features require a MySQL/MariaDB database with the mysqli extension.', 'swish-migrate-and-backup' );
+		echo '</p></div>';
 	}
 
 	/**

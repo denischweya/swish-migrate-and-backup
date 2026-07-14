@@ -1,6 +1,6 @@
 # Swish Migrate and Backup — Complete Plugin Specification
 
-This document is a self-contained specification of the Swish Migrate and Backup WordPress plugin, detailed enough to re-implement the plugin from scratch on any platform. It reflects version **1.2.0**, in which the former Pro add-on (multisite features) was merged into this single free plugin.
+This document is a self-contained specification of the Swish Migrate and Backup WordPress plugin, detailed enough to re-implement the plugin from scratch on any platform. It reflects version **1.3.1**. (The former Pro add-on — multisite features — was merged into this single free plugin in v1.2.0.)
 
 ---
 
@@ -21,7 +21,7 @@ This document is a self-contained specification of the Swish Migrate and Backup 
 
 ### Requirements
 
-- WordPress ≥ 6.0, PHP ≥ 8.1, PHP extensions: `zip`, `json`, `mysqli`.
+- WordPress ≥ 6.0, PHP ≥ 8.1, PHP extensions: `zip`, `json`. `mysqli` is required for backup/restore/migration to actually run but does NOT block activation — SQLite environments (WordPress Playground/Studio) can activate the plugin and browse the UI (translation preview); a warning notice on the plugin's admin pages explains the limitation.
 - Text domain: `swish-migrate-and-backup`. License GPL-2.0+.
 
 ---
@@ -272,6 +272,7 @@ Multisite (`MultisiteRestController`; permission `manage_network` on multisite, 
 7. Uninstall guarded by `WP_UNINSTALL_PLUGIN` and `delete_plugins`.
 8. Debug file logging gated behind `WP_DEBUG`.
 9. `extract-swish.php` refuses non-CLI SAPIs.
+10. **SQL dump writers must strip the wpdb placeholder escape.** `$wpdb->_real_escape()` (and `esc_sql()`/`prepare()` output) replaces every literal `%` with a per-request `{64-hex}` token that core only removes when the query executes via `wpdb::query()` — never in text written to a file. Any value escaped for dump/export output must be wrapped in `$wpdb->remove_placeholder_escape()` (DatabaseBackup, ExportController, NetworkBackup ×2), otherwise the token is persisted into the backup and corrupts serialized data on restore (v1.3.1 fix).
 
 ---
 

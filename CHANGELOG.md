@@ -5,6 +5,14 @@ All notable changes to Swish Migrate and Backup will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2026-07-14
+
+### Changed
+- **The plugin now activates without the mysqli PHP extension.** SQLite-based environments (WordPress Playground, WordPress Studio) lack mysqli, and the hard activation block prevented translators from previewing the UI via the translate.wordpress.org Playground link. mysqli was removed from the hard-required extension list (`zip` and `json` remain required); when it is missing, a warning notice on the plugin's admin pages explains that backup, restore, and migration features require a MySQL/MariaDB database.
+
+### Fixed
+- **Literal `%` characters in database content leaked into backups as `{64-hex}` placeholder tokens.** All four SQL dump writers (backup engine, export, multisite shared/site tables) escaped values with `$wpdb->_real_escape()`, whose output contains WordPress's placeholder-escape token for every literal `%` — core only strips it when a query executes, never in dump text. Restoring such a backup persisted the token into post content and corrupted serialized options (broken `s:N:` length prefixes → `unserialize()` failures, e.g. a `%s %v` currency format fataling a destination plugin on PHP 8). Values are now passed through `$wpdb->remove_placeholder_escape()` before being written.
+
 ## [1.3.0] - 2026-07-13
 
 ### Fixed

@@ -669,7 +669,9 @@ final class NetworkBackup {
 				foreach ( $rows as $row ) {
 					$values = array_map(
 						function ( $value ) use ( $wpdb ) {
-							return null === $value ? 'NULL' : "'" . $wpdb->_real_escape( $value ) . "'";
+							// remove_placeholder_escape(): _real_escape() turns literal %
+							// into a token only stripped at query time — never for dumps.
+							return null === $value ? 'NULL' : "'" . $wpdb->remove_placeholder_escape( $wpdb->_real_escape( $value ) ) . "'";
 						},
 						$row
 					);
@@ -725,7 +727,9 @@ final class NetworkBackup {
 				foreach ( $rows as $row ) {
 					$values = array_map(
 						function ( $value ) use ( $wpdb ) {
-							return null === $value ? 'NULL' : "'" . $wpdb->_real_escape( $value ) . "'";
+							// remove_placeholder_escape(): _real_escape() turns literal %
+							// into a token only stripped at query time — never for dumps.
+							return null === $value ? 'NULL' : "'" . $wpdb->remove_placeholder_escape( $wpdb->_real_escape( $value ) ) . "'";
 						},
 						$row
 					);

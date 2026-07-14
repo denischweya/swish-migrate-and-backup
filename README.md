@@ -41,7 +41,7 @@ Migrating to a new domain? Swish handles serialization-safe search and replace f
 
 - PHP 8.1 or higher
 - WordPress 6.0 or higher
-- PHP Extensions: zip, json, mysqli, openssl
+- PHP Extensions: zip, json, openssl; mysqli is required for backup/restore/migration (the plugin still activates without it — e.g. in SQLite-based WordPress Playground/Studio — with a notice explaining the limitation)
 
 ## Installation
 

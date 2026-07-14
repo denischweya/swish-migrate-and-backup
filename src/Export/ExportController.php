@@ -401,7 +401,9 @@ class ExportController {
 						if ( null === $v ) {
 							return 'NULL';
 						}
-						return "'" . $wpdb->_real_escape( $v ) . "'";
+						// remove_placeholder_escape(): _real_escape() turns literal %
+						// into a token only stripped at query time — never for dumps.
+						return "'" . $wpdb->remove_placeholder_escape( $wpdb->_real_escape( $v ) ) . "'";
 					}, $row );
 
 					$columns = '`' . implode( '`, `', array_keys( $row ) ) . '`';
