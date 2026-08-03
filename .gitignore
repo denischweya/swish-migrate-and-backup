@@ -12,3 +12,6 @@ vendor/
 
 # Build source maps
 build/*.map
+
+# Editor
+*.code-workspace
