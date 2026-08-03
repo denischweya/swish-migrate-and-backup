@@ -1,0 +1,28 @@
+name: Deploy to WordPress.org
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  deploy:
+    name: Deploy tag to WordPress.org SVN
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: WordPress plugin deploy
+        uses: 10up/action-wordpress-plugin-deploy@stable
+        with:
+          generate-zip: true
+        env:
+          SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
+          SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
+          SLUG: swish-migrate-and-backup
+
+      - name: Attach ZIP to workflow run
+        uses: actions/upload-artifact@v4
+        with:
+          name: swish-migrate-and-backup
+          path: ${{ github.workspace }}/swish-migrate-and-backup.zip

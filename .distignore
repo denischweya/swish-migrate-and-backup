@@ -1,0 +1,26 @@
+# Directories
+/.git
+/.github
+/.claude
+/.playwright-mcp
+/node_modules
+/tests
+/src/js
+/src/css
+
+# Files
+/.gitignore
+/.distignore
+/.phpcs.xml.dist
+/build-zip.sh
+/package.json
+/package-lock.json
+/composer.lock
+/webpack.config.js
+/phpcs.xml
+/phpunit.xml
+/CLAUDE.md
+/context.md
+.DS_Store
+*.log
+*.code-workspace
