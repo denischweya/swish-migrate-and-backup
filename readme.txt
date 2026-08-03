@@ -4,7 +4,7 @@ Tags: backup, migration, restore, database, multisite
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.3.1
+Stable tag: 1.4.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -45,6 +45,17 @@ Swish Migrate and Backup is a powerful WordPress plugin that allows you to creat
 * WordPress 6.0 or higher
 * PHP 8.1 or higher
 * Write access to wp-content/uploads directory
+
+= Languages =
+
+The plugin is fully translated into:
+
+* English
+* Japanese (日本語)
+* Spanish (Español)
+* French (Français)
+* Chinese, Simplified (简体中文)
+* Arabic (العربية)
 
 = CLI Backup Commands =
 
@@ -117,6 +128,10 @@ Yes. On multisite installations, go to Network Admin → Swish Backup to create 
 5. Schedules - Set up automatic scheduled backups
 
 == Changelog ==
+
+= 1.4.0 =
+* Added full translations for Spanish (Español), French (Français), Simplified Chinese (简体中文), and Arabic (العربية); Japanese was already available via translate.wordpress.org
+* Translation files are now bundled with the plugin in the languages/ directory and loaded automatically
 
 = 1.3.1 =
 * Fixed: literal % characters in database content were written to backups as long {hash} placeholder tokens, corrupting serialized settings (e.g. currency formats) on restore and leaking the token into post content

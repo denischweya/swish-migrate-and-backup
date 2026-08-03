@@ -3,7 +3,7 @@
  * Plugin Name: Swish Migrate and Backup
  * Plugin URI: https://swishbackup.swishfolio.com/
  * Description: A WordPress backup and migration plugin with cloud storage support, multisite network backups, site duplication & no limits.
- * Version: 1.3.1
+ * Version: 1.4.0
  * Author: Fortisthemes, afrothemes
  * Author URI: https://denis.swishfolio.com
  * License: GPL-2.0+
@@ -26,7 +26,7 @@ if (! defined('ABSPATH')) {
 }
 
 // Plugin constants.
-define('SWISH_BACKUP_VERSION', '1.3.1');
+define('SWISH_BACKUP_VERSION', '1.4.0');
 define('SWISH_BACKUP_PLUGIN_FILE', __FILE__);
 define('SWISH_BACKUP_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('SWISH_BACKUP_PLUGIN_URL', plugin_dir_url(__FILE__));
@@ -56,6 +56,18 @@ if (file_exists(SWISH_BACKUP_PLUGIN_DIR . 'vendor/autoload.php')) {
         }
     );
 }
+
+// Load bundled translations (wordpress.org language packs take priority when present).
+add_action(
+    'init',
+    function (): void {
+        load_plugin_textdomain(
+            'swish-migrate-and-backup',
+            false,
+            dirname(SWISH_BACKUP_PLUGIN_BASENAME) . '/languages'
+        );
+    }
+);
 
 // Initialize the plugin.
 add_action(

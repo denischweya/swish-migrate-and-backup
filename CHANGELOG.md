@@ -5,6 +5,12 @@ All notable changes to Swish Migrate and Backup will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-08-03
+
+### Added
+- **Full translations for Spanish (es_ES), French (fr_FR), Simplified Chinese (zh_CN), and Arabic (ar).** All 908 strings translated; `.po`/`.mo` files are bundled in `languages/`. Japanese (ja) remains available as a translate.wordpress.org language pack.
+- Bundled translations are loaded via `load_plugin_textdomain()` on `init`; wordpress.org language packs still take priority when installed.
+
 ## [1.3.1] - 2026-07-14
 
 ### Changed

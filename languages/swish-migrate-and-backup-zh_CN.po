@@ -1,0 +1,2734 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Swish Migrate and Backup 1.4.0\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: zh_CN\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"X-Generator: manual\n"
+
+msgid "Swish Migrate and Backup"
+msgstr "Swish Migrate and Backup"
+
+msgid "https://swishbackup.swishfolio.com/"
+msgstr "https://swishbackup.swishfolio.com/"
+
+msgid "A WordPress backup and migration plugin with cloud storage support, multisite network backups, site duplication & no limits."
+msgstr "一款支持云存储、多站点网络备份、站点复制且无任何限制的 WordPress 备份与迁移插件。"
+
+msgid "Fortisthemes, afrothemes"
+msgstr "Fortisthemes, afrothemes"
+
+msgid "https://denis.swishfolio.com"
+msgstr "https://denis.swishfolio.com"
+
+msgid "Swish Backup"
+msgstr "Swish Backup"
+
+msgid "Dashboard"
+msgstr "仪表盘"
+
+msgid "Backups"
+msgstr "备份"
+
+msgid "Schedules"
+msgstr "计划任务"
+
+msgid "Migration"
+msgstr "迁移"
+
+msgid "Settings"
+msgstr "设置"
+
+msgid "Logs"
+msgstr "日志"
+
+msgid "Documentation"
+msgstr "文档"
+
+msgid "Create Backup"
+msgstr "创建备份"
+
+msgid "Select Backup Type"
+msgstr "选择备份类型"
+
+msgid "Full Backup"
+msgstr "完整备份"
+
+msgid "Database, files, themes, plugins, and uploads"
+msgstr "数据库、文件、主题、插件和上传文件"
+
+msgid "Database Only"
+msgstr "仅数据库"
+
+msgid "Just the database (fastest)"
+msgstr "仅备份数据库（最快）"
+
+msgid "Files Only"
+msgstr "仅文件"
+
+msgid "Themes, plugins, and uploads"
+msgstr "主题、插件和上传文件"
+
+msgid "No Backups Yet"
+msgstr "暂无备份"
+
+msgid "Create your first backup to protect your site."
+msgstr "创建您的第一个备份以保护您的站点。"
+
+msgid "Create First Backup"
+msgstr "创建首个备份"
+
+msgid "backup(s) selected"
+msgstr "个备份已选中"
+
+msgid "Download Selected"
+msgstr "下载所选"
+
+msgid "Delete Selected"
+msgstr "删除所选"
+
+msgid "Select All"
+msgstr "全选"
+
+msgid "Backup"
+msgstr "备份"
+
+msgid "Type"
+msgstr "类型"
+
+msgid "Size"
+msgstr "大小"
+
+msgid "Date"
+msgstr "日期"
+
+msgid "Actions"
+msgstr "操作"
+
+msgid "SHA256: %s"
+msgstr "SHA256：%s"
+
+msgid "Restore"
+msgstr "恢复"
+
+msgid "Download"
+msgstr "下载"
+
+msgid "CLI Download"
+msgstr "CLI 下载"
+
+msgid "Delete"
+msgstr "删除"
+
+msgid "Backup in Progress"
+msgstr "备份进行中"
+
+msgid "Initializing..."
+msgstr "正在初始化…"
+
+msgid "Restore Backup"
+msgstr "恢复备份"
+
+msgid "Warning: This will overwrite your current site data. This action cannot be undone."
+msgstr "警告：此操作将覆盖您当前的站点数据，且无法撤销。"
+
+msgid "Restore Database"
+msgstr "恢复数据库"
+
+msgid "Restore Files"
+msgstr "恢复文件"
+
+msgid "Create backup before restore"
+msgstr "恢复前创建备份"
+
+msgid "Restore Now"
+msgstr "立即恢复"
+
+msgid "Cancel"
+msgstr "取消"
+
+msgid "CLI Download Command"
+msgstr "CLI 下载命令"
+
+msgid "Use these commands to download the backup via command line. Both support resume on failure."
+msgstr "使用以下命令通过命令行下载备份。两者均支持失败后断点续传。"
+
+msgid "curl"
+msgstr "curl"
+
+msgid "aria2c"
+msgstr "aria2c"
+
+msgid "Recommended for 3GB+"
+msgstr "推荐用于 3GB 以上文件"
+
+msgid "Copy"
+msgstr "复制"
+
+msgid "aria2c not installed? See %s for installation instructions."
+msgstr "未安装 aria2c？请参阅 %s 获取安装说明。"
+
+msgid "documentation"
+msgstr "文档"
+
+msgid "Note:"
+msgstr "注意："
+
+msgid "The download link expires in 24 hours. If interrupted, re-run the same command to resume."
+msgstr "下载链接将在 24 小时后过期。如果下载中断，重新运行相同命令即可续传。"
+
+msgid "Close"
+msgstr "关闭"
+
+msgid "Backup Settings"
+msgstr "备份设置"
+
+msgid "Performance"
+msgstr "性能"
+
+msgid "Adjust batch sizes based on your hosting environment. Lower values are safer for shared hosting."
+msgstr "根据您的主机环境调整批处理大小。较低的值对共享主机更安全。"
+
+msgid "Files per Request"
+msgstr "每次请求处理的文件数"
+
+msgid "Shared (50)"
+msgstr "共享主机（50）"
+
+msgid "VPS (150)"
+msgstr "VPS（150）"
+
+msgid "Dedicated (300)"
+msgstr "独立服务器（300）"
+
+msgid "Database Rows per Batch"
+msgstr "每批处理的数据库行数"
+
+msgid "Default Backup Contents"
+msgstr "默认备份内容"
+
+msgid "Database"
+msgstr "数据库"
+
+msgid "Plugins"
+msgstr "插件"
+
+msgid "Themes"
+msgstr "主题"
+
+msgid "Uploads"
+msgstr "上传文件"
+
+msgid "Core Files"
+msgstr "核心文件"
+
+msgid "Quick Presets"
+msgstr "快速预设"
+
+msgid "Shared Hosting"
+msgstr "共享主机"
+
+msgid "VPS / Managed"
+msgstr "VPS / 托管主机"
+
+msgid "Dedicated"
+msgstr "独立服务器"
+
+msgid "Save Settings"
+msgstr "保存设置"
+
+msgid "Overview of your backups and system."
+msgstr "您的备份和系统概览。"
+
+msgid "Total Backups"
+msgstr "备份总数"
+
+msgid "%s stored"
+msgstr "已存储 %s"
+
+msgid "System Status"
+msgstr "系统状态"
+
+msgid "Ready"
+msgstr "就绪"
+
+msgid "PHP"
+msgstr "PHP"
+
+msgid "Memory"
+msgstr "内存"
+
+msgid "Max Exec"
+msgstr "最大执行时间"
+
+msgid "Disk Storage"
+msgstr "磁盘存储"
+
+msgid "%s%% of disk used"
+msgstr "已使用 %s%% 磁盘空间"
+
+msgid "Quick Actions"
+msgstr "快捷操作"
+
+msgid "Create New Backup"
+msgstr "创建新备份"
+
+msgid "Migration Tools"
+msgstr "迁移工具"
+
+msgid "Backup History"
+msgstr "备份历史"
+
+msgid "View All"
+msgstr "查看全部"
+
+msgid "Create your first backup to get started."
+msgstr "创建您的第一个备份以开始使用。"
+
+msgid "Date & Time"
+msgstr "日期和时间"
+
+msgid "Status"
+msgstr "状态"
+
+msgid "Completed"
+msgstr "已完成"
+
+msgid "Getting Started"
+msgstr "快速入门"
+
+msgid "Creating Backups"
+msgstr "创建备份"
+
+msgid "Restoring Backups"
+msgstr "恢复备份"
+
+msgid "Scheduled Backups"
+msgstr "计划备份"
+
+msgid "Cloud Storage"
+msgstr "云存储"
+
+msgid "Site Migration"
+msgstr "站点迁移"
+
+msgid "Advanced Features"
+msgstr "高级功能"
+
+msgid "Installing aria2c"
+msgstr "安装 aria2c"
+
+msgid "Troubleshooting"
+msgstr "故障排除"
+
+msgid "FAQ"
+msgstr "常见问题"
+
+msgid "Learn how to use Swish Backup to protect your WordPress site with easy-to-follow guides."
+msgstr "通过简单易懂的指南，了解如何使用 Swish Backup 保护您的 WordPress 站点。"
+
+msgid "Welcome to Swish Backup"
+msgstr "欢迎使用 Swish Backup"
+
+msgid "Swish Backup is a powerful WordPress plugin that helps you create backups of your website, store them safely, and restore them when needed. Whether you're protecting against data loss or migrating to a new server, Swish Backup has you covered."
+msgstr "Swish Backup 是一款功能强大的 WordPress 插件，可帮助您为网站创建备份、安全存储并在需要时恢复。无论是防范数据丢失还是迁移到新服务器，Swish Backup 都能满足您的需求。"
+
+msgid "Dashboard Overview"
+msgstr "仪表盘概览"
+
+msgid "The Dashboard is your central hub for managing backups. Here you can:"
+msgstr "仪表盘是您管理备份的中心枢纽。在这里您可以："
+
+msgid "Create new backups with one click"
+msgstr "一键创建新备份"
+
+msgid "View your recent backups"
+msgstr "查看最近的备份"
+
+msgid "See storage status and space used"
+msgstr "查看存储状态和已用空间"
+
+msgid "Access quick actions for common tasks"
+msgstr "使用常见任务的快捷操作"
+
+msgid "First Steps"
+msgstr "第一步"
+
+msgid "Create your first backup:"
+msgstr "创建您的第一个备份："
+
+msgid "Go to %s and click \"Create Backup\" to protect your site immediately."
+msgstr "前往 %s 并点击“创建备份”，立即保护您的站点。"
+
+msgid "Configure settings:"
+msgstr "配置设置："
+
+msgid "Visit %s to customize backup options and set up cloud storage."
+msgstr "访问 %s 自定义备份选项并设置云存储。"
+
+msgid "Set up automatic backups:"
+msgstr "设置自动备份："
+
+msgid "Go to %s to enable automatic backups so you never forget."
+msgstr "前往 %s 启用自动备份，从此无需担心遗忘。"
+
+msgid "Backup Types"
+msgstr "备份类型"
+
+msgid "Swish Backup offers three types of backups:"
+msgstr "Swish Backup 提供三种备份类型："
+
+msgid "Includes everything: database, themes, plugins, uploads, and media files. This is the most complete backup option and recommended for most users."
+msgstr "包含所有内容：数据库、主题、插件、上传文件和媒体文件。这是最完整的备份选项，推荐大多数用户使用。"
+
+msgid "Only backs up your WordPress database (posts, pages, settings, users). This is the fastest option and creates smaller backup files."
+msgstr "仅备份您的 WordPress 数据库（文章、页面、设置、用户）。这是最快的选项，生成的备份文件也更小。"
+
+msgid "Backs up only your files (themes, plugins, uploads) without the database. Useful if you have a separate database backup solution."
+msgstr "仅备份您的文件（主题、插件、上传文件），不包含数据库。如果您有单独的数据库备份方案，此选项非常有用。"
+
+msgid "How to Create a Backup"
+msgstr "如何创建备份"
+
+msgid "Go to %1$s or %2$s"
+msgstr "前往 %1$s 或 %2$s"
+
+msgid "Click the \"Create Backup\" button"
+msgstr "点击“创建备份”按钮"
+
+msgid "Select your backup type (Full, Database, or Files)"
+msgstr "选择备份类型（完整、数据库或文件）"
+
+msgid "Wait for the backup to complete - you'll see a progress bar"
+msgstr "等待备份完成——您会看到进度条"
+
+msgid "Once complete, your backup will appear in the backups list"
+msgstr "完成后，您的备份将显示在备份列表中"
+
+msgid "Tip: Create a full backup before making major changes to your site, such as updating WordPress, themes, or plugins."
+msgstr "提示：在对站点进行重大更改（如更新 WordPress、主题或插件）之前，请先创建完整备份。"
+
+msgid "How to Restore a Backup"
+msgstr "如何恢复备份"
+
+msgid "Go to %s"
+msgstr "前往 %s"
+
+msgid "Find the backup you want to restore"
+msgstr "找到您要恢复的备份"
+
+msgid "Click the \"Restore\" button"
+msgstr "点击“恢复”按钮"
+
+msgid "Choose what to restore (database, files, or both)"
+msgstr "选择要恢复的内容（数据库、文件或两者）"
+
+msgid "Optionally, enable \"Create backup before restore\" for safety"
+msgstr "为安全起见，可选择启用“恢复前创建备份”"
+
+msgid "Click \"Restore Now\" to begin"
+msgstr "点击“立即恢复”开始"
+
+msgid "Warning: Restoring a backup will overwrite your current site data. Always enable \"Create backup before restore\" unless you're sure you want to replace everything."
+msgstr "警告：恢复备份将覆盖您当前的站点数据。除非您确定要替换所有内容，否则请务必启用“恢复前创建备份”。"
+
+msgid "Restore Options"
+msgstr "恢复选项"
+
+msgid "Restore Database:"
+msgstr "恢复数据库："
+
+msgid "Restores all your content, settings, and user data"
+msgstr "恢复您的所有内容、设置和用户数据"
+
+msgid "Restore Files:"
+msgstr "恢复文件："
+
+msgid "Restores themes, plugins, and uploaded files"
+msgstr "恢复主题、插件和上传的文件"
+
+msgid "Create backup before restore:"
+msgstr "恢复前创建备份："
+
+msgid "Creates a safety backup of your current site first"
+msgstr "先为您当前的站点创建一个安全备份"
+
+msgid "Setting Up Automatic Backups"
+msgstr "设置自动备份"
+
+msgid "Automatic backups ensure your site is always protected without you having to remember to create backups manually."
+msgstr "自动备份可确保您的站点始终受到保护，无需记得手动创建备份。"
+
+msgid "Click \"Add New Schedule\""
+msgstr "点击“添加新计划”"
+
+msgid "Choose a frequency (Hourly, Daily, Weekly, or Monthly)"
+msgstr "选择频率（每小时、每天、每周或每月）"
+
+msgid "Select the backup type"
+msgstr "选择备份类型"
+
+msgid "Choose where to store backups"
+msgstr "选择备份存储位置"
+
+msgid "Save your schedule"
+msgstr "保存您的计划"
+
+msgid "Recommended Schedule"
+msgstr "推荐计划"
+
+msgid "Busy sites (e-commerce, news):"
+msgstr "繁忙站点（电商、新闻）："
+
+msgid "Daily full backups"
+msgstr "每天完整备份"
+
+msgid "Regular blogs:"
+msgstr "普通博客："
+
+msgid "Weekly full backups"
+msgstr "每周完整备份"
+
+msgid "Static sites:"
+msgstr "静态站点："
+
+msgid "Monthly full backups"
+msgstr "每月完整备份"
+
+msgid "Why Use Cloud Storage?"
+msgstr "为什么使用云存储？"
+
+msgid "Storing backups in the cloud protects you even if something happens to your server. Your backups are safe and accessible from anywhere."
+msgstr "将备份存储在云端，即使服务器出现问题也能保障安全。您的备份安全无虞，随时随地均可访问。"
+
+msgid "Supported Storage Providers"
+msgstr "支持的存储服务商"
+
+msgid "Amazon S3"
+msgstr "Amazon S3"
+
+msgid "Professional-grade cloud storage from Amazon Web Services. Great for businesses needing reliable, scalable storage."
+msgstr "来自 Amazon Web Services 的专业级云存储。非常适合需要可靠、可扩展存储的企业。"
+
+msgid "Dropbox"
+msgstr "Dropbox"
+
+msgid "Easy-to-use cloud storage. Perfect if you already use Dropbox for other files."
+msgstr "简单易用的云存储。如果您已在使用 Dropbox 存储其他文件，这是完美之选。"
+
+msgid "Google Drive"
+msgstr "Google Drive"
+
+msgid "Store backups in your Google Drive account. Great integration with Google Workspace."
+msgstr "将备份存储到您的 Google Drive 账户。与 Google Workspace 集成良好。"
+
+msgid "Setting Up Cloud Storage"
+msgstr "设置云存储"
+
+msgid "Find the Storage section"
+msgstr "找到“存储”部分"
+
+msgid "Click on your preferred storage provider"
+msgstr "点击您偏好的存储服务商"
+
+msgid "Enter your API credentials (instructions provided)"
+msgstr "输入您的 API 凭据（附有说明）"
+
+msgid "Test the connection"
+msgstr "测试连接"
+
+msgid "Save your settings"
+msgstr "保存您的设置"
+
+msgid "Moving Your Site to a New Domain"
+msgstr "将站点迁移到新域名"
+
+msgid "Create a full backup on your current site"
+msgstr "在当前站点上创建完整备份"
+
+msgid "Download the backup file"
+msgstr "下载备份文件"
+
+msgid "Install WordPress on your new server/domain"
+msgstr "在新服务器/域名上安装 WordPress"
+
+msgid "Install and activate Swish Backup"
+msgstr "安装并激活 Swish Backup"
+
+msgid "Upload your backup file"
+msgstr "上传您的备份文件"
+
+msgid "Enter your old and new URLs"
+msgstr "输入旧 URL 和新 URL"
+
+msgid "Click \"Migrate\" - the plugin will update all URLs automatically"
+msgstr "点击“迁移”——插件将自动更新所有 URL"
+
+msgid "Search and Replace"
+msgstr "搜索和替换"
+
+msgid "The Migration page also includes a Search and Replace tool. This is useful for:"
+msgstr "迁移页面还包含一个搜索和替换工具，可用于："
+
+msgid "Changing URLs throughout your database"
+msgstr "更改数据库中的所有 URL"
+
+msgid "Switching from HTTP to HTTPS"
+msgstr "从 HTTP 切换到 HTTPS"
+
+msgid "Fixing broken links after a domain change"
+msgstr "修复域名更改后的失效链接"
+
+msgid "Tip: Always create a backup before running Search and Replace, just in case you need to undo the changes."
+msgstr "提示：运行搜索和替换之前请务必先创建备份，以便在需要时撤销更改。"
+
+msgid "Unlimited Backup Size"
+msgstr "无限备份大小"
+
+msgid "There is no backup size limit. You can back up sites of any size, including:"
+msgstr "备份大小没有任何限制。您可以备份任意大小的站点，包括："
+
+msgid "E-commerce sites with large product catalogs"
+msgstr "拥有大量产品目录的电商站点"
+
+msgid "Media-heavy websites with lots of images and videos"
+msgstr "包含大量图片和视频的媒体型网站"
+
+msgid "Established blogs with years of content"
+msgstr "积累多年内容的成熟博客"
+
+msgid "Enterprise sites with extensive data"
+msgstr "拥有海量数据的企业站点"
+
+msgid "WordPress Multisite Support"
+msgstr "WordPress 多站点支持"
+
+msgid "Full support for WordPress Multisite networks:"
+msgstr "全面支持 WordPress 多站点网络："
+
+msgid "Network-wide Backups"
+msgstr "全网络备份"
+
+msgid "Backup your entire multisite network with all subsites in a single operation."
+msgstr "一次操作即可备份整个多站点网络及其所有子站点。"
+
+msgid "Selective Site Backup"
+msgstr "选择性站点备份"
+
+msgid "Choose specific sites to include in your backup instead of backing up the entire network."
+msgstr "选择要包含在备份中的特定站点，而不必备份整个网络。"
+
+msgid "Flexible Archive Modes"
+msgstr "灵活的归档模式"
+
+msgid "Create a single archive containing all sites, or generate separate archives for each site."
+msgstr "创建包含所有站点的单一归档，或为每个站点生成单独的归档。"
+
+msgid "WordPress Core Files Backup"
+msgstr "WordPress 核心文件备份"
+
+msgid "Include WordPress core files (wp-admin, wp-includes) in your backups. This is useful for:"
+msgstr "在备份中包含 WordPress 核心文件（wp-admin、wp-includes）。适用于："
+
+msgid "Complete site cloning to a new server"
+msgstr "将站点完整克隆到新服务器"
+
+msgid "Disaster recovery where WordPress needs to be fully restored"
+msgstr "需要完全恢复 WordPress 的灾难恢复"
+
+msgid "Preserving custom core modifications (not recommended, but sometimes necessary)"
+msgstr "保留自定义的核心修改（不推荐，但有时必要）"
+
+msgid "Selective Folder Backup"
+msgstr "选择性文件夹备份"
+
+msgid "Choose exactly which wp-content folders to include in your backup:"
+msgstr "精确选择要包含在备份中的 wp-content 文件夹："
+
+msgid "Themes:"
+msgstr "主题："
+
+msgid "All installed themes"
+msgstr "所有已安装的主题"
+
+msgid "Plugins:"
+msgstr "插件："
+
+msgid "All installed plugins"
+msgstr "所有已安装的插件"
+
+msgid "Uploads:"
+msgstr "上传文件："
+
+msgid "Media library files"
+msgstr "媒体库文件"
+
+msgid "MU-Plugins:"
+msgstr "MU 插件："
+
+msgid "Must-use plugins"
+msgstr "必须使用的插件"
+
+msgid "Tip: Exclude large folders like uploads when you only need to backup code changes, making backups faster and smaller."
+msgstr "提示：当您只需备份代码更改时，可排除上传文件等大文件夹，使备份更快、更小。"
+
+msgid "Recommended for large files (3GB+)"
+msgstr "推荐用于大文件（3GB 以上）"
+
+msgid "aria2c is a lightweight download utility with better resume capabilities than curl. It handles connection drops more gracefully and is recommended for downloading large backup files."
+msgstr "aria2c 是一款轻量级下载工具，其断点续传能力优于 curl。它能更从容地处理连接中断，推荐用于下载大型备份文件。"
+
+msgid "Linux (Ubuntu/Debian)"
+msgstr "Linux（Ubuntu/Debian）"
+
+msgid "macOS (using Homebrew)"
+msgstr "macOS（使用 Homebrew）"
+
+msgid "Windows (using Chocolatey)"
+msgstr "Windows（使用 Chocolatey）"
+
+msgid "Windows (Manual Installation)"
+msgstr "Windows（手动安装）"
+
+msgid "Download the latest release from the"
+msgstr "下载最新版本，来源："
+
+msgid "aria2 GitHub releases page"
+msgstr "aria2 GitHub 发布页面"
+
+msgid "Extract the zip file"
+msgstr "解压 zip 文件"
+
+msgid "Add the extracted folder containing aria2c.exe to your system's PATH environment variable"
+msgstr "将包含 aria2c.exe 的解压文件夹添加到系统的 PATH 环境变量中"
+
+msgid "Arch Linux"
+msgstr "Arch Linux"
+
+msgid "Verify Installation"
+msgstr "验证安装"
+
+msgid "After installation, verify aria2c is working by checking the version:"
+msgstr "安装后，通过检查版本来验证 aria2c 是否正常工作："
+
+msgid "You should see version information if installed correctly."
+msgstr "如果安装正确，您应该会看到版本信息。"
+
+msgid "Why aria2c for Large Downloads?"
+msgstr "为什么大文件下载推荐 aria2c？"
+
+msgid "Better Resume Support"
+msgstr "更好的断点续传支持"
+
+msgid "Automatically resumes interrupted downloads without losing progress"
+msgstr "自动恢复中断的下载而不丢失进度"
+
+msgid "Connection Handling"
+msgstr "连接处理"
+
+msgid "More resilient to connection drops and timeouts"
+msgstr "对连接中断和超时的适应能力更强"
+
+msgid "Automatic Retries"
+msgstr "自动重试"
+
+msgid "Configurable retry attempts with delays between retries"
+msgstr "可配置重试次数及重试间隔"
+
+msgid "Progress Tracking"
+msgstr "进度跟踪"
+
+msgid "Saves download state for seamless continuation"
+msgstr "保存下载状态以便无缝续传"
+
+msgid "Backup is Taking Too Long"
+msgstr "备份耗时过长"
+
+msgid "Large sites may take longer to backup. Try these solutions:"
+msgstr "大型站点的备份可能需要更长时间。请尝试以下解决方案："
+
+msgid "Create a Database-only backup first (it's faster)"
+msgstr "先创建仅数据库备份（速度更快）"
+
+msgid "Check your server's PHP memory limit in Settings"
+msgstr "在设置中检查服务器的 PHP 内存限制"
+
+msgid "Consider backing up during low-traffic periods"
+msgstr "考虑在低流量时段进行备份"
+
+msgid "Backup Failed"
+msgstr "备份失败"
+
+msgid "If a backup fails, check the following:"
+msgstr "如果备份失败，请检查以下各项："
+
+msgid "Disk space: Make sure you have enough free space"
+msgstr "磁盘空间：确保有足够的可用空间"
+
+msgid "Permissions: The wp-content folder must be writable"
+msgstr "权限：wp-content 文件夹必须可写"
+
+msgid "Memory limit: Increase PHP memory if your host allows"
+msgstr "内存限制：如果主机允许，请增加 PHP 内存"
+
+msgid "File size: There is no backup size limit, but very large sites need adequate disk space"
+msgstr "文件大小：备份大小没有限制，但超大型站点需要足够的磁盘空间"
+
+msgid "Cloud Storage Not Working"
+msgstr "云存储无法使用"
+
+msgid "Double-check your API credentials"
+msgstr "仔细核对您的 API 凭据"
+
+msgid "Use the \"Test Connection\" button to verify settings"
+msgstr "使用“测试连接”按钮验证设置"
+
+msgid "Make sure your server can make outbound connections"
+msgstr "确保您的服务器可以建立出站连接"
+
+msgid "Check that the cURL PHP extension is enabled"
+msgstr "检查 cURL PHP 扩展是否已启用"
+
+msgid "Frequently Asked Questions"
+msgstr "常见问题"
+
+msgid "Where are my backups stored?"
+msgstr "我的备份存储在哪里？"
+
+msgid "By default, backups are stored in wp-content/swish-backups/ on your server. You can also configure cloud storage to save copies to Amazon S3, Dropbox, or Google Drive."
+msgstr "默认情况下，备份存储在服务器的 wp-content/swish-backups/ 目录中。您还可以配置云存储，将副本保存到 Amazon S3、Dropbox 或 Google Drive。"
+
+msgid "How large can my backups be?"
+msgstr "备份可以有多大？"
+
+msgid "There is no backup size limit. Make sure your server has enough free disk space to hold the archive."
+msgstr "备份大小没有限制。请确保服务器有足够的可用磁盘空间来存放归档文件。"
+
+msgid "Can I restore a backup to a different site?"
+msgstr "我可以将备份恢复到其他站点吗？"
+
+msgid "Yes! Download your backup and use the Migration tool on the new site. The plugin will automatically update URLs during the migration process."
+msgstr "可以！下载备份并在新站点上使用迁移工具。插件会在迁移过程中自动更新 URL。"
+
+msgid "Will backups slow down my site?"
+msgstr "备份会拖慢我的站点吗？"
+
+msgid "Backups use server resources while running, but they don't affect your site when not active. Schedule backups during low-traffic times for best results."
+msgstr "备份运行时会占用服务器资源，但空闲时不会影响您的站点。建议将备份安排在低流量时段以获得最佳效果。"
+
+msgid "Are my cloud storage credentials secure?"
+msgstr "我的云存储凭据安全吗？"
+
+msgid "Yes, all credentials are encrypted using AES-256-CBC encryption before being stored in your database. Only your site can decrypt them."
+msgstr "安全。所有凭据在存入数据库之前均使用 AES-256-CBC 加密。只有您的站点才能解密。"
+
+msgid "Does this plugin work with WordPress Multisite?"
+msgstr "此插件支持 WordPress 多站点吗？"
+
+msgid "Yes. On multisite installations you get network-wide backups, selective site backup, multisite migration, and site duplication under Network Admin → Swish Backup."
+msgstr "支持。在多站点安装中，您可以在“网络管理 → Swish Backup”下使用全网络备份、选择性站点备份、多站点迁移和站点复制功能。"
+
+msgid "How do I get support?"
+msgstr "如何获得支持？"
+
+msgid "Email us at %s for assistance. Pro users receive priority support."
+msgstr "请发送邮件至 %s 获取帮助。Pro 用户享有优先支持。"
+
+msgid "Enable Logging"
+msgstr "启用日志"
+
+msgid "Logging is enabled. Backup operations will be recorded."
+msgstr "日志已启用。备份操作将被记录。"
+
+msgid "Logging is disabled. Enable to record backup operations for debugging."
+msgstr "日志已禁用。启用后可记录备份操作以便调试。"
+
+msgid "Filter by level:"
+msgstr "按级别筛选："
+
+msgid "All Levels"
+msgstr "所有级别"
+
+msgid "Error"
+msgstr "错误"
+
+msgid "Warning"
+msgstr "警告"
+
+msgid "Info"
+msgstr "信息"
+
+msgid "Debug"
+msgstr "调试"
+
+msgid "Are you sure you want to delete all logs?"
+msgstr "您确定要删除所有日志吗？"
+
+msgid "Delete All Logs"
+msgstr "删除所有日志"
+
+msgid "No Logs Found"
+msgstr "未找到日志"
+
+msgid "Logs will appear here after backup operations are performed."
+msgstr "执行备份操作后，日志将显示在此处。"
+
+msgid "Time"
+msgstr "时间"
+
+msgid "Level"
+msgstr "级别"
+
+msgid "Message"
+msgstr "消息"
+
+msgid "Job ID"
+msgstr "任务 ID"
+
+msgid "Showing %d most recent log entries"
+msgstr "显示最近 %d 条日志记录"
+
+msgid "Logging has been enabled."
+msgstr "日志已启用。"
+
+msgid "Logging has been disabled."
+msgstr "日志已禁用。"
+
+msgid "All logs have been deleted."
+msgstr "所有日志已删除。"
+
+msgid "Step 1: Choose Migration Method"
+msgstr "第 1 步：选择迁移方式"
+
+msgid "Import Backup"
+msgstr "导入备份"
+
+msgid "Import a backup file from another site"
+msgstr "从其他站点导入备份文件"
+
+msgid "Export for Migration"
+msgstr "导出用于迁移"
+
+msgid "Create a migration package for this site"
+msgstr "为此站点创建迁移包"
+
+msgid "Search & Replace"
+msgstr "搜索和替换"
+
+msgid "Replace URLs or strings in the database"
+msgstr "替换数据库中的 URL 或字符串"
+
+msgid "Step 2: Upload Backup File"
+msgstr "第 2 步：上传备份文件"
+
+msgid "Drag and drop a backup file here, or click to select"
+msgstr "将备份文件拖放到此处，或点击选择"
+
+msgid "Select File"
+msgstr "选择文件"
+
+msgid "Max upload size: %s"
+msgstr "最大上传大小：%s"
+
+msgid "Selected file:"
+msgstr "已选择文件："
+
+msgid "Or Import from Server"
+msgstr "或从服务器导入"
+
+msgid "For large backups (1GB+), upload via FTP/SFTP to wp-content/swish-backups/ then select from the list below."
+msgstr "对于大型备份（1GB 以上），请通过 FTP/SFTP 上传到 wp-content/swish-backups/，然后从下方列表中选择。"
+
+msgid "Browse Server Files"
+msgstr "浏览服务器文件"
+
+msgid "File"
+msgstr "文件"
+
+msgid "Action"
+msgstr "操作"
+
+msgid "Files from: %s"
+msgstr "文件来自：%s"
+
+msgid "Backup Analysis"
+msgstr "备份分析"
+
+msgid "Back"
+msgstr "返回"
+
+msgid "Continue"
+msgstr "继续"
+
+msgid "Step 3: URL Configuration"
+msgstr "第 3 步：URL 配置"
+
+msgid "Configure URL replacement to update all references in the database."
+msgstr "配置 URL 替换以更新数据库中的所有引用。"
+
+msgid "Old Site URL"
+msgstr "旧站点 URL"
+
+msgid "The URL of the site where the backup was created."
+msgstr "创建备份的站点的 URL。"
+
+msgid "New Site URL"
+msgstr "新站点 URL"
+
+msgid "The URL of this site."
+msgstr "本站点的 URL。"
+
+msgid "Preview Changes"
+msgstr "预览更改"
+
+msgid "Start Migration"
+msgstr "开始迁移"
+
+msgid "Create a migration package that can be imported on another site."
+msgstr "创建可在其他站点导入的迁移包。"
+
+msgid "Include in Export"
+msgstr "包含在导出中"
+
+msgid "WordPress Core (not recommended)"
+msgstr "WordPress 核心（不推荐）"
+
+msgid "Create Export"
+msgstr "创建导出"
+
+msgid "Search and replace text in your database. Supports serialized data."
+msgstr "在数据库中搜索并替换文本。支持序列化数据。"
+
+msgid "Search For"
+msgstr "搜索内容"
+
+msgid "Replace With"
+msgstr "替换为"
+
+msgid "Preview"
+msgstr "预览"
+
+msgid "Run Search & Replace"
+msgstr "运行搜索和替换"
+
+msgid "Migration in Progress"
+msgstr "迁移进行中"
+
+msgid "Migration Progress"
+msgstr "迁移进度"
+
+msgid "Migration completed successfully!"
+msgstr "迁移成功完成！"
+
+msgid "View Site"
+msgstr "查看站点"
+
+msgid "Go to Dashboard"
+msgstr "前往仪表盘"
+
+msgid "Duplicate"
+msgstr "复制"
+
+msgid "History"
+msgstr "历史"
+
+msgid "Multisite"
+msgstr "多站点"
+
+msgid "Search..."
+msgstr "搜索…"
+
+msgid "All Statuses"
+msgstr "所有状态"
+
+msgid "Success"
+msgstr "成功"
+
+msgid "Failed"
+msgstr "失败"
+
+msgid "In Progress"
+msgstr "进行中"
+
+msgid "Create your first multisite backup using the form above."
+msgstr "使用上方表单创建您的第一个多站点备份。"
+
+msgid "Archive Mode"
+msgstr "归档模式"
+
+msgid "Sites"
+msgstr "站点"
+
+msgid "Single Archive"
+msgstr "单一归档"
+
+msgid "Separate"
+msgstr "单独归档"
+
+msgid "%d site"
+msgid_plural "%d sites"
+msgstr[0] "%d 个站点"
+
+msgid "View Files"
+msgstr "查看文件"
+
+msgid "Site %d"
+msgstr "站点 %d"
+
+msgid "Showing %d backups"
+msgstr "显示 %d 个备份"
+
+msgid "Are you sure you want to delete this backup? This action cannot be undone."
+msgstr "您确定要删除此备份吗？此操作无法撤销。"
+
+msgid "Error:"
+msgstr "错误："
+
+msgid "Failed to delete backup"
+msgstr "删除备份失败"
+
+msgid "AJAX error. Please try again."
+msgstr "AJAX 错误。请重试。"
+
+msgid "Search sites..."
+msgstr "搜索站点…"
+
+msgid "%d sites in network"
+msgstr "网络中共有 %d 个站点"
+
+msgid "Site Name"
+msgstr "站点名称"
+
+msgid "URL"
+msgstr "URL"
+
+msgid "MAIN"
+msgstr "主站"
+
+msgid "No Sites Found"
+msgstr "未找到站点"
+
+msgid "There are no sites available in this network."
+msgstr "此网络中没有可用的站点。"
+
+msgid "Duplicate Site"
+msgstr "复制站点"
+
+msgid "Source Site"
+msgstr "源站点"
+
+msgid "New Site Title"
+msgstr "新站点标题"
+
+msgid "Enter site title..."
+msgstr "输入站点标题…"
+
+msgid "newsite"
+msgstr "newsite"
+
+msgid "Use only lowercase letters, numbers, and hyphens."
+msgstr "仅可使用小写字母、数字和连字符。"
+
+msgid "Duplication Options"
+msgstr "复制选项"
+
+msgid "Copy media uploads"
+msgstr "复制媒体上传文件"
+
+msgid "Include all images, videos, and other uploaded files from the source site."
+msgstr "包含源站点的所有图片、视频及其他上传文件。"
+
+msgid "Start Duplication"
+msgstr "开始复制"
+
+msgid "Delete Site"
+msgstr "删除站点"
+
+msgid "This action cannot be undone!"
+msgstr "此操作无法撤销！"
+
+msgid "Deleting this site will permanently remove all its content, media files, and database tables."
+msgstr "删除此站点将永久移除其所有内容、媒体文件和数据库表。"
+
+msgid "Site to Delete"
+msgstr "要删除的站点"
+
+msgid "Type %s to confirm:"
+msgstr "输入 %s 以确认："
+
+msgid "Type DELETE here..."
+msgstr "在此输入 DELETE…"
+
+msgid "This confirmation is required to prevent accidental deletions."
+msgstr "需要此确认以防止误删。"
+
+msgid "Delete Site Permanently"
+msgstr "永久删除站点"
+
+msgid "Duplicating Site"
+msgstr "正在复制站点"
+
+msgid "Duplication Progress"
+msgstr "复制进度"
+
+msgid "Site Duplicated!"
+msgstr "站点复制完成！"
+
+msgid "Visit New Site"
+msgstr "访问新站点"
+
+msgid "Duplication Failed"
+msgstr "复制失败"
+
+msgid "Retry"
+msgstr "重试"
+
+msgid "Initializing"
+msgstr "正在初始化"
+
+msgid "Preparing duplication"
+msgstr "正在准备复制"
+
+msgid "Copying Database"
+msgstr "正在复制数据库"
+
+msgid "Duplicating site tables"
+msgstr "正在复制站点数据表"
+
+msgid "Copying Uploads"
+msgstr "正在复制上传文件"
+
+msgid "Duplicating media files"
+msgstr "正在复制媒体文件"
+
+msgid "URL Replacement"
+msgstr "URL 替换"
+
+msgid "Updating URLs in database"
+msgstr "正在更新数据库中的 URL"
+
+msgid "Finalizing"
+msgstr "正在完成"
+
+msgid "Completing duplication"
+msgstr "正在完成复制"
+
+msgid "Checking availability..."
+msgstr "正在检查可用性…"
+
+msgid "Could not verify availability."
+msgstr "无法验证可用性。"
+
+msgid "Please enter a site title."
+msgstr "请输入站点标题。"
+
+msgid "Please enter a URL slug."
+msgstr "请输入 URL 别名。"
+
+msgid "URL slug must be at least 2 characters."
+msgstr "URL 别名至少需要 2 个字符。"
+
+msgid "Please choose an available URL."
+msgstr "请选择一个可用的 URL。"
+
+msgid "Failed to start duplication."
+msgstr "启动复制失败。"
+
+msgid "Network error. Please try again."
+msgstr "网络错误。请重试。"
+
+msgid "Site duplicated successfully!"
+msgstr "站点复制成功！"
+
+msgid "Duplication failed."
+msgstr "复制失败。"
+
+msgid "Please type DELETE to confirm."
+msgstr "请输入 DELETE 以确认。"
+
+msgid "Deleting..."
+msgstr "正在删除…"
+
+msgid "Failed to delete site."
+msgstr "删除站点失败。"
+
+msgid "Export / Download"
+msgstr "导出 / 下载"
+
+msgid "Import / Restore"
+msgstr "导入 / 恢复"
+
+msgid "Available Multisite Backups"
+msgstr "可用的多站点备份"
+
+msgid "Download backups to migrate to another server or keep as off-site storage."
+msgstr "下载备份以迁移到其他服务器，或作为异地存储保留。"
+
+msgid "No Backups Available"
+msgstr "没有可用备份"
+
+msgid "Create a multisite backup first to enable migration."
+msgstr "请先创建多站点备份以启用迁移功能。"
+
+msgid "Import Multisite Backup"
+msgstr "导入多站点备份"
+
+msgid "Upload a multisite backup file to restore or migrate sites."
+msgstr "上传多站点备份文件以恢复或迁移站点。"
+
+msgid "Warning:"
+msgstr "警告："
+
+msgid "Importing a backup will overwrite existing data. Make sure you have a current backup before proceeding."
+msgstr "导入备份将覆盖现有数据。继续之前请确保您已有最新备份。"
+
+msgid "Upload Backup File"
+msgstr "上传备份文件"
+
+msgid "Drag and drop your backup file here"
+msgstr "将备份文件拖放到此处"
+
+msgid "or"
+msgstr "或"
+
+msgid "Choose File"
+msgstr "选择文件"
+
+msgid "Accepts .zip and .swish files"
+msgstr "支持 .zip 和 .swish 文件"
+
+msgid "Remove file"
+msgstr "移除文件"
+
+msgid "Or Select Existing Backup"
+msgstr "或选择现有备份"
+
+msgid "— Select a backup —"
+msgstr "— 选择备份 —"
+
+msgid "sites"
+msgstr "个站点"
+
+msgid "No existing multisite backups found."
+msgstr "未找到现有的多站点备份。"
+
+msgid "WordPress Multisite Setup Required"
+msgstr "需要设置 WordPress 多站点"
+
+msgid "This backup was created from a WordPress multisite network. To import it, you must first convert your WordPress installation to a multisite network."
+msgstr "此备份创建自 WordPress 多站点网络。要导入它，您必须先将您的 WordPress 安装转换为多站点网络。"
+
+msgid "Automatic conversion is not supported."
+msgstr "不支持自动转换。"
+
+msgid "Please follow the manual steps below to set up multisite, then return to this page to import your backup."
+msgstr "请按照下方的手动步骤设置多站点，然后返回此页面导入您的备份。"
+
+msgid "Read Official Documentation"
+msgstr "阅读官方文档"
+
+msgid "Select Site to Import"
+msgstr "选择要导入的站点"
+
+msgid "This multisite backup contains multiple sites. Select which site to import into this WordPress installation."
+msgstr "此多站点备份包含多个站点。请选择要导入到此 WordPress 安装中的站点。"
+
+msgid "— Select a site —"
+msgstr "— 选择站点 —"
+
+msgid "Import Options"
+msgstr "导入选项"
+
+msgid "URL Search & Replace"
+msgstr "URL 搜索和替换"
+
+msgid "Old URL (e.g., https://old-site.com)"
+msgstr "旧 URL（例如 https://old-site.com）"
+
+msgid "New URL (e.g., https://new-site.com)"
+msgstr "新 URL（例如 https://new-site.com）"
+
+msgid "Replace URLs in the database during import. Leave empty to keep original URLs."
+msgstr "导入时替换数据库中的 URL。留空则保留原始 URL。"
+
+msgid "Preview Results"
+msgstr "预览结果"
+
+msgid "Import shared network tables (users, usermeta, etc.)"
+msgstr "导入共享网络数据表（users、usermeta 等）"
+
+msgid "Warning: This will overwrite all user data across the network."
+msgstr "警告：这将覆盖整个网络的所有用户数据。"
+
+msgid "Backup Contents"
+msgstr "备份内容"
+
+msgid "Start Import"
+msgstr "开始导入"
+
+msgid "Importing Backup"
+msgstr "正在导入备份"
+
+msgid "Initializing import..."
+msgstr "正在初始化导入…"
+
+msgid "Import Progress"
+msgstr "导入进度"
+
+msgid "Run in Background"
+msgstr "后台运行"
+
+msgid "Import Complete!"
+msgstr "导入完成！"
+
+msgid "Your backup has been imported successfully."
+msgstr "您的备份已成功导入。"
+
+msgid "Close & Reload"
+msgstr "关闭并重新加载"
+
+msgid "Import Failed"
+msgstr "导入失败"
+
+msgid "Try Again"
+msgstr "重试"
+
+msgid "Running in Background"
+msgstr "正在后台运行"
+
+msgid "The import is now running in the background. You can safely navigate away from this page."
+msgstr "导入正在后台运行。您可以放心离开此页面。"
+
+msgid "You may need to log in again after the import completes."
+msgstr "导入完成后，您可能需要重新登录。"
+
+msgid "Got it"
+msgstr "知道了"
+
+msgid "Import Likely Completed!"
+msgstr "导入可能已完成！"
+
+msgid "The database has been imported successfully. Your session was invalidated because the users table was replaced."
+msgstr "数据库已成功导入。由于用户表已被替换，您的会话已失效。"
+
+msgid "Please log in again to verify your site. Use credentials from the imported backup."
+msgstr "请重新登录以验证您的站点。请使用导入备份中的登录凭据。"
+
+msgid "Go to Login"
+msgstr "前往登录"
+
+msgid "Your file size:"
+msgstr "您的文件大小："
+
+msgid "Server limit:"
+msgstr "服务器限制："
+
+msgid "To fix this:"
+msgstr "解决方法："
+
+msgid "Increase post_max_size and upload_max_filesize in php.ini"
+msgstr "在 php.ini 中增大 post_max_size 和 upload_max_filesize"
+
+msgid "Ask your host to increase PHP upload limits"
+msgstr "请您的主机商提高 PHP 上传限制"
+
+msgid "Upload via SFTP/FTP to"
+msgstr "通过 SFTP/FTP 上传到"
+
+msgid "then select from existing backups"
+msgstr "然后从现有备份中选择"
+
+msgid "Use a smaller backup (e.g., database-only)"
+msgstr "使用较小的备份（例如仅数据库）"
+
+msgid "File Too Large"
+msgstr "文件过大"
+
+msgid "The upload was blocked before it reached WordPress. This usually means the file is larger than an upload limit set by your host, server, or a CDN/proxy in front of your site."
+msgstr "上传在到达 WordPress 之前就被阻止了。这通常意味着文件超出了主机、服务器或站点前端 CDN/代理设置的上传限制。"
+
+msgid "For example, Cloudflare rejects request bodies larger than about 100 MB and closes the connection before the upload finishes."
+msgstr "例如，Cloudflare 会拒绝大于约 100 MB 的请求体，并在上传完成前关闭连接。"
+
+msgid "Recommended workaround (no upload needed):"
+msgstr "推荐的解决方法（无需上传）："
+
+msgid "Copy the backup file to"
+msgstr "将备份文件复制到"
+
+msgid "on the server (via SFTP/FTP or your host file manager)"
+msgstr "（位于服务器上，可通过 SFTP/FTP 或主机文件管理器操作）"
+
+msgid "Then pick it from the \"Or Select Existing Backup\" dropdown above and click Continue"
+msgstr "然后从上方“或选择现有备份”下拉列表中选择该文件并点击继续"
+
+msgid "Upload Blocked by a Size Limit"
+msgstr "上传被大小限制阻止"
+
+msgid "Please select a .zip or .swish backup file."
+msgstr "请选择 .zip 或 .swish 备份文件。"
+
+msgid "Please select a backup file or choose an existing backup."
+msgstr "请选择备份文件或选择现有备份。"
+
+msgid "Required for multisite-to-multisite import."
+msgstr "多站点到多站点导入时必需。"
+
+msgid "Backup Type"
+msgstr "备份类型"
+
+msgid "Created"
+msgstr "创建时间"
+
+msgid "No site information available"
+msgstr "没有可用的站点信息"
+
+msgid "Sites in backup"
+msgstr "备份中的站点"
+
+msgid "Unknown error"
+msgstr "未知错误"
+
+msgid "Validation Failed"
+msgstr "验证失败"
+
+msgid "Validation Error"
+msgstr "验证错误"
+
+msgid "An error occurred while validating the backup."
+msgstr "验证备份时发生错误。"
+
+msgid "Check the browser console for more details."
+msgstr "请查看浏览器控制台了解更多详情。"
+
+msgid "Extracting Backup"
+msgstr "正在解压备份"
+
+msgid "Shared Network Tables"
+msgstr "共享网络数据表"
+
+msgid "Importing Database"
+msgstr "正在导入数据库"
+
+msgid "Restoring Files"
+msgstr "正在恢复文件"
+
+msgid "Complete"
+msgstr "完成"
+
+msgid "Import failed."
+msgstr "导入失败。"
+
+msgid "Restoring database — the site may be briefly unreachable. Waiting for it to come back..."
+msgstr "正在恢复数据库——站点可能会短暂无法访问。正在等待其恢复…"
+
+msgid "Lost connection to the server. The import may still be running in the background."
+msgstr "与服务器的连接已断开。导入可能仍在后台运行。"
+
+msgid "Failed to start import."
+msgstr "启动导入失败。"
+
+msgid "Please click Continue to validate the backup first."
+msgstr "请先点击“继续”以验证备份。"
+
+msgid "Multisite Required"
+msgstr "需要多站点"
+
+msgid "This is a multisite network backup and cannot be imported to a single site installation."
+msgstr "这是一个多站点网络备份，无法导入到单站点安装。"
+
+msgid "To import this backup, you need to set up WordPress multisite first."
+msgstr "要导入此备份，您需要先设置 WordPress 多站点。"
+
+msgid "Please select a site to import."
+msgstr "请选择要导入的站点。"
+
+msgid "Are you sure you want to import this backup? This will overwrite existing data."
+msgstr "您确定要导入此备份吗？这将覆盖现有数据。"
+
+msgid "Please enter the old URL to search for."
+msgstr "请输入要搜索的旧 URL。"
+
+msgid "Total matches found:"
+msgstr "找到的匹配总数："
+
+msgid "Table"
+msgstr "数据表"
+
+msgid "Column"
+msgstr "列"
+
+msgid "Before"
+msgstr "之前"
+
+msgid "After"
+msgstr "之后"
+
+msgid "Showing first 50 matches only."
+msgstr "仅显示前 50 个匹配项。"
+
+msgid "No matches found for the specified URL."
+msgstr "未找到与指定 URL 匹配的内容。"
+
+msgid "Preview failed:"
+msgstr "预览失败："
+
+msgid "An error occurred during preview."
+msgstr "预览时发生错误。"
+
+msgid "Creating Backup"
+msgstr "正在创建备份"
+
+msgid "Initializing backup..."
+msgstr "正在初始化备份…"
+
+msgid "Backup Progress"
+msgstr "备份进度"
+
+msgid "Backup Complete!"
+msgstr "备份完成！"
+
+msgid "Download Backup"
+msgstr "下载备份"
+
+msgid "The backup is now running in the background. You can safely navigate away from this page."
+msgstr "备份正在后台运行。您可以放心离开此页面。"
+
+msgid "You will be notified when the backup is complete."
+msgstr "备份完成后您将收到通知。"
+
+msgid "Initializing backup"
+msgstr "正在初始化备份"
+
+msgid "Preparing backup environment"
+msgstr "正在准备备份环境"
+
+msgid "WordPress Core Files"
+msgstr "WordPress 核心文件"
+
+msgid "wp-admin, wp-includes, root files"
+msgstr "wp-admin、wp-includes、根目录文件"
+
+msgid "WP-Content Files"
+msgstr "WP-Content 文件"
+
+msgid "wp_users, wp_usermeta, wp_blogs"
+msgstr "wp_users、wp_usermeta、wp_blogs"
+
+msgid "Site Databases"
+msgstr "站点数据库"
+
+msgid "Creating Archive"
+msgstr "正在创建归档"
+
+msgid "Compressing backup files"
+msgstr "正在压缩备份文件"
+
+msgid "Cleaning Up"
+msgstr "正在清理"
+
+msgid "Removing temporary files"
+msgstr "正在移除临时文件"
+
+msgid "Failed to start backup."
+msgstr "启动备份失败。"
+
+msgid "Backup completed successfully!"
+msgstr "备份成功完成！"
+
+msgid "Backup failed."
+msgstr "备份失败。"
+
+msgid "Deselect All"
+msgstr "取消全选"
+
+msgid "Load More (%d remaining)"
+msgstr "加载更多（剩余 %d 个）"
+
+msgid "Backup Options"
+msgstr "备份选项"
+
+msgid "(Database + Files)"
+msgstr "（数据库 + 文件）"
+
+msgid "(Faster, smaller backup)"
+msgstr "（更快、更小的备份）"
+
+msgid "Include WordPress Core Files"
+msgstr "包含 WordPress 核心文件"
+
+msgid "Include wp-admin, wp-includes, and core PHP files."
+msgstr "包含 wp-admin、wp-includes 及核心 PHP 文件。"
+
+msgid "Include wp-content Folders"
+msgstr "包含 wp-content 文件夹"
+
+msgid "MU-Plugins"
+msgstr "MU 插件"
+
+msgid "N/A"
+msgstr "不适用"
+
+msgid "Choose how you want to package the backup files."
+msgstr "选择备份文件的打包方式。"
+
+msgid "Selected %1$d of %2$d sites"
+msgstr "已选择 %1$d / %2$d 个站点"
+
+msgid "Backup Schedules"
+msgstr "备份计划"
+
+msgid "Add Schedule"
+msgstr "添加计划"
+
+msgid "Add New Schedule"
+msgstr "添加新计划"
+
+msgid "Schedule Name"
+msgstr "计划名称"
+
+msgid "Frequency"
+msgstr "频率"
+
+msgid "Hourly"
+msgstr "每小时"
+
+msgid "Twice Daily"
+msgstr "每天两次"
+
+msgid "Daily"
+msgstr "每天"
+
+msgid "Weekly"
+msgstr "每周"
+
+msgid "Monthly"
+msgstr "每月"
+
+msgid "Keep Backups"
+msgstr "保留备份数"
+
+msgid "Number of backups to retain. Older backups will be automatically deleted."
+msgstr "要保留的备份数量。较早的备份将被自动删除。"
+
+msgid "Storage Destinations"
+msgstr "存储目标"
+
+msgid "Local Storage"
+msgstr "本地存储"
+
+msgid "Save Schedule"
+msgstr "保存计划"
+
+msgid "No Schedules"
+msgstr "暂无计划"
+
+msgid "Create a backup schedule to automate your backups."
+msgstr "创建备份计划以实现自动备份。"
+
+msgid "Schedule Backup"
+msgstr "计划备份"
+
+msgid "Name"
+msgstr "名称"
+
+msgid "Next Run"
+msgstr "下次运行"
+
+msgid "Not scheduled"
+msgstr "未计划"
+
+msgid "Active"
+msgstr "已启用"
+
+msgid "Paused"
+msgstr "已暂停"
+
+msgid "Run Now"
+msgstr "立即运行"
+
+msgid "Pause"
+msgstr "暂停"
+
+msgid "Activate"
+msgstr "启用"
+
+msgid "Schedule saved successfully."
+msgstr "计划保存成功。"
+
+msgid "Swish Backup Settings"
+msgstr "Swish Backup 设置"
+
+msgid "General"
+msgstr "常规"
+
+msgid "Save Changes"
+msgstr "保存更改"
+
+msgid "Archive & Storage"
+msgstr "归档与存储"
+
+msgid "Archive Format"
+msgstr "归档格式"
+
+msgid "SWISH - Streaming format with resume support"
+msgstr "SWISH——支持断点续传的流式格式"
+
+msgid "SWISH is our custom streaming format with true append support and resume capability."
+msgstr "SWISH 是我们的自定义流式格式，具有真正的追加写入支持和断点续传能力。"
+
+msgid "Compression Level"
+msgstr "压缩级别"
+
+msgid "None (fastest)"
+msgstr "无（最快）"
+
+msgid "Low"
+msgstr "低"
+
+msgid "Normal"
+msgstr "正常"
+
+msgid "Maximum (slowest)"
+msgstr "最高（最慢）"
+
+msgid "Default Storage"
+msgstr "默认存储"
+
+msgid "Select what to include in backups. Click on each section to choose specific items."
+msgstr "选择备份中要包含的内容。点击各部分以选择具体项目。"
+
+msgid "Select plugins to include"
+msgstr "选择要包含的插件"
+
+msgid "Loading..."
+msgstr "正在加载…"
+
+msgid "Select themes to include"
+msgstr "选择要包含的主题"
+
+msgid "Select upload folders to include"
+msgstr "选择要包含的上传文件夹"
+
+msgid "Excludes wp-admin, wp-includes by default."
+msgstr "默认排除 wp-admin 和 wp-includes。"
+
+msgid "File Exclusions"
+msgstr "文件排除"
+
+msgid "Exclude Files/Patterns"
+msgstr "排除文件/模式"
+
+msgid "One pattern per line. Use * for wildcards. Example: *.log, cache/*"
+msgstr "每行一个模式。使用 * 作为通配符。例如：*.log、cache/*"
+
+msgid "Notifications"
+msgstr "通知"
+
+msgid "Email Notifications"
+msgstr "邮件通知"
+
+msgid "Send email after backup completes"
+msgstr "备份完成后发送邮件"
+
+msgid "Notification Email"
+msgstr "通知邮箱"
+
+msgid "Leave blank to keep current value."
+msgstr "留空以保留当前值。"
+
+msgid "Test Connection"
+msgstr "测试连接"
+
+msgid "Select None"
+msgstr "全不选"
+
+msgid "Show months"
+msgstr "显示月份"
+
+msgid "No items found."
+msgstr "未找到任何项目。"
+
+msgid "Settings saved."
+msgstr "设置已保存。"
+
+msgid "%s settings saved."
+msgstr "%s 设置已保存。"
+
+msgid "You do not have permission to access this endpoint."
+msgstr "您没有权限访问此端点。"
+
+msgid "No sites selected for backup."
+msgstr "未选择要备份的站点。"
+
+msgid "Multisite backup creation failed."
+msgstr "多站点备份创建失败。"
+
+msgid "Backup job not found."
+msgstr "未找到备份任务。"
+
+msgid "No sites selected for estimation."
+msgstr "未选择要估算的站点。"
+
+msgid "You do not have permission to perform this action."
+msgstr "您没有权限执行此操作。"
+
+msgid "Import secret key is required."
+msgstr "需要导入密钥。"
+
+msgid "Invalid or expired import session."
+msgstr "导入会话无效或已过期。"
+
+msgid "You must be an admin or have a valid import session."
+msgstr "您必须是管理员或拥有有效的导入会话。"
+
+msgid "Backup not found."
+msgstr "未找到备份。"
+
+msgid "Failed to delete backup."
+msgstr "删除备份失败。"
+
+msgid "Restore failed."
+msgstr "恢复失败。"
+
+msgid "No backup file provided."
+msgstr "未提供备份文件。"
+
+msgid "File exceeds upload_max_filesize directive."
+msgstr "文件超出 upload_max_filesize 指令的限制。"
+
+msgid "File exceeds MAX_FILE_SIZE directive."
+msgstr "文件超出 MAX_FILE_SIZE 指令的限制。"
+
+msgid "File was only partially uploaded."
+msgstr "文件仅部分上传。"
+
+msgid "No file was uploaded."
+msgstr "没有文件被上传。"
+
+msgid "Missing temporary folder."
+msgstr "缺少临时文件夹。"
+
+msgid "Failed to write file to disk."
+msgstr "文件写入磁盘失败。"
+
+msgid "Unknown upload error."
+msgstr "未知上传错误。"
+
+msgid "Invalid file type. Allowed types: ZIP, TAR.GZ, SWISH."
+msgstr "无效的文件类型。允许的类型：ZIP、TAR.GZ、SWISH。"
+
+msgid "Current upload limit: %s. For large backups (1GB+), upload via FTP/SFTP to wp-content/swish-backups/ then use the \"Import from Server Path\" option."
+msgstr "当前上传限制：%s。对于大型备份（1GB 以上），请通过 FTP/SFTP 上传到 wp-content/swish-backups/，然后使用“从服务器路径导入”选项。"
+
+msgid "Failed to analyze backup. The file may be corrupted or not a valid Swish backup."
+msgstr "分析备份失败。文件可能已损坏，或不是有效的 Swish 备份。"
+
+msgid "Server path must be within wp-content directory for security."
+msgstr "出于安全考虑，服务器路径必须位于 wp-content 目录内。"
+
+msgid "File not found at path: %s"
+msgstr "在以下路径未找到文件：%s"
+
+msgid "Invalid file type. Only ZIP, TAR.GZ, and SWISH files are supported."
+msgstr "无效的文件类型。仅支持 ZIP、TAR.GZ 和 SWISH 文件。"
+
+msgid "Storage adapter not found."
+msgstr "未找到存储适配器。"
+
+msgid "Storage adapter not configured."
+msgstr "存储适配器未配置。"
+
+msgid "Connection successful!"
+msgstr "连接成功！"
+
+msgid "Connection failed."
+msgstr "连接失败。"
+
+msgid "Job not found."
+msgstr "未找到任务。"
+
+msgid "Cannot cancel job with status: %s"
+msgstr "无法取消状态为 %s 的任务"
+
+msgid "Job cancelled successfully."
+msgstr "任务取消成功。"
+
+msgid "Failed to cancel job."
+msgstr "取消任务失败。"
+
+msgid "Import failed: Server memory limit (%s) exceeded. Please contact your hosting provider to increase the PHP memory_limit, or try importing a smaller backup."
+msgstr "导入失败：已超出服务器内存限制（%s）。请联系您的主机服务商提高 PHP memory_limit，或尝试导入较小的备份。"
+
+msgid "Import failed: Server timeout reached. Please contact your hosting provider to increase the max_execution_time limit, or try importing a smaller backup."
+msgstr "导入失败：已达到服务器超时限制。请联系您的主机服务商提高 max_execution_time 限制，或尝试导入较小的备份。"
+
+msgid "Import failed: File size exceeds server upload limit. Please contact your hosting provider to increase upload_max_filesize and post_max_size limits."
+msgstr "导入失败：文件大小超出服务器上传限制。请联系您的主机服务商提高 upload_max_filesize 和 post_max_size 限制。"
+
+msgid "Import failed: A server error occurred. Error: %s"
+msgstr "导入失败：服务器发生错误。错误：%s"
+
+msgid "Insufficient memory for import. Available: %1$s, Required: %2$s. Your server's PHP memory_limit is set to %3$s. Please contact your hosting provider to increase this limit."
+msgstr "导入内存不足。可用：%1$s，需要：%2$s。您服务器的 PHP memory_limit 设置为 %3$s。请联系您的主机服务商提高此限制。"
+
+msgid "Failed to finalize backup."
+msgstr "完成备份失败。"
+
+msgid "Schedule not found."
+msgstr "未找到计划。"
+
+msgid "Schedule activated."
+msgstr "计划已启用。"
+
+msgid "Schedule paused."
+msgstr "计划已暂停。"
+
+msgid "Scheduled backup started."
+msgstr "计划备份已开始。"
+
+msgid "Schedule deleted."
+msgstr "计划已删除。"
+
+msgid "Failed to delete schedule."
+msgstr "删除计划失败。"
+
+msgid "An import is already in progress. Use force=true to clear and restart."
+msgstr "已有导入正在进行中。使用 force=true 清除并重新开始。"
+
+msgid "Backup file not found."
+msgstr "未找到备份文件。"
+
+msgid "No active import session."
+msgstr "没有活动的导入会话。"
+
+msgid "Job cancelled by user."
+msgstr "任务已被用户取消。"
+
+msgid "Swish Migrate and Backup requires PHP 8.1 or higher."
+msgstr "Swish Migrate and Backup 需要 PHP 8.1 或更高版本。"
+
+msgid "Plugin Activation Error"
+msgstr "插件激活错误"
+
+msgid "Swish Migrate and Backup requires WordPress 6.0 or higher."
+msgstr "Swish Migrate and Backup 需要 WordPress 6.0 或更高版本。"
+
+msgid "Swish Migrate and Backup requires the following PHP extensions: %s"
+msgstr "Swish Migrate and Backup 需要以下 PHP 扩展：%s"
+
+msgid "Once Weekly"
+msgstr "每周一次"
+
+msgid "Once Monthly"
+msgstr "每月一次"
+
+msgid "Service not found: %s"
+msgstr "未找到服务：%s"
+
+msgid "Swish Migrate and Backup: Pro features (multisite backup, migration, and site duplication) are now built into the main plugin. The separate Pro add-on has been deactivated and can be deleted."
+msgstr "Swish Migrate and Backup：Pro 功能（多站点备份、迁移和站点复制）现已内置于主插件中。独立的 Pro 附加插件已被停用，可以删除。"
+
+msgid "Swish Migrate and Backup: the PHP mysqli extension is not available on this site (common in SQLite-based environments such as WordPress Playground or WordPress Studio). You can browse the plugin screens, but backup, restore, and migration features require a MySQL/MariaDB database with the mysqli extension."
+msgstr "Swish Migrate and Backup：此站点上没有可用的 PHP mysqli 扩展（在基于 SQLite 的环境中很常见，例如 WordPress Playground 或 WordPress Studio）。您可以浏览插件页面，但备份、恢复和迁移功能需要带有 mysqli 扩展的 MySQL/MariaDB 数据库。"
+
+msgid "Download link has expired. Please generate a new one."
+msgstr "下载链接已过期。请生成新链接。"
+
+msgid "Invalid download token."
+msgstr "无效的下载令牌。"
+
+msgid "Invalid file path."
+msgstr "无效的文件路径。"
+
+msgid "Failed to open backup file."
+msgstr "打开备份文件失败。"
+
+msgid "Backup started..."
+msgstr "备份已开始…"
+
+msgid "Backup failed. Check the logs."
+msgstr "备份失败。请检查日志。"
+
+msgid "Restore started..."
+msgstr "恢复已开始…"
+
+msgid "Restore completed successfully!"
+msgstr "恢复成功完成！"
+
+msgid "Restore failed. Check the logs."
+msgstr "恢复失败。请检查日志。"
+
+msgid "Are you sure you want to delete this backup?"
+msgstr "您确定要删除此备份吗？"
+
+msgid "Are you sure you want to restore this backup? This will overwrite your current site."
+msgstr "您确定要恢复此备份吗？这将覆盖您当前的站点。"
+
+msgid "The selected file is too large for your server."
+msgstr "所选文件对您的服务器而言过大。"
+
+msgid "Backup is from WordPress %1$s, but you are running %2$s. Consider upgrading first."
+msgstr "备份来自 WordPress %1$s，而您当前运行的是 %2$s。建议先升级。"
+
+msgid "URL replacement will be performed to update all references."
+msgstr "将执行 URL 替换以更新所有引用。"
+
+msgid "Large backup file. Import may take some time."
+msgstr "备份文件较大。导入可能需要一些时间。"
+
+msgid "Old URL is not valid."
+msgstr "旧 URL 无效。"
+
+msgid "New URL is not valid."
+msgstr "新 URL 无效。"
+
+msgid "Old and new URLs are the same. No URL replacement will be performed."
+msgstr "旧 URL 与新 URL 相同。将不执行 URL 替换。"
+
+msgid "All sites in one archive - Easier to manage, single backup file"
+msgstr "所有站点合并为一个归档——更易管理，单个备份文件"
+
+msgid "Separate archive per site - Individual site restore, multiple files"
+msgstr "每个站点单独归档——可单独恢复站点，多个文件"
+
+msgid "Separate Archives"
+msgstr "单独归档"
+
+msgid "Backup scheduled. Starting..."
+msgstr "备份已排入队列。正在开始…"
+
+msgid "Backup parameters not found."
+msgstr "未找到备份参数。"
+
+msgid "Backing up WordPress core files..."
+msgstr "正在备份 WordPress 核心文件…"
+
+msgid "Backing up shared network tables..."
+msgstr "正在备份共享网络数据表…"
+
+msgid "Invalid backup file format. Expected a .swish or .zip file."
+msgstr "无效的备份文件格式。应为 .swish 或 .zip 文件。"
+
+msgid "Could not read backup manifest. Invalid backup file."
+msgstr "无法读取备份清单。备份文件无效。"
+
+msgid "Multisite backup with single site detected. Will import as single site."
+msgstr "检测到仅包含单个站点的多站点备份。将作为单站点导入。"
+
+msgid "Multisite backup detected. Please select a single site to import into this WordPress installation."
+msgstr "检测到多站点备份。请选择一个站点导入到此 WordPress 安装中。"
+
+msgid "Backup file is valid."
+msgstr "备份文件有效。"
+
+msgid "Failed to copy backup file for processing."
+msgstr "复制备份文件以进行处理时失败。"
+
+msgid "Import started."
+msgstr "导入已开始。"
+
+msgid "Extracting backup file..."
+msgstr "正在解压备份文件…"
+
+msgid "Failed to extract backup file."
+msgstr "解压备份文件失败。"
+
+msgid "Backup extracted successfully."
+msgstr "备份解压成功。"
+
+msgid "Importing shared network tables..."
+msgstr "正在导入共享网络数据表…"
+
+msgid "Shared tables imported."
+msgstr "共享数据表已导入。"
+
+msgid "Importing site databases..."
+msgstr "正在导入站点数据库…"
+
+msgid "Importing database: %1$s (%2$d/%3$d)"
+msgstr "正在导入数据库：%1$s（%2$d/%3$d）"
+
+msgid "Site databases imported."
+msgstr "站点数据库已导入。"
+
+msgid "Reactivating plugins..."
+msgstr "正在重新激活插件…"
+
+msgid "Importing database..."
+msgstr "正在导入数据库…"
+
+msgid "Database imported."
+msgstr "数据库已导入。"
+
+msgid "Restoring files..."
+msgstr "正在恢复文件…"
+
+msgid "Extracting tar.gz archives..."
+msgstr "正在解压 tar.gz 归档…"
+
+msgid "Extracting files archive..."
+msgstr "正在解压文件归档…"
+
+msgid "Extracting file batch parts..."
+msgstr "正在解压分批文件部分…"
+
+msgid "Restoring wp-content files..."
+msgstr "正在恢复 wp-content 文件…"
+
+msgid "Restoring WordPress core files..."
+msgstr "正在恢复 WordPress 核心文件…"
+
+msgid "Files restored."
+msgstr "文件已恢复。"
+
+msgid "Running search and replace..."
+msgstr "正在运行搜索和替换…"
+
+msgid "Search and replace completed."
+msgstr "搜索和替换已完成。"
+
+msgid "Fixing site configuration..."
+msgstr "正在修复站点配置…"
+
+msgid "Site configuration fixed."
+msgstr "站点配置已修复。"
+
+msgid "No URL replacement needed."
+msgstr "无需 URL 替换。"
+
+msgid "Flushing caches..."
+msgstr "正在清空缓存…"
+
+msgid "Cleaning up temporary files..."
+msgstr "正在清理临时文件…"
+
+msgid "Import completed successfully!"
+msgstr "导入成功完成！"
+
+msgid "Could not determine which site to import."
+msgstr "无法确定要导入哪个站点。"
+
+msgid "Importing database for %s..."
+msgstr "正在为 %s 导入数据库…"
+
+msgid "Successfully imported multisite \"%s\" as single site!"
+msgstr "已成功将多站点“%s”作为单站点导入！"
+
+msgid "This import requires converting your site to multisite. Please confirm this action."
+msgstr "此导入需要将您的站点转换为多站点。请确认此操作。"
+
+msgid "Successfully imported %d sites."
+msgstr "成功导入 %d 个站点。"
+
+msgid "Successfully imported backup."
+msgstr "备份导入成功。"
+
+msgid "Site database file not found."
+msgstr "未找到站点数据库文件。"
+
+msgid "Site database file is empty."
+msgstr "站点数据库文件为空。"
+
+msgid "Site imported: %d statements executed."
+msgstr "站点已导入：已执行 %d 条语句。"
+
+msgid "Site import had issues: %d executed, %d errors."
+msgstr "站点导入存在问题：已执行 %d 条，错误 %d 个。"
+
+msgid "Already a multisite installation."
+msgstr "已是多站点安装。"
+
+msgid "wp-config.php is not writable. Please make it writable or manually enable multisite."
+msgstr "wp-config.php 不可写。请将其设为可写，或手动启用多站点。"
+
+msgid "Multisite constants already exist in wp-config.php but multisite is not active. Please check your configuration."
+msgstr "wp-config.php 中已存在多站点常量，但多站点未激活。请检查您的配置。"
+
+msgid "Successfully converted to multisite. Please refresh the page."
+msgstr "已成功转换为多站点。请刷新页面。"
+
+msgid "Failed to convert to multisite: %s"
+msgstr "转换为多站点失败：%s"
+
+msgid "Step 1: Edit wp-config.php"
+msgstr "第 1 步：编辑 wp-config.php"
+
+msgid "Add this line above the \"/* That's all, stop editing! */\" comment:"
+msgstr "在 \"/* That's all, stop editing! */\" 注释上方添加此行："
+
+msgid "Step 2: Install Network"
+msgstr "第 2 步：安装网络"
+
+msgid "Go to %s in your WordPress admin and follow the setup instructions."
+msgstr "在 WordPress 管理后台前往 %s，并按照设置说明操作。"
+
+msgid "Step 3: Update wp-config.php"
+msgstr "第 3 步：更新 wp-config.php"
+
+msgid "Add these lines to wp-config.php above the \"/* That's all, stop editing! */\" comment:"
+msgstr "在 wp-config.php 的 \"/* That's all, stop editing! */\" 注释上方添加以下几行："
+
+msgid "Step 4: Update .htaccess"
+msgstr "第 4 步：更新 .htaccess"
+
+msgid "Replace your .htaccess WordPress rules with the multisite rules provided by WordPress during network setup."
+msgstr "使用 WordPress 在网络设置过程中提供的多站点规则替换您 .htaccess 中的 WordPress 规则。"
+
+msgid "Step 5: Log In Again"
+msgstr "第 5 步：重新登录"
+
+msgid "After making these changes, log out and log back in. Then return to this page to import your multisite backup."
+msgstr "完成这些更改后，请退出并重新登录。然后返回此页面导入您的多站点备份。"
+
+msgid "Swish Multisite Backup"
+msgstr "Swish 多站点备份"
+
+msgid "Multisite Import"
+msgstr "多站点导入"
+
+msgid "Export backups for migration or import backups from another installation."
+msgstr "导出备份用于迁移，或从其他安装导入备份。"
+
+msgid "This feature is only available on multisite installations."
+msgstr "此功能仅在多站点安装中可用。"
+
+msgid "Create a copy of any site in your network with a new URL."
+msgstr "为网络中的任意站点创建一个使用新 URL 的副本。"
+
+msgid "Multisite Backup"
+msgstr "多站点备份"
+
+msgid "Overview of your multisite backup system."
+msgstr "您的多站点备份系统概览。"
+
+msgid "Backup Storage"
+msgstr "备份存储"
+
+msgid "Network Sites"
+msgstr "网络站点"
+
+msgid "Domain"
+msgstr "域名"
+
+msgid "Subdomain"
+msgstr "子域名"
+
+msgid "Subdirectory"
+msgstr "子目录"
+
+msgid "View History"
+msgstr "查看历史"
+
+msgid "Recent Backups"
+msgstr "最近备份"
+
+msgid "Create your first multisite backup to get started."
+msgstr "创建您的第一个多站点备份以开始使用。"
+
+msgid "Select sites and configure backup options."
+msgstr "选择站点并配置备份选项。"
+
+msgid "Select Sites to Backup"
+msgstr "选择要备份的站点"
+
+msgid "Choose which sites you want to include in the backup."
+msgstr "选择要包含在备份中的站点。"
+
+msgid "Start Backup"
+msgstr "开始备份"
+
+msgid "Select at least one site to enable backup."
+msgstr "至少选择一个站点以启用备份。"
+
+msgid "Please select at least one site."
+msgstr "请至少选择一个站点。"
+
+msgid "View and manage your previous backups."
+msgstr "查看和管理您之前的备份。"
+
+msgid "Low Memory"
+msgstr "内存不足"
+
+msgid "Low Timeout"
+msgstr "超时时间过短"
+
+msgid "Please select at least one site to backup."
+msgstr "请至少选择一个要备份的站点。"
+
+msgid "Backup failed: "
+msgstr "备份失败："
+
+msgid "Invalid job ID."
+msgstr "无效的任务 ID。"
+
+msgid "Backup deleted successfully."
+msgstr "备份删除成功。"
+
+msgid "View All Multisite Backups"
+msgstr "查看所有多站点备份"
+
+msgid "No backup file specified."
+msgstr "未指定备份文件。"
+
+msgid "Failed to upload backup file."
+msgstr "上传备份文件失败。"
+
+msgid "Please enter a URL to search for."
+msgstr "请输入要搜索的 URL。"
+
+msgid "Import job not found."
+msgstr "未找到导入任务。"
+
+msgid "Import job lost after execution."
+msgstr "导入任务在执行后丢失。"
+
+msgid "Backup started."
+msgstr "备份已开始。"
+
+msgid "Theme preference saved."
+msgstr "主题偏好已保存。"
+
+msgid "Invalid source site."
+msgstr "无效的源站点。"
+
+msgid "Duplication started."
+msgstr "复制已开始。"
+
+msgid "Job lost after execution."
+msgstr "任务在执行后丢失。"
+
+msgid "Permission denied."
+msgstr "权限被拒绝。"
+
+msgid "URL \"%s\" is already taken."
+msgstr "URL“%s”已被占用。"
+
+msgid "This slug is reserved and cannot be used."
+msgstr "此别名为保留字，无法使用。"
+
+msgid "URL is available!"
+msgstr "URL 可用！"
+
+msgid "Invalid site ID."
+msgstr "无效的站点 ID。"
+
+msgid "Site not found."
+msgstr "未找到站点。"
+
+msgid "Cannot delete the main site."
+msgstr "无法删除主站点。"
+
+msgid "Failed to delete site. Please try again."
+msgstr "删除站点失败。请重试。"
+
+msgid "Site deleted successfully."
+msgstr "站点删除成功。"
+
+msgid "WordPress core files backed up."
+msgstr "WordPress 核心文件已备份。"
+
+msgid "Backing up site databases..."
+msgstr "正在备份站点数据库…"
+
+msgid "Backing up site %1$d of %2$d: %3$s"
+msgstr "正在备份第 %1$d/%2$d 个站点：%3$s"
+
+msgid "Backing up wp-content folders..."
+msgstr "正在备份 wp-content 文件夹…"
+
+msgid "Files backed up."
+msgstr "文件已备份。"
+
+msgid "Creating backup archive..."
+msgstr "正在创建备份归档…"
+
+msgid "Successfully backed up databases for %d sites."
+msgstr "已成功备份 %d 个站点的数据库。"
+
+msgid "Successfully backed up %d sites in single archive."
+msgstr "已成功将 %d 个站点备份到单一归档中。"
+
+msgid "Creating archive for site %1$d of %2$d: %3$s"
+msgstr "正在为第 %1$d/%2$d 个站点创建归档：%3$s"
+
+msgid "Successfully backed up databases for %d sites as separate archives."
+msgstr "已成功将 %d 个站点的数据库备份为单独归档。"
+
+msgid "Successfully backed up %d sites as separate archives."
+msgstr "已成功将 %d 个站点备份为单独归档。"
+
+msgid "Source site not found."
+msgstr "未找到源站点。"
+
+msgid "Invalid site slug."
+msgstr "无效的站点别名。"
+
+msgid "A site with URL \"%s\" already exists."
+msgstr "URL 为“%s”的站点已存在。"
+
+msgid "Duplication scheduled. Starting..."
+msgstr "复制已排入队列。正在开始…"
+
+msgid "Job parameters not found."
+msgstr "未找到任务参数。"
+
+msgid "Creating new site..."
+msgstr "正在创建新站点…"
+
+msgid "Copying database tables..."
+msgstr "正在复制数据库表…"
+
+msgid "Failed to copy database: %s"
+msgstr "复制数据库失败：%s"
+
+msgid "Copying uploads..."
+msgstr "正在复制上传文件…"
+
+msgid "Skipping uploads (not selected)..."
+msgstr "正在跳过上传文件（未选择）…"
+
+msgid "Replacing URLs..."
+msgstr "正在替换 URL…"
+
+msgid "Finalizing..."
+msgstr "正在完成…"
+
+msgid "Site duplicated successfully! New site ID: %d"
+msgstr "站点复制成功！新站点 ID：%d"
+
+msgid "Site duplicated successfully. New site ID: %d"
+msgstr "站点复制成功。新站点 ID：%d"
+
+msgid "Copying table %1$d of %2$d..."
+msgstr "正在复制第 %1$d/%2$d 个数据表…"
+
+msgid "Replacing: %s"
+msgstr "正在替换：%s"
+
+msgid "Access Token"
+msgstr "访问令牌"
+
+msgid "Your Dropbox access token. Generate one from the Dropbox App Console."
+msgstr "您的 Dropbox 访问令牌。可在 Dropbox App Console 中生成。"
+
+msgid "Backup Folder"
+msgstr "备份文件夹"
+
+msgid "Folder path for storing backups (e.g., /Backups/MySite)."
+msgstr "用于存储备份的文件夹路径（例如 /Backups/MySite）。"
+
+msgid "Client ID"
+msgstr "客户端 ID"
+
+msgid "Your Google OAuth Client ID."
+msgstr "您的 Google OAuth 客户端 ID。"
+
+msgid "Client Secret"
+msgstr "客户端密钥"
+
+msgid "Your Google OAuth Client Secret."
+msgstr "您的 Google OAuth 客户端密钥。"
+
+msgid "Name of the folder for storing backups."
+msgstr "用于存储备份的文件夹名称。"
+
+msgid "Backup Directory"
+msgstr "备份目录"
+
+msgid "Custom backup directory path (leave empty for default)."
+msgstr "自定义备份目录路径（留空使用默认值）。"
+
+msgid "Retention Days"
+msgstr "保留天数"
+
+msgid "Number of days to keep backups (0 = forever)."
+msgstr "备份保留天数（0 = 永久保留）。"
+
+msgid "Access Key ID"
+msgstr "访问密钥 ID"
+
+msgid "Your AWS Access Key ID."
+msgstr "您的 AWS 访问密钥 ID。"
+
+msgid "Secret Access Key"
+msgstr "秘密访问密钥"
+
+msgid "Your AWS Secret Access Key."
+msgstr "您的 AWS 秘密访问密钥。"
+
+msgid "Bucket Name"
+msgstr "存储桶名称"
+
+msgid "The S3 bucket to store backups in."
+msgstr "用于存储备份的 S3 存储桶。"
+
+msgid "Region"
+msgstr "区域"
+
+msgid "Path Prefix"
+msgstr "路径前缀"
+
+msgid "Optional folder path within the bucket."
+msgstr "存储桶内的可选文件夹路径。"
+
+msgid "Custom Endpoint"
+msgstr "自定义端点"
+
+msgid "Custom S3-compatible endpoint (e.g., for MinIO, DigitalOcean Spaces)."
+msgstr "自定义 S3 兼容端点（例如 MinIO、DigitalOcean Spaces）。"
+
+msgid "Storage adapter not found: %s"
+msgstr "未找到存储适配器：%s"
+
+msgid "Adapter not found"
+msgstr "未找到适配器"
+
+msgid "Adapter not configured"
+msgstr "适配器未配置"
+
+msgid "Upload failed"
+msgstr "上传失败"
+
+msgid "Starting Backup..."
+msgstr "正在启动备份…"
+
+msgid "full"
+msgstr "完整"
+
+msgid "database"
+msgstr "数据库"
+
+msgid "files"
+msgstr "文件"
+
+msgid "backup job..."
+msgstr "备份任务…"
+
+msgid "No backups yet. Create your first backup to get started."
+msgstr "暂无备份。创建您的第一个备份以开始使用。"
+
+msgid "Backup Now"
+msgstr "立即备份"
+
+msgid "Create a new backup of your site."
+msgstr "为您的站点创建新备份。"
+
+msgid "Search and replace URLs in the database."
+msgstr "搜索并替换数据库中的 URL。"
+
+msgid "Hide Panel"
+msgstr "隐藏面板"
+
+msgid "Open Panel"
+msgstr "打开面板"
+
+msgid "Migrate Site"
+msgstr "迁移站点"
+
+msgid "Import a backup from another site."
+msgstr "从其他站点导入备份。"
+
+msgid "Storage Used"
+msgstr "已用存储"
+
+msgid "Never"
+msgstr "从未"
+
+msgid "Last Backup"
+msgstr "上次备份"
+
+msgid "Batch Size (DB/Files)"
+msgstr "批处理大小（数据库/文件）"
+
+msgid "Connected"
+msgstr "已连接"
+
+msgid "Not Configured"
+msgstr "未配置"
+
+msgid "Please enter both search and replace URLs."
+msgstr "请同时输入要搜索和替换的 URL。"
+
+msgid "Preview failed"
+msgstr "预览失败"
+
+msgid "This will permanently modify your database. Are you sure you want to continue?"
+msgstr "这将永久修改您的数据库。您确定要继续吗？"
+
+msgid "Migration failed"
+msgstr "迁移失败"
+
+msgid "Search and Replace URLs"
+msgstr "搜索和替换 URL"
+
+msgid "Replace old URLs with new ones across your entire database. This is useful when migrating to a new domain."
+msgstr "在整个数据库中将旧 URL 替换为新 URL。在迁移到新域名时非常有用。"
+
+msgid "Search for (old URL)"
+msgstr "搜索内容（旧 URL）"
+
+msgid "Replace with (new URL)"
+msgstr "替换为（新 URL）"
+
+msgid "Run Migration"
+msgstr "运行迁移"
+
+msgid "Found"
+msgstr "共找到"
+
+msgid "replacements across"
+msgstr "处替换，涉及"
+
+msgid "tables."
+msgstr "个数据表。"
+
+msgid "Replacements"
+msgstr "替换次数"
+
+msgid "Migration completed!"
+msgstr "迁移完成！"
+
+msgid "Replaced"
+msgstr "已替换"
+
+msgid "occurrences."
+msgstr "处。"
+
+msgid "Database Export"
+msgstr "数据库导出"
+
+msgid "Exporting WordPress database tables"
+msgstr "正在导出 WordPress 数据库表"
+
+msgid "File Backup"
+msgstr "文件备份"
+
+msgid "Copying WordPress files"
+msgstr "正在复制 WordPress 文件"
+
+msgid "Saving backup and cleaning up"
+msgstr "正在保存备份并清理"
+
+msgid "Indexing Files"
+msgstr "正在索引文件"
+
+msgid "Scanning files to backup"
+msgstr "正在扫描要备份的文件"
+
+msgid "Adding files to archive"
+msgstr "正在将文件添加到归档"
+
+msgid "Completing backup"
+msgstr "正在完成备份"
+
+msgid "An error occurred"
+msgstr "发生错误"
+
+msgid "Backup Complete"
+msgstr "备份完成"
+
+msgid "Please wait while the backup completes. Do not close this window."
+msgstr "请等待备份完成。请勿关闭此窗口。"

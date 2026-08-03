@@ -1,0 +1,2739 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Swish Migrate and Backup 1.4.0\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: ar\n"
+"Plural-Forms: nplurals=6; plural=(n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 ? 4 : 5);\n"
+"X-Generator: manual\n"
+
+msgid "Swish Migrate and Backup"
+msgstr "Swish Migrate and Backup"
+
+msgid "https://swishbackup.swishfolio.com/"
+msgstr "https://swishbackup.swishfolio.com/"
+
+msgid "A WordPress backup and migration plugin with cloud storage support, multisite network backups, site duplication & no limits."
+msgstr "إضافة نسخ احتياطي وترحيل لووردبريس مع دعم التخزين السحابي، ونسخ احتياطي لشبكات المواقع المتعددة، واستنساخ المواقع، وبلا حدود."
+
+msgid "Fortisthemes, afrothemes"
+msgstr "Fortisthemes, afrothemes"
+
+msgid "https://denis.swishfolio.com"
+msgstr "https://denis.swishfolio.com"
+
+msgid "Swish Backup"
+msgstr "Swish Backup"
+
+msgid "Dashboard"
+msgstr "لوحة التحكم"
+
+msgid "Backups"
+msgstr "النسخ الاحتياطية"
+
+msgid "Schedules"
+msgstr "الجداول الزمنية"
+
+msgid "Migration"
+msgstr "الترحيل"
+
+msgid "Settings"
+msgstr "الإعدادات"
+
+msgid "Logs"
+msgstr "السجلات"
+
+msgid "Documentation"
+msgstr "التوثيق"
+
+msgid "Create Backup"
+msgstr "إنشاء نسخة احتياطية"
+
+msgid "Select Backup Type"
+msgstr "اختر نوع النسخة الاحتياطية"
+
+msgid "Full Backup"
+msgstr "نسخة احتياطية كاملة"
+
+msgid "Database, files, themes, plugins, and uploads"
+msgstr "قاعدة البيانات والملفات والقوالب والإضافات والمرفوعات"
+
+msgid "Database Only"
+msgstr "قاعدة البيانات فقط"
+
+msgid "Just the database (fastest)"
+msgstr "قاعدة البيانات فقط (الأسرع)"
+
+msgid "Files Only"
+msgstr "الملفات فقط"
+
+msgid "Themes, plugins, and uploads"
+msgstr "القوالب والإضافات والمرفوعات"
+
+msgid "No Backups Yet"
+msgstr "لا توجد نسخ احتياطية بعد"
+
+msgid "Create your first backup to protect your site."
+msgstr "أنشئ أول نسخة احتياطية لحماية موقعك."
+
+msgid "Create First Backup"
+msgstr "إنشاء أول نسخة احتياطية"
+
+msgid "backup(s) selected"
+msgstr "نسخة (نسخ) احتياطية محددة"
+
+msgid "Download Selected"
+msgstr "تنزيل المحدد"
+
+msgid "Delete Selected"
+msgstr "حذف المحدد"
+
+msgid "Select All"
+msgstr "تحديد الكل"
+
+msgid "Backup"
+msgstr "نسخة احتياطية"
+
+msgid "Type"
+msgstr "النوع"
+
+msgid "Size"
+msgstr "الحجم"
+
+msgid "Date"
+msgstr "التاريخ"
+
+msgid "Actions"
+msgstr "الإجراءات"
+
+msgid "SHA256: %s"
+msgstr "SHA256: %s"
+
+msgid "Restore"
+msgstr "استعادة"
+
+msgid "Download"
+msgstr "تنزيل"
+
+msgid "CLI Download"
+msgstr "تنزيل عبر سطر الأوامر"
+
+msgid "Delete"
+msgstr "حذف"
+
+msgid "Backup in Progress"
+msgstr "النسخ الاحتياطي قيد التنفيذ"
+
+msgid "Initializing..."
+msgstr "جارٍ التهيئة..."
+
+msgid "Restore Backup"
+msgstr "استعادة النسخة الاحتياطية"
+
+msgid "Warning: This will overwrite your current site data. This action cannot be undone."
+msgstr "تحذير: سيؤدي هذا إلى الكتابة فوق بيانات موقعك الحالية. لا يمكن التراجع عن هذا الإجراء."
+
+msgid "Restore Database"
+msgstr "استعادة قاعدة البيانات"
+
+msgid "Restore Files"
+msgstr "استعادة الملفات"
+
+msgid "Create backup before restore"
+msgstr "إنشاء نسخة احتياطية قبل الاستعادة"
+
+msgid "Restore Now"
+msgstr "الاستعادة الآن"
+
+msgid "Cancel"
+msgstr "إلغاء"
+
+msgid "CLI Download Command"
+msgstr "أمر التنزيل عبر سطر الأوامر"
+
+msgid "Use these commands to download the backup via command line. Both support resume on failure."
+msgstr "استخدم هذه الأوامر لتنزيل النسخة الاحتياطية عبر سطر الأوامر. كلاهما يدعم الاستئناف عند الفشل."
+
+msgid "curl"
+msgstr "curl"
+
+msgid "aria2c"
+msgstr "aria2c"
+
+msgid "Recommended for 3GB+"
+msgstr "موصى به للملفات الأكبر من 3 جيجابايت"
+
+msgid "Copy"
+msgstr "نسخ"
+
+msgid "aria2c not installed? See %s for installation instructions."
+msgstr "أداة aria2c غير مثبتة؟ راجع %s للاطلاع على تعليمات التثبيت."
+
+msgid "documentation"
+msgstr "التوثيق"
+
+msgid "Note:"
+msgstr "ملاحظة:"
+
+msgid "The download link expires in 24 hours. If interrupted, re-run the same command to resume."
+msgstr "تنتهي صلاحية رابط التنزيل خلال 24 ساعة. إذا انقطع التنزيل، أعد تشغيل الأمر نفسه للاستئناف."
+
+msgid "Close"
+msgstr "إغلاق"
+
+msgid "Backup Settings"
+msgstr "إعدادات النسخ الاحتياطي"
+
+msgid "Performance"
+msgstr "الأداء"
+
+msgid "Adjust batch sizes based on your hosting environment. Lower values are safer for shared hosting."
+msgstr "اضبط أحجام الدُفعات حسب بيئة الاستضافة لديك. القيم الأقل أكثر أمانًا للاستضافة المشتركة."
+
+msgid "Files per Request"
+msgstr "عدد الملفات لكل طلب"
+
+msgid "Shared (50)"
+msgstr "مشتركة (50)"
+
+msgid "VPS (150)"
+msgstr "خادم افتراضي VPS (150)"
+
+msgid "Dedicated (300)"
+msgstr "مخصصة (300)"
+
+msgid "Database Rows per Batch"
+msgstr "عدد صفوف قاعدة البيانات لكل دفعة"
+
+msgid "Default Backup Contents"
+msgstr "محتويات النسخ الاحتياطي الافتراضية"
+
+msgid "Database"
+msgstr "قاعدة البيانات"
+
+msgid "Plugins"
+msgstr "الإضافات"
+
+msgid "Themes"
+msgstr "القوالب"
+
+msgid "Uploads"
+msgstr "المرفوعات"
+
+msgid "Core Files"
+msgstr "ملفات النواة"
+
+msgid "Quick Presets"
+msgstr "إعدادات مسبقة سريعة"
+
+msgid "Shared Hosting"
+msgstr "استضافة مشتركة"
+
+msgid "VPS / Managed"
+msgstr "خادم افتراضي VPS / استضافة مُدارة"
+
+msgid "Dedicated"
+msgstr "مخصصة"
+
+msgid "Save Settings"
+msgstr "حفظ الإعدادات"
+
+msgid "Overview of your backups and system."
+msgstr "نظرة عامة على النسخ الاحتياطية والنظام لديك."
+
+msgid "Total Backups"
+msgstr "إجمالي النسخ الاحتياطية"
+
+msgid "%s stored"
+msgstr "%s مخزنة"
+
+msgid "System Status"
+msgstr "حالة النظام"
+
+msgid "Ready"
+msgstr "جاهز"
+
+msgid "PHP"
+msgstr "PHP"
+
+msgid "Memory"
+msgstr "الذاكرة"
+
+msgid "Max Exec"
+msgstr "أقصى مدة تنفيذ"
+
+msgid "Disk Storage"
+msgstr "تخزين القرص"
+
+msgid "%s%% of disk used"
+msgstr "تم استخدام %s%% من القرص"
+
+msgid "Quick Actions"
+msgstr "إجراءات سريعة"
+
+msgid "Create New Backup"
+msgstr "إنشاء نسخة احتياطية جديدة"
+
+msgid "Migration Tools"
+msgstr "أدوات الترحيل"
+
+msgid "Backup History"
+msgstr "سجل النسخ الاحتياطية"
+
+msgid "View All"
+msgstr "عرض الكل"
+
+msgid "Create your first backup to get started."
+msgstr "أنشئ أول نسخة احتياطية للبدء."
+
+msgid "Date & Time"
+msgstr "التاريخ والوقت"
+
+msgid "Status"
+msgstr "الحالة"
+
+msgid "Completed"
+msgstr "مكتمل"
+
+msgid "Getting Started"
+msgstr "البدء"
+
+msgid "Creating Backups"
+msgstr "إنشاء النسخ الاحتياطية"
+
+msgid "Restoring Backups"
+msgstr "استعادة النسخ الاحتياطية"
+
+msgid "Scheduled Backups"
+msgstr "النسخ الاحتياطية المجدولة"
+
+msgid "Cloud Storage"
+msgstr "التخزين السحابي"
+
+msgid "Site Migration"
+msgstr "ترحيل الموقع"
+
+msgid "Advanced Features"
+msgstr "ميزات متقدمة"
+
+msgid "Installing aria2c"
+msgstr "تثبيت aria2c"
+
+msgid "Troubleshooting"
+msgstr "استكشاف الأخطاء وإصلاحها"
+
+msgid "FAQ"
+msgstr "الأسئلة الشائعة"
+
+msgid "Learn how to use Swish Backup to protect your WordPress site with easy-to-follow guides."
+msgstr "تعرّف على كيفية استخدام Swish Backup لحماية موقع ووردبريس الخاص بك من خلال أدلة سهلة المتابعة."
+
+msgid "Welcome to Swish Backup"
+msgstr "مرحبًا بك في Swish Backup"
+
+msgid "Swish Backup is a powerful WordPress plugin that helps you create backups of your website, store them safely, and restore them when needed. Whether you're protecting against data loss or migrating to a new server, Swish Backup has you covered."
+msgstr "Swish Backup إضافة ووردبريس قوية تساعدك على إنشاء نسخ احتياطية لموقعك وتخزينها بأمان واستعادتها عند الحاجة. سواء كنت تحمي موقعك من فقدان البيانات أو تنتقل إلى خادم جديد، فإن Swish Backup يلبي احتياجاتك."
+
+msgid "Dashboard Overview"
+msgstr "نظرة عامة على لوحة التحكم"
+
+msgid "The Dashboard is your central hub for managing backups. Here you can:"
+msgstr "لوحة التحكم هي مركزك الرئيسي لإدارة النسخ الاحتياطية. يمكنك هنا:"
+
+msgid "Create new backups with one click"
+msgstr "إنشاء نسخ احتياطية جديدة بنقرة واحدة"
+
+msgid "View your recent backups"
+msgstr "عرض نسخك الاحتياطية الأخيرة"
+
+msgid "See storage status and space used"
+msgstr "الاطلاع على حالة التخزين والمساحة المستخدمة"
+
+msgid "Access quick actions for common tasks"
+msgstr "الوصول إلى إجراءات سريعة للمهام الشائعة"
+
+msgid "First Steps"
+msgstr "الخطوات الأولى"
+
+msgid "Create your first backup:"
+msgstr "أنشئ أول نسخة احتياطية:"
+
+msgid "Go to %s and click \"Create Backup\" to protect your site immediately."
+msgstr "انتقل إلى %s وانقر على \"إنشاء نسخة احتياطية\" لحماية موقعك فورًا."
+
+msgid "Configure settings:"
+msgstr "اضبط الإعدادات:"
+
+msgid "Visit %s to customize backup options and set up cloud storage."
+msgstr "قم بزيارة %s لتخصيص خيارات النسخ الاحتياطي وإعداد التخزين السحابي."
+
+msgid "Set up automatic backups:"
+msgstr "أعدّ النسخ الاحتياطي التلقائي:"
+
+msgid "Go to %s to enable automatic backups so you never forget."
+msgstr "انتقل إلى %s لتفعيل النسخ الاحتياطي التلقائي حتى لا تنسى أبدًا."
+
+msgid "Backup Types"
+msgstr "أنواع النسخ الاحتياطية"
+
+msgid "Swish Backup offers three types of backups:"
+msgstr "يوفر Swish Backup ثلاثة أنواع من النسخ الاحتياطية:"
+
+msgid "Includes everything: database, themes, plugins, uploads, and media files. This is the most complete backup option and recommended for most users."
+msgstr "تشمل كل شيء: قاعدة البيانات والقوالب والإضافات والمرفوعات وملفات الوسائط. هذا هو خيار النسخ الاحتياطي الأكثر اكتمالًا والموصى به لمعظم المستخدمين."
+
+msgid "Only backs up your WordPress database (posts, pages, settings, users). This is the fastest option and creates smaller backup files."
+msgstr "تنسخ قاعدة بيانات ووردبريس فقط (المقالات والصفحات والإعدادات والمستخدمين). هذا هو الخيار الأسرع وينتج ملفات نسخ احتياطي أصغر حجمًا."
+
+msgid "Backs up only your files (themes, plugins, uploads) without the database. Useful if you have a separate database backup solution."
+msgstr "تنسخ ملفاتك فقط (القوالب والإضافات والمرفوعات) دون قاعدة البيانات. مفيدة إذا كان لديك حل منفصل للنسخ الاحتياطي لقاعدة البيانات."
+
+msgid "How to Create a Backup"
+msgstr "كيفية إنشاء نسخة احتياطية"
+
+msgid "Go to %1$s or %2$s"
+msgstr "انتقل إلى %1$s أو %2$s"
+
+msgid "Click the \"Create Backup\" button"
+msgstr "انقر على زر \"إنشاء نسخة احتياطية\""
+
+msgid "Select your backup type (Full, Database, or Files)"
+msgstr "اختر نوع النسخة الاحتياطية (كاملة أو قاعدة بيانات أو ملفات)"
+
+msgid "Wait for the backup to complete - you'll see a progress bar"
+msgstr "انتظر حتى تكتمل النسخة الاحتياطية - سترى شريط تقدم"
+
+msgid "Once complete, your backup will appear in the backups list"
+msgstr "بمجرد الاكتمال، ستظهر نسختك الاحتياطية في قائمة النسخ الاحتياطية"
+
+msgid "Tip: Create a full backup before making major changes to your site, such as updating WordPress, themes, or plugins."
+msgstr "نصيحة: أنشئ نسخة احتياطية كاملة قبل إجراء تغييرات كبيرة على موقعك، مثل تحديث ووردبريس أو القوالب أو الإضافات."
+
+msgid "How to Restore a Backup"
+msgstr "كيفية استعادة نسخة احتياطية"
+
+msgid "Go to %s"
+msgstr "انتقل إلى %s"
+
+msgid "Find the backup you want to restore"
+msgstr "ابحث عن النسخة الاحتياطية التي تريد استعادتها"
+
+msgid "Click the \"Restore\" button"
+msgstr "انقر على زر \"استعادة\""
+
+msgid "Choose what to restore (database, files, or both)"
+msgstr "اختر ما تريد استعادته (قاعدة البيانات أو الملفات أو كليهما)"
+
+msgid "Optionally, enable \"Create backup before restore\" for safety"
+msgstr "اختياريًا، فعّل \"إنشاء نسخة احتياطية قبل الاستعادة\" للأمان"
+
+msgid "Click \"Restore Now\" to begin"
+msgstr "انقر على \"الاستعادة الآن\" للبدء"
+
+msgid "Warning: Restoring a backup will overwrite your current site data. Always enable \"Create backup before restore\" unless you're sure you want to replace everything."
+msgstr "تحذير: ستؤدي استعادة نسخة احتياطية إلى الكتابة فوق بيانات موقعك الحالية. فعّل دائمًا \"إنشاء نسخة احتياطية قبل الاستعادة\" ما لم تكن متأكدًا من رغبتك في استبدال كل شيء."
+
+msgid "Restore Options"
+msgstr "خيارات الاستعادة"
+
+msgid "Restore Database:"
+msgstr "استعادة قاعدة البيانات:"
+
+msgid "Restores all your content, settings, and user data"
+msgstr "تستعيد جميع المحتوى والإعدادات وبيانات المستخدمين"
+
+msgid "Restore Files:"
+msgstr "استعادة الملفات:"
+
+msgid "Restores themes, plugins, and uploaded files"
+msgstr "تستعيد القوالب والإضافات والملفات المرفوعة"
+
+msgid "Create backup before restore:"
+msgstr "إنشاء نسخة احتياطية قبل الاستعادة:"
+
+msgid "Creates a safety backup of your current site first"
+msgstr "تنشئ أولًا نسخة احتياطية آمنة لموقعك الحالي"
+
+msgid "Setting Up Automatic Backups"
+msgstr "إعداد النسخ الاحتياطي التلقائي"
+
+msgid "Automatic backups ensure your site is always protected without you having to remember to create backups manually."
+msgstr "يضمن النسخ الاحتياطي التلقائي حماية موقعك دائمًا دون الحاجة إلى تذكّر إنشاء النسخ الاحتياطية يدويًا."
+
+msgid "Click \"Add New Schedule\""
+msgstr "انقر على \"إضافة جدول زمني جديد\""
+
+msgid "Choose a frequency (Hourly, Daily, Weekly, or Monthly)"
+msgstr "اختر التكرار (كل ساعة أو يوميًا أو أسبوعيًا أو شهريًا)"
+
+msgid "Select the backup type"
+msgstr "اختر نوع النسخة الاحتياطية"
+
+msgid "Choose where to store backups"
+msgstr "اختر مكان تخزين النسخ الاحتياطية"
+
+msgid "Save your schedule"
+msgstr "احفظ جدولك الزمني"
+
+msgid "Recommended Schedule"
+msgstr "الجدول الزمني الموصى به"
+
+msgid "Busy sites (e-commerce, news):"
+msgstr "المواقع النشطة (التجارة الإلكترونية، الأخبار):"
+
+msgid "Daily full backups"
+msgstr "نسخ احتياطية كاملة يومية"
+
+msgid "Regular blogs:"
+msgstr "المدونات العادية:"
+
+msgid "Weekly full backups"
+msgstr "نسخ احتياطية كاملة أسبوعية"
+
+msgid "Static sites:"
+msgstr "المواقع الثابتة:"
+
+msgid "Monthly full backups"
+msgstr "نسخ احتياطية كاملة شهرية"
+
+msgid "Why Use Cloud Storage?"
+msgstr "لماذا تستخدم التخزين السحابي؟"
+
+msgid "Storing backups in the cloud protects you even if something happens to your server. Your backups are safe and accessible from anywhere."
+msgstr "تخزين النسخ الاحتياطية في السحابة يحميك حتى لو حدث شيء لخادمك. نسخك الاحتياطية آمنة ويمكن الوصول إليها من أي مكان."
+
+msgid "Supported Storage Providers"
+msgstr "مزودو التخزين المدعومون"
+
+msgid "Amazon S3"
+msgstr "Amazon S3"
+
+msgid "Professional-grade cloud storage from Amazon Web Services. Great for businesses needing reliable, scalable storage."
+msgstr "تخزين سحابي بمستوى احترافي من Amazon Web Services. رائع للشركات التي تحتاج إلى تخزين موثوق وقابل للتوسع."
+
+msgid "Dropbox"
+msgstr "Dropbox"
+
+msgid "Easy-to-use cloud storage. Perfect if you already use Dropbox for other files."
+msgstr "تخزين سحابي سهل الاستخدام. مثالي إذا كنت تستخدم Dropbox بالفعل لملفات أخرى."
+
+msgid "Google Drive"
+msgstr "Google Drive"
+
+msgid "Store backups in your Google Drive account. Great integration with Google Workspace."
+msgstr "خزّن النسخ الاحتياطية في حسابك على Google Drive. تكامل رائع مع Google Workspace."
+
+msgid "Setting Up Cloud Storage"
+msgstr "إعداد التخزين السحابي"
+
+msgid "Find the Storage section"
+msgstr "ابحث عن قسم التخزين"
+
+msgid "Click on your preferred storage provider"
+msgstr "انقر على مزود التخزين المفضل لديك"
+
+msgid "Enter your API credentials (instructions provided)"
+msgstr "أدخل بيانات اعتماد API الخاصة بك (التعليمات متوفرة)"
+
+msgid "Test the connection"
+msgstr "اختبر الاتصال"
+
+msgid "Save your settings"
+msgstr "احفظ إعداداتك"
+
+msgid "Moving Your Site to a New Domain"
+msgstr "نقل موقعك إلى نطاق جديد"
+
+msgid "Create a full backup on your current site"
+msgstr "أنشئ نسخة احتياطية كاملة على موقعك الحالي"
+
+msgid "Download the backup file"
+msgstr "نزّل ملف النسخة الاحتياطية"
+
+msgid "Install WordPress on your new server/domain"
+msgstr "ثبّت ووردبريس على خادمك/نطاقك الجديد"
+
+msgid "Install and activate Swish Backup"
+msgstr "ثبّت وفعّل Swish Backup"
+
+msgid "Upload your backup file"
+msgstr "ارفع ملف النسخة الاحتياطية"
+
+msgid "Enter your old and new URLs"
+msgstr "أدخل عنوان URL القديم والجديد"
+
+msgid "Click \"Migrate\" - the plugin will update all URLs automatically"
+msgstr "انقر على \"ترحيل\" - ستحدّث الإضافة جميع عناوين URL تلقائيًا"
+
+msgid "Search and Replace"
+msgstr "البحث والاستبدال"
+
+msgid "The Migration page also includes a Search and Replace tool. This is useful for:"
+msgstr "تتضمن صفحة الترحيل أيضًا أداة البحث والاستبدال. وهي مفيدة من أجل:"
+
+msgid "Changing URLs throughout your database"
+msgstr "تغيير عناوين URL في جميع أنحاء قاعدة البيانات"
+
+msgid "Switching from HTTP to HTTPS"
+msgstr "التبديل من HTTP إلى HTTPS"
+
+msgid "Fixing broken links after a domain change"
+msgstr "إصلاح الروابط المعطلة بعد تغيير النطاق"
+
+msgid "Tip: Always create a backup before running Search and Replace, just in case you need to undo the changes."
+msgstr "نصيحة: أنشئ دائمًا نسخة احتياطية قبل تشغيل البحث والاستبدال، تحسبًا لحاجتك إلى التراجع عن التغييرات."
+
+msgid "Unlimited Backup Size"
+msgstr "حجم نسخ احتياطي غير محدود"
+
+msgid "There is no backup size limit. You can back up sites of any size, including:"
+msgstr "لا يوجد حد لحجم النسخة الاحتياطية. يمكنك نسخ مواقع من أي حجم احتياطيًا، بما في ذلك:"
+
+msgid "E-commerce sites with large product catalogs"
+msgstr "مواقع التجارة الإلكترونية ذات كتالوجات المنتجات الكبيرة"
+
+msgid "Media-heavy websites with lots of images and videos"
+msgstr "المواقع الغنية بالوسائط التي تحتوي على الكثير من الصور والفيديوهات"
+
+msgid "Established blogs with years of content"
+msgstr "المدونات العريقة ذات المحتوى الممتد لسنوات"
+
+msgid "Enterprise sites with extensive data"
+msgstr "مواقع المؤسسات ذات البيانات الضخمة"
+
+msgid "WordPress Multisite Support"
+msgstr "دعم شبكة المواقع المتعددة في ووردبريس"
+
+msgid "Full support for WordPress Multisite networks:"
+msgstr "دعم كامل لشبكات المواقع المتعددة في ووردبريس:"
+
+msgid "Network-wide Backups"
+msgstr "نسخ احتياطية على مستوى الشبكة"
+
+msgid "Backup your entire multisite network with all subsites in a single operation."
+msgstr "انسخ شبكة مواقعك المتعددة بالكامل احتياطيًا مع جميع المواقع الفرعية في عملية واحدة."
+
+msgid "Selective Site Backup"
+msgstr "نسخ احتياطي انتقائي للمواقع"
+
+msgid "Choose specific sites to include in your backup instead of backing up the entire network."
+msgstr "اختر مواقع محددة لتضمينها في نسختك الاحتياطية بدلًا من نسخ الشبكة بأكملها احتياطيًا."
+
+msgid "Flexible Archive Modes"
+msgstr "أوضاع أرشفة مرنة"
+
+msgid "Create a single archive containing all sites, or generate separate archives for each site."
+msgstr "أنشئ أرشيفًا واحدًا يحتوي على جميع المواقع، أو أنشئ أرشيفات منفصلة لكل موقع."
+
+msgid "WordPress Core Files Backup"
+msgstr "النسخ الاحتياطي لملفات نواة ووردبريس"
+
+msgid "Include WordPress core files (wp-admin, wp-includes) in your backups. This is useful for:"
+msgstr "ضمّن ملفات نواة ووردبريس (wp-admin وwp-includes) في نسخك الاحتياطية. هذا مفيد من أجل:"
+
+msgid "Complete site cloning to a new server"
+msgstr "استنساخ الموقع بالكامل إلى خادم جديد"
+
+msgid "Disaster recovery where WordPress needs to be fully restored"
+msgstr "التعافي من الكوارث حيث يلزم استعادة ووردبريس بالكامل"
+
+msgid "Preserving custom core modifications (not recommended, but sometimes necessary)"
+msgstr "الحفاظ على التعديلات المخصصة على النواة (غير موصى به، لكنه ضروري أحيانًا)"
+
+msgid "Selective Folder Backup"
+msgstr "نسخ احتياطي انتقائي للمجلدات"
+
+msgid "Choose exactly which wp-content folders to include in your backup:"
+msgstr "اختر بدقة مجلدات wp-content التي تريد تضمينها في نسختك الاحتياطية:"
+
+msgid "Themes:"
+msgstr "القوالب:"
+
+msgid "All installed themes"
+msgstr "جميع القوالب المثبتة"
+
+msgid "Plugins:"
+msgstr "الإضافات:"
+
+msgid "All installed plugins"
+msgstr "جميع الإضافات المثبتة"
+
+msgid "Uploads:"
+msgstr "المرفوعات:"
+
+msgid "Media library files"
+msgstr "ملفات مكتبة الوسائط"
+
+msgid "MU-Plugins:"
+msgstr "إضافات MU:"
+
+msgid "Must-use plugins"
+msgstr "الإضافات الإلزامية (Must-use)"
+
+msgid "Tip: Exclude large folders like uploads when you only need to backup code changes, making backups faster and smaller."
+msgstr "نصيحة: استبعد المجلدات الكبيرة مثل المرفوعات عندما تحتاج فقط إلى نسخ تغييرات الشيفرة احتياطيًا، مما يجعل النسخ الاحتياطية أسرع وأصغر."
+
+msgid "Recommended for large files (3GB+)"
+msgstr "موصى به للملفات الكبيرة (أكبر من 3 جيجابايت)"
+
+msgid "aria2c is a lightweight download utility with better resume capabilities than curl. It handles connection drops more gracefully and is recommended for downloading large backup files."
+msgstr "aria2c أداة تنزيل خفيفة تتمتع بقدرات استئناف أفضل من curl. وهي تتعامل مع انقطاعات الاتصال بمرونة أكبر ويوصى بها لتنزيل ملفات النسخ الاحتياطي الكبيرة."
+
+msgid "Linux (Ubuntu/Debian)"
+msgstr "Linux (Ubuntu/Debian)"
+
+msgid "macOS (using Homebrew)"
+msgstr "macOS (باستخدام Homebrew)"
+
+msgid "Windows (using Chocolatey)"
+msgstr "Windows (باستخدام Chocolatey)"
+
+msgid "Windows (Manual Installation)"
+msgstr "Windows (تثبيت يدوي)"
+
+msgid "Download the latest release from the"
+msgstr "نزّل أحدث إصدار من"
+
+msgid "aria2 GitHub releases page"
+msgstr "صفحة إصدارات aria2 على GitHub"
+
+msgid "Extract the zip file"
+msgstr "استخرج ملف zip"
+
+msgid "Add the extracted folder containing aria2c.exe to your system's PATH environment variable"
+msgstr "أضف المجلد المستخرج الذي يحتوي على aria2c.exe إلى متغير البيئة PATH في نظامك"
+
+msgid "Arch Linux"
+msgstr "Arch Linux"
+
+msgid "Verify Installation"
+msgstr "التحقق من التثبيت"
+
+msgid "After installation, verify aria2c is working by checking the version:"
+msgstr "بعد التثبيت، تحقق من عمل aria2c عبر فحص الإصدار:"
+
+msgid "You should see version information if installed correctly."
+msgstr "يجب أن ترى معلومات الإصدار إذا تم التثبيت بشكل صحيح."
+
+msgid "Why aria2c for Large Downloads?"
+msgstr "لماذا aria2c للتنزيلات الكبيرة؟"
+
+msgid "Better Resume Support"
+msgstr "دعم أفضل للاستئناف"
+
+msgid "Automatically resumes interrupted downloads without losing progress"
+msgstr "يستأنف التنزيلات المنقطعة تلقائيًا دون فقدان التقدم"
+
+msgid "Connection Handling"
+msgstr "التعامل مع الاتصال"
+
+msgid "More resilient to connection drops and timeouts"
+msgstr "أكثر مرونة في مواجهة انقطاعات الاتصال وانتهاء المهلات"
+
+msgid "Automatic Retries"
+msgstr "إعادة المحاولة التلقائية"
+
+msgid "Configurable retry attempts with delays between retries"
+msgstr "محاولات إعادة قابلة للتهيئة مع فترات تأخير بين المحاولات"
+
+msgid "Progress Tracking"
+msgstr "تتبع التقدم"
+
+msgid "Saves download state for seamless continuation"
+msgstr "يحفظ حالة التنزيل لمواصلة سلسة"
+
+msgid "Backup is Taking Too Long"
+msgstr "النسخ الاحتياطي يستغرق وقتًا طويلًا"
+
+msgid "Large sites may take longer to backup. Try these solutions:"
+msgstr "قد تستغرق المواقع الكبيرة وقتًا أطول للنسخ الاحتياطي. جرّب هذه الحلول:"
+
+msgid "Create a Database-only backup first (it's faster)"
+msgstr "أنشئ أولًا نسخة احتياطية لقاعدة البيانات فقط (فهي أسرع)"
+
+msgid "Check your server's PHP memory limit in Settings"
+msgstr "تحقق من حد ذاكرة PHP لخادمك في الإعدادات"
+
+msgid "Consider backing up during low-traffic periods"
+msgstr "فكّر في النسخ الاحتياطي خلال فترات انخفاض الزيارات"
+
+msgid "Backup Failed"
+msgstr "فشل النسخ الاحتياطي"
+
+msgid "If a backup fails, check the following:"
+msgstr "إذا فشلت نسخة احتياطية، فتحقق مما يلي:"
+
+msgid "Disk space: Make sure you have enough free space"
+msgstr "مساحة القرص: تأكد من توفر مساحة حرة كافية"
+
+msgid "Permissions: The wp-content folder must be writable"
+msgstr "الأذونات: يجب أن يكون مجلد wp-content قابلًا للكتابة"
+
+msgid "Memory limit: Increase PHP memory if your host allows"
+msgstr "حد الذاكرة: قم بزيادة ذاكرة PHP إذا سمح مضيفك بذلك"
+
+msgid "File size: There is no backup size limit, but very large sites need adequate disk space"
+msgstr "حجم الملف: لا يوجد حد لحجم النسخة الاحتياطية، لكن المواقع الكبيرة جدًا تحتاج إلى مساحة قرص كافية"
+
+msgid "Cloud Storage Not Working"
+msgstr "التخزين السحابي لا يعمل"
+
+msgid "Double-check your API credentials"
+msgstr "تحقق جيدًا من بيانات اعتماد API الخاصة بك"
+
+msgid "Use the \"Test Connection\" button to verify settings"
+msgstr "استخدم زر \"اختبار الاتصال\" للتحقق من الإعدادات"
+
+msgid "Make sure your server can make outbound connections"
+msgstr "تأكد من قدرة خادمك على إجراء اتصالات صادرة"
+
+msgid "Check that the cURL PHP extension is enabled"
+msgstr "تحقق من تفعيل امتداد cURL في PHP"
+
+msgid "Frequently Asked Questions"
+msgstr "الأسئلة المتكررة"
+
+msgid "Where are my backups stored?"
+msgstr "أين تُخزَّن نسخي الاحتياطية؟"
+
+msgid "By default, backups are stored in wp-content/swish-backups/ on your server. You can also configure cloud storage to save copies to Amazon S3, Dropbox, or Google Drive."
+msgstr "افتراضيًا، تُخزَّن النسخ الاحتياطية في wp-content/swish-backups/ على خادمك. يمكنك أيضًا إعداد التخزين السحابي لحفظ نسخ على Amazon S3 أو Dropbox أو Google Drive."
+
+msgid "How large can my backups be?"
+msgstr "ما الحجم الأقصى لنسخي الاحتياطية؟"
+
+msgid "There is no backup size limit. Make sure your server has enough free disk space to hold the archive."
+msgstr "لا يوجد حد لحجم النسخة الاحتياطية. تأكد من توفر مساحة قرص حرة كافية على خادمك لاستيعاب الأرشيف."
+
+msgid "Can I restore a backup to a different site?"
+msgstr "هل يمكنني استعادة نسخة احتياطية إلى موقع مختلف؟"
+
+msgid "Yes! Download your backup and use the Migration tool on the new site. The plugin will automatically update URLs during the migration process."
+msgstr "نعم! نزّل نسختك الاحتياطية واستخدم أداة الترحيل على الموقع الجديد. ستحدّث الإضافة عناوين URL تلقائيًا أثناء عملية الترحيل."
+
+msgid "Will backups slow down my site?"
+msgstr "هل ستبطئ النسخ الاحتياطية موقعي؟"
+
+msgid "Backups use server resources while running, but they don't affect your site when not active. Schedule backups during low-traffic times for best results."
+msgstr "تستهلك النسخ الاحتياطية موارد الخادم أثناء تشغيلها، لكنها لا تؤثر على موقعك عندما تكون غير نشطة. جدوِل النسخ الاحتياطية خلال أوقات انخفاض الزيارات للحصول على أفضل النتائج."
+
+msgid "Are my cloud storage credentials secure?"
+msgstr "هل بيانات اعتماد التخزين السحابي الخاصة بي آمنة؟"
+
+msgid "Yes, all credentials are encrypted using AES-256-CBC encryption before being stored in your database. Only your site can decrypt them."
+msgstr "نعم، تُشفَّر جميع بيانات الاعتماد باستخدام تشفير AES-256-CBC قبل تخزينها في قاعدة البيانات. موقعك فقط هو من يمكنه فك تشفيرها."
+
+msgid "Does this plugin work with WordPress Multisite?"
+msgstr "هل تعمل هذه الإضافة مع شبكة المواقع المتعددة في ووردبريس؟"
+
+msgid "Yes. On multisite installations you get network-wide backups, selective site backup, multisite migration, and site duplication under Network Admin → Swish Backup."
+msgstr "نعم. في تركيبات المواقع المتعددة تحصل على نسخ احتياطية على مستوى الشبكة، ونسخ احتياطي انتقائي للمواقع، وترحيل متعدد المواقع، واستنساخ المواقع ضمن إدارة الشبكة ← Swish Backup."
+
+msgid "How do I get support?"
+msgstr "كيف أحصل على الدعم؟"
+
+msgid "Email us at %s for assistance. Pro users receive priority support."
+msgstr "راسلنا عبر البريد الإلكتروني على %s للحصول على المساعدة. يحصل مستخدمو النسخة الاحترافية على دعم ذي أولوية."
+
+msgid "Enable Logging"
+msgstr "تفعيل التسجيل"
+
+msgid "Logging is enabled. Backup operations will be recorded."
+msgstr "التسجيل مفعّل. سيتم تسجيل عمليات النسخ الاحتياطي."
+
+msgid "Logging is disabled. Enable to record backup operations for debugging."
+msgstr "التسجيل معطّل. فعّله لتسجيل عمليات النسخ الاحتياطي لأغراض التصحيح."
+
+msgid "Filter by level:"
+msgstr "تصفية حسب المستوى:"
+
+msgid "All Levels"
+msgstr "جميع المستويات"
+
+msgid "Error"
+msgstr "خطأ"
+
+msgid "Warning"
+msgstr "تحذير"
+
+msgid "Info"
+msgstr "معلومات"
+
+msgid "Debug"
+msgstr "تصحيح"
+
+msgid "Are you sure you want to delete all logs?"
+msgstr "هل أنت متأكد من رغبتك في حذف جميع السجلات؟"
+
+msgid "Delete All Logs"
+msgstr "حذف جميع السجلات"
+
+msgid "No Logs Found"
+msgstr "لم يتم العثور على سجلات"
+
+msgid "Logs will appear here after backup operations are performed."
+msgstr "ستظهر السجلات هنا بعد تنفيذ عمليات النسخ الاحتياطي."
+
+msgid "Time"
+msgstr "الوقت"
+
+msgid "Level"
+msgstr "المستوى"
+
+msgid "Message"
+msgstr "الرسالة"
+
+msgid "Job ID"
+msgstr "معرّف المهمة"
+
+msgid "Showing %d most recent log entries"
+msgstr "عرض أحدث %d من إدخالات السجل"
+
+msgid "Logging has been enabled."
+msgstr "تم تفعيل التسجيل."
+
+msgid "Logging has been disabled."
+msgstr "تم تعطيل التسجيل."
+
+msgid "All logs have been deleted."
+msgstr "تم حذف جميع السجلات."
+
+msgid "Step 1: Choose Migration Method"
+msgstr "الخطوة 1: اختر طريقة الترحيل"
+
+msgid "Import Backup"
+msgstr "استيراد نسخة احتياطية"
+
+msgid "Import a backup file from another site"
+msgstr "استيراد ملف نسخة احتياطية من موقع آخر"
+
+msgid "Export for Migration"
+msgstr "تصدير للترحيل"
+
+msgid "Create a migration package for this site"
+msgstr "إنشاء حزمة ترحيل لهذا الموقع"
+
+msgid "Search & Replace"
+msgstr "البحث والاستبدال"
+
+msgid "Replace URLs or strings in the database"
+msgstr "استبدال عناوين URL أو النصوص في قاعدة البيانات"
+
+msgid "Step 2: Upload Backup File"
+msgstr "الخطوة 2: رفع ملف النسخة الاحتياطية"
+
+msgid "Drag and drop a backup file here, or click to select"
+msgstr "اسحب وأفلت ملف نسخة احتياطية هنا، أو انقر للاختيار"
+
+msgid "Select File"
+msgstr "اختيار ملف"
+
+msgid "Max upload size: %s"
+msgstr "أقصى حجم للرفع: %s"
+
+msgid "Selected file:"
+msgstr "الملف المحدد:"
+
+msgid "Or Import from Server"
+msgstr "أو الاستيراد من الخادم"
+
+msgid "For large backups (1GB+), upload via FTP/SFTP to wp-content/swish-backups/ then select from the list below."
+msgstr "للنسخ الاحتياطية الكبيرة (أكبر من 1 جيجابايت)، ارفعها عبر FTP/SFTP إلى wp-content/swish-backups/ ثم اخترها من القائمة أدناه."
+
+msgid "Browse Server Files"
+msgstr "تصفح ملفات الخادم"
+
+msgid "File"
+msgstr "الملف"
+
+msgid "Action"
+msgstr "الإجراء"
+
+msgid "Files from: %s"
+msgstr "الملفات من: %s"
+
+msgid "Backup Analysis"
+msgstr "تحليل النسخة الاحتياطية"
+
+msgid "Back"
+msgstr "رجوع"
+
+msgid "Continue"
+msgstr "متابعة"
+
+msgid "Step 3: URL Configuration"
+msgstr "الخطوة 3: إعداد عناوين URL"
+
+msgid "Configure URL replacement to update all references in the database."
+msgstr "اضبط استبدال عناوين URL لتحديث جميع المراجع في قاعدة البيانات."
+
+msgid "Old Site URL"
+msgstr "عنوان URL للموقع القديم"
+
+msgid "The URL of the site where the backup was created."
+msgstr "عنوان URL للموقع الذي أُنشئت فيه النسخة الاحتياطية."
+
+msgid "New Site URL"
+msgstr "عنوان URL للموقع الجديد"
+
+msgid "The URL of this site."
+msgstr "عنوان URL لهذا الموقع."
+
+msgid "Preview Changes"
+msgstr "معاينة التغييرات"
+
+msgid "Start Migration"
+msgstr "بدء الترحيل"
+
+msgid "Create a migration package that can be imported on another site."
+msgstr "أنشئ حزمة ترحيل يمكن استيرادها على موقع آخر."
+
+msgid "Include in Export"
+msgstr "التضمين في التصدير"
+
+msgid "WordPress Core (not recommended)"
+msgstr "نواة ووردبريس (غير موصى به)"
+
+msgid "Create Export"
+msgstr "إنشاء تصدير"
+
+msgid "Search and replace text in your database. Supports serialized data."
+msgstr "ابحث واستبدل النصوص في قاعدة بياناتك. يدعم البيانات المتسلسلة (serialized)."
+
+msgid "Search For"
+msgstr "البحث عن"
+
+msgid "Replace With"
+msgstr "الاستبدال بـ"
+
+msgid "Preview"
+msgstr "معاينة"
+
+msgid "Run Search & Replace"
+msgstr "تشغيل البحث والاستبدال"
+
+msgid "Migration in Progress"
+msgstr "الترحيل قيد التنفيذ"
+
+msgid "Migration Progress"
+msgstr "تقدم الترحيل"
+
+msgid "Migration completed successfully!"
+msgstr "اكتمل الترحيل بنجاح!"
+
+msgid "View Site"
+msgstr "عرض الموقع"
+
+msgid "Go to Dashboard"
+msgstr "الانتقال إلى لوحة التحكم"
+
+msgid "Duplicate"
+msgstr "استنساخ"
+
+msgid "History"
+msgstr "السجل"
+
+msgid "Multisite"
+msgstr "متعدد المواقع"
+
+msgid "Search..."
+msgstr "بحث..."
+
+msgid "All Statuses"
+msgstr "جميع الحالات"
+
+msgid "Success"
+msgstr "نجاح"
+
+msgid "Failed"
+msgstr "فشل"
+
+msgid "In Progress"
+msgstr "قيد التنفيذ"
+
+msgid "Create your first multisite backup using the form above."
+msgstr "أنشئ أول نسخة احتياطية متعددة المواقع باستخدام النموذج أعلاه."
+
+msgid "Archive Mode"
+msgstr "وضع الأرشفة"
+
+msgid "Sites"
+msgstr "المواقع"
+
+msgid "Single Archive"
+msgstr "أرشيف واحد"
+
+msgid "Separate"
+msgstr "منفصل"
+
+msgid "%d site"
+msgid_plural "%d sites"
+msgstr[0] "%d موقع"
+msgstr[1] "موقع واحد (%d)"
+msgstr[2] "موقعان (%d)"
+msgstr[3] "%d مواقع"
+msgstr[4] "%d موقعًا"
+msgstr[5] "%d موقع"
+
+msgid "View Files"
+msgstr "عرض الملفات"
+
+msgid "Site %d"
+msgstr "الموقع %d"
+
+msgid "Showing %d backups"
+msgstr "عرض %d من النسخ الاحتياطية"
+
+msgid "Are you sure you want to delete this backup? This action cannot be undone."
+msgstr "هل أنت متأكد من رغبتك في حذف هذه النسخة الاحتياطية؟ لا يمكن التراجع عن هذا الإجراء."
+
+msgid "Error:"
+msgstr "خطأ:"
+
+msgid "Failed to delete backup"
+msgstr "فشل حذف النسخة الاحتياطية"
+
+msgid "AJAX error. Please try again."
+msgstr "خطأ AJAX. يرجى المحاولة مرة أخرى."
+
+msgid "Search sites..."
+msgstr "البحث في المواقع..."
+
+msgid "%d sites in network"
+msgstr "%d من المواقع في الشبكة"
+
+msgid "Site Name"
+msgstr "اسم الموقع"
+
+msgid "URL"
+msgstr "عنوان URL"
+
+msgid "MAIN"
+msgstr "رئيسي"
+
+msgid "No Sites Found"
+msgstr "لم يتم العثور على مواقع"
+
+msgid "There are no sites available in this network."
+msgstr "لا توجد مواقع متاحة في هذه الشبكة."
+
+msgid "Duplicate Site"
+msgstr "استنساخ موقع"
+
+msgid "Source Site"
+msgstr "الموقع المصدر"
+
+msgid "New Site Title"
+msgstr "عنوان الموقع الجديد"
+
+msgid "Enter site title..."
+msgstr "أدخل عنوان الموقع..."
+
+msgid "newsite"
+msgstr "newsite"
+
+msgid "Use only lowercase letters, numbers, and hyphens."
+msgstr "استخدم الأحرف اللاتينية الصغيرة والأرقام والشرطات فقط."
+
+msgid "Duplication Options"
+msgstr "خيارات الاستنساخ"
+
+msgid "Copy media uploads"
+msgstr "نسخ مرفوعات الوسائط"
+
+msgid "Include all images, videos, and other uploaded files from the source site."
+msgstr "تضمين جميع الصور والفيديوهات والملفات المرفوعة الأخرى من الموقع المصدر."
+
+msgid "Start Duplication"
+msgstr "بدء الاستنساخ"
+
+msgid "Delete Site"
+msgstr "حذف الموقع"
+
+msgid "This action cannot be undone!"
+msgstr "لا يمكن التراجع عن هذا الإجراء!"
+
+msgid "Deleting this site will permanently remove all its content, media files, and database tables."
+msgstr "سيؤدي حذف هذا الموقع إلى إزالة جميع محتوياته وملفات الوسائط وجداول قاعدة البيانات نهائيًا."
+
+msgid "Site to Delete"
+msgstr "الموقع المراد حذفه"
+
+msgid "Type %s to confirm:"
+msgstr "اكتب %s للتأكيد:"
+
+msgid "Type DELETE here..."
+msgstr "اكتب DELETE هنا..."
+
+msgid "This confirmation is required to prevent accidental deletions."
+msgstr "هذا التأكيد مطلوب لمنع الحذف غير المقصود."
+
+msgid "Delete Site Permanently"
+msgstr "حذف الموقع نهائيًا"
+
+msgid "Duplicating Site"
+msgstr "جارٍ استنساخ الموقع"
+
+msgid "Duplication Progress"
+msgstr "تقدم الاستنساخ"
+
+msgid "Site Duplicated!"
+msgstr "تم استنساخ الموقع!"
+
+msgid "Visit New Site"
+msgstr "زيارة الموقع الجديد"
+
+msgid "Duplication Failed"
+msgstr "فشل الاستنساخ"
+
+msgid "Retry"
+msgstr "إعادة المحاولة"
+
+msgid "Initializing"
+msgstr "جارٍ التهيئة"
+
+msgid "Preparing duplication"
+msgstr "تحضير الاستنساخ"
+
+msgid "Copying Database"
+msgstr "نسخ قاعدة البيانات"
+
+msgid "Duplicating site tables"
+msgstr "استنساخ جداول الموقع"
+
+msgid "Copying Uploads"
+msgstr "نسخ المرفوعات"
+
+msgid "Duplicating media files"
+msgstr "استنساخ ملفات الوسائط"
+
+msgid "URL Replacement"
+msgstr "استبدال عناوين URL"
+
+msgid "Updating URLs in database"
+msgstr "تحديث عناوين URL في قاعدة البيانات"
+
+msgid "Finalizing"
+msgstr "جارٍ الإنهاء"
+
+msgid "Completing duplication"
+msgstr "إكمال الاستنساخ"
+
+msgid "Checking availability..."
+msgstr "جارٍ التحقق من التوفر..."
+
+msgid "Could not verify availability."
+msgstr "تعذر التحقق من التوفر."
+
+msgid "Please enter a site title."
+msgstr "يرجى إدخال عنوان الموقع."
+
+msgid "Please enter a URL slug."
+msgstr "يرجى إدخال الاسم اللطيف (slug) لعنوان URL."
+
+msgid "URL slug must be at least 2 characters."
+msgstr "يجب ألا يقل الاسم اللطيف لعنوان URL عن حرفين."
+
+msgid "Please choose an available URL."
+msgstr "يرجى اختيار عنوان URL متاح."
+
+msgid "Failed to start duplication."
+msgstr "فشل بدء الاستنساخ."
+
+msgid "Network error. Please try again."
+msgstr "خطأ في الشبكة. يرجى المحاولة مرة أخرى."
+
+msgid "Site duplicated successfully!"
+msgstr "تم استنساخ الموقع بنجاح!"
+
+msgid "Duplication failed."
+msgstr "فشل الاستنساخ."
+
+msgid "Please type DELETE to confirm."
+msgstr "يرجى كتابة DELETE للتأكيد."
+
+msgid "Deleting..."
+msgstr "جارٍ الحذف..."
+
+msgid "Failed to delete site."
+msgstr "فشل حذف الموقع."
+
+msgid "Export / Download"
+msgstr "تصدير / تنزيل"
+
+msgid "Import / Restore"
+msgstr "استيراد / استعادة"
+
+msgid "Available Multisite Backups"
+msgstr "النسخ الاحتياطية متعددة المواقع المتاحة"
+
+msgid "Download backups to migrate to another server or keep as off-site storage."
+msgstr "نزّل النسخ الاحتياطية للترحيل إلى خادم آخر أو للاحتفاظ بها كتخزين خارجي."
+
+msgid "No Backups Available"
+msgstr "لا توجد نسخ احتياطية متاحة"
+
+msgid "Create a multisite backup first to enable migration."
+msgstr "أنشئ نسخة احتياطية متعددة المواقع أولًا لتفعيل الترحيل."
+
+msgid "Import Multisite Backup"
+msgstr "استيراد نسخة احتياطية متعددة المواقع"
+
+msgid "Upload a multisite backup file to restore or migrate sites."
+msgstr "ارفع ملف نسخة احتياطية متعددة المواقع لاستعادة المواقع أو ترحيلها."
+
+msgid "Warning:"
+msgstr "تحذير:"
+
+msgid "Importing a backup will overwrite existing data. Make sure you have a current backup before proceeding."
+msgstr "سيؤدي استيراد نسخة احتياطية إلى الكتابة فوق البيانات الموجودة. تأكد من وجود نسخة احتياطية حديثة قبل المتابعة."
+
+msgid "Upload Backup File"
+msgstr "رفع ملف النسخة الاحتياطية"
+
+msgid "Drag and drop your backup file here"
+msgstr "اسحب وأفلت ملف النسخة الاحتياطية هنا"
+
+msgid "or"
+msgstr "أو"
+
+msgid "Choose File"
+msgstr "اختيار ملف"
+
+msgid "Accepts .zip and .swish files"
+msgstr "يقبل ملفات .zip و.swish"
+
+msgid "Remove file"
+msgstr "إزالة الملف"
+
+msgid "Or Select Existing Backup"
+msgstr "أو اختر نسخة احتياطية موجودة"
+
+msgid "— Select a backup —"
+msgstr "— اختر نسخة احتياطية —"
+
+msgid "sites"
+msgstr "مواقع"
+
+msgid "No existing multisite backups found."
+msgstr "لم يتم العثور على نسخ احتياطية متعددة المواقع موجودة."
+
+msgid "WordPress Multisite Setup Required"
+msgstr "إعداد شبكة المواقع المتعددة في ووردبريس مطلوب"
+
+msgid "This backup was created from a WordPress multisite network. To import it, you must first convert your WordPress installation to a multisite network."
+msgstr "أُنشئت هذه النسخة الاحتياطية من شبكة مواقع متعددة في ووردبريس. لاستيرادها، يجب أولًا تحويل تركيب ووردبريس لديك إلى شبكة مواقع متعددة."
+
+msgid "Automatic conversion is not supported."
+msgstr "التحويل التلقائي غير مدعوم."
+
+msgid "Please follow the manual steps below to set up multisite, then return to this page to import your backup."
+msgstr "يرجى اتباع الخطوات اليدوية أدناه لإعداد شبكة المواقع المتعددة، ثم العودة إلى هذه الصفحة لاستيراد نسختك الاحتياطية."
+
+msgid "Read Official Documentation"
+msgstr "قراءة التوثيق الرسمي"
+
+msgid "Select Site to Import"
+msgstr "اختر الموقع المراد استيراده"
+
+msgid "This multisite backup contains multiple sites. Select which site to import into this WordPress installation."
+msgstr "تحتوي هذه النسخة الاحتياطية متعددة المواقع على عدة مواقع. اختر الموقع الذي تريد استيراده إلى تركيب ووردبريس هذا."
+
+msgid "— Select a site —"
+msgstr "— اختر موقعًا —"
+
+msgid "Import Options"
+msgstr "خيارات الاستيراد"
+
+msgid "URL Search & Replace"
+msgstr "البحث والاستبدال لعناوين URL"
+
+msgid "Old URL (e.g., https://old-site.com)"
+msgstr "عنوان URL القديم (مثال: https://old-site.com)"
+
+msgid "New URL (e.g., https://new-site.com)"
+msgstr "عنوان URL الجديد (مثال: https://new-site.com)"
+
+msgid "Replace URLs in the database during import. Leave empty to keep original URLs."
+msgstr "استبدل عناوين URL في قاعدة البيانات أثناء الاستيراد. اتركه فارغًا للاحتفاظ بعناوين URL الأصلية."
+
+msgid "Preview Results"
+msgstr "معاينة النتائج"
+
+msgid "Import shared network tables (users, usermeta, etc.)"
+msgstr "استيراد جداول الشبكة المشتركة (users وusermeta وغيرها)"
+
+msgid "Warning: This will overwrite all user data across the network."
+msgstr "تحذير: سيؤدي هذا إلى الكتابة فوق جميع بيانات المستخدمين عبر الشبكة."
+
+msgid "Backup Contents"
+msgstr "محتويات النسخة الاحتياطية"
+
+msgid "Start Import"
+msgstr "بدء الاستيراد"
+
+msgid "Importing Backup"
+msgstr "جارٍ استيراد النسخة الاحتياطية"
+
+msgid "Initializing import..."
+msgstr "جارٍ تهيئة الاستيراد..."
+
+msgid "Import Progress"
+msgstr "تقدم الاستيراد"
+
+msgid "Run in Background"
+msgstr "التشغيل في الخلفية"
+
+msgid "Import Complete!"
+msgstr "اكتمل الاستيراد!"
+
+msgid "Your backup has been imported successfully."
+msgstr "تم استيراد نسختك الاحتياطية بنجاح."
+
+msgid "Close & Reload"
+msgstr "إغلاق وإعادة تحميل"
+
+msgid "Import Failed"
+msgstr "فشل الاستيراد"
+
+msgid "Try Again"
+msgstr "المحاولة مرة أخرى"
+
+msgid "Running in Background"
+msgstr "قيد التشغيل في الخلفية"
+
+msgid "The import is now running in the background. You can safely navigate away from this page."
+msgstr "يعمل الاستيراد الآن في الخلفية. يمكنك مغادرة هذه الصفحة بأمان."
+
+msgid "You may need to log in again after the import completes."
+msgstr "قد تحتاج إلى تسجيل الدخول مرة أخرى بعد اكتمال الاستيراد."
+
+msgid "Got it"
+msgstr "فهمت"
+
+msgid "Import Likely Completed!"
+msgstr "اكتمل الاستيراد على الأرجح!"
+
+msgid "The database has been imported successfully. Your session was invalidated because the users table was replaced."
+msgstr "تم استيراد قاعدة البيانات بنجاح. أُبطلت جلستك لأن جدول المستخدمين قد استُبدل."
+
+msgid "Please log in again to verify your site. Use credentials from the imported backup."
+msgstr "يرجى تسجيل الدخول مرة أخرى للتحقق من موقعك. استخدم بيانات الاعتماد من النسخة الاحتياطية المستوردة."
+
+msgid "Go to Login"
+msgstr "الانتقال إلى تسجيل الدخول"
+
+msgid "Your file size:"
+msgstr "حجم ملفك:"
+
+msgid "Server limit:"
+msgstr "حد الخادم:"
+
+msgid "To fix this:"
+msgstr "لإصلاح ذلك:"
+
+msgid "Increase post_max_size and upload_max_filesize in php.ini"
+msgstr "قم بزيادة post_max_size وupload_max_filesize في php.ini"
+
+msgid "Ask your host to increase PHP upload limits"
+msgstr "اطلب من مضيفك زيادة حدود الرفع في PHP"
+
+msgid "Upload via SFTP/FTP to"
+msgstr "ارفع عبر SFTP/FTP إلى"
+
+msgid "then select from existing backups"
+msgstr "ثم اختر من النسخ الاحتياطية الموجودة"
+
+msgid "Use a smaller backup (e.g., database-only)"
+msgstr "استخدم نسخة احتياطية أصغر (مثل قاعدة البيانات فقط)"
+
+msgid "File Too Large"
+msgstr "الملف كبير جدًا"
+
+msgid "The upload was blocked before it reached WordPress. This usually means the file is larger than an upload limit set by your host, server, or a CDN/proxy in front of your site."
+msgstr "تم حظر الرفع قبل وصوله إلى ووردبريس. يعني هذا عادةً أن الملف أكبر من حد الرفع الذي يفرضه مضيفك أو خادمك أو شبكة CDN/خادم وكيل أمام موقعك."
+
+msgid "For example, Cloudflare rejects request bodies larger than about 100 MB and closes the connection before the upload finishes."
+msgstr "على سبيل المثال، ترفض Cloudflare أجسام الطلبات الأكبر من حوالي 100 ميجابايت وتغلق الاتصال قبل انتهاء الرفع."
+
+msgid "Recommended workaround (no upload needed):"
+msgstr "الحل البديل الموصى به (لا حاجة للرفع):"
+
+msgid "Copy the backup file to"
+msgstr "انسخ ملف النسخة الاحتياطية إلى"
+
+msgid "on the server (via SFTP/FTP or your host file manager)"
+msgstr "على الخادم (عبر SFTP/FTP أو مدير الملفات لدى مضيفك)"
+
+msgid "Then pick it from the \"Or Select Existing Backup\" dropdown above and click Continue"
+msgstr "ثم اختره من القائمة المنسدلة \"أو اختر نسخة احتياطية موجودة\" أعلاه وانقر على متابعة"
+
+msgid "Upload Blocked by a Size Limit"
+msgstr "تم حظر الرفع بسبب حد للحجم"
+
+msgid "Please select a .zip or .swish backup file."
+msgstr "يرجى اختيار ملف نسخة احتياطية بامتداد .zip أو .swish."
+
+msgid "Please select a backup file or choose an existing backup."
+msgstr "يرجى اختيار ملف نسخة احتياطية أو اختيار نسخة احتياطية موجودة."
+
+msgid "Required for multisite-to-multisite import."
+msgstr "مطلوب للاستيراد من شبكة مواقع متعددة إلى أخرى."
+
+msgid "Backup Type"
+msgstr "نوع النسخة الاحتياطية"
+
+msgid "Created"
+msgstr "تاريخ الإنشاء"
+
+msgid "No site information available"
+msgstr "لا تتوفر معلومات عن الموقع"
+
+msgid "Sites in backup"
+msgstr "المواقع في النسخة الاحتياطية"
+
+msgid "Unknown error"
+msgstr "خطأ غير معروف"
+
+msgid "Validation Failed"
+msgstr "فشل التحقق"
+
+msgid "Validation Error"
+msgstr "خطأ في التحقق"
+
+msgid "An error occurred while validating the backup."
+msgstr "حدث خطأ أثناء التحقق من النسخة الاحتياطية."
+
+msgid "Check the browser console for more details."
+msgstr "راجع وحدة تحكم المتصفح لمزيد من التفاصيل."
+
+msgid "Extracting Backup"
+msgstr "جارٍ استخراج النسخة الاحتياطية"
+
+msgid "Shared Network Tables"
+msgstr "جداول الشبكة المشتركة"
+
+msgid "Importing Database"
+msgstr "جارٍ استيراد قاعدة البيانات"
+
+msgid "Restoring Files"
+msgstr "جارٍ استعادة الملفات"
+
+msgid "Complete"
+msgstr "اكتمل"
+
+msgid "Import failed."
+msgstr "فشل الاستيراد."
+
+msgid "Restoring database — the site may be briefly unreachable. Waiting for it to come back..."
+msgstr "جارٍ استعادة قاعدة البيانات — قد يتعذر الوصول إلى الموقع لفترة وجيزة. في انتظار عودته..."
+
+msgid "Lost connection to the server. The import may still be running in the background."
+msgstr "انقطع الاتصال بالخادم. قد يكون الاستيراد لا يزال قيد التشغيل في الخلفية."
+
+msgid "Failed to start import."
+msgstr "فشل بدء الاستيراد."
+
+msgid "Please click Continue to validate the backup first."
+msgstr "يرجى النقر على متابعة للتحقق من النسخة الاحتياطية أولًا."
+
+msgid "Multisite Required"
+msgstr "شبكة المواقع المتعددة مطلوبة"
+
+msgid "This is a multisite network backup and cannot be imported to a single site installation."
+msgstr "هذه نسخة احتياطية لشبكة مواقع متعددة ولا يمكن استيرادها إلى تركيب موقع واحد."
+
+msgid "To import this backup, you need to set up WordPress multisite first."
+msgstr "لاستيراد هذه النسخة الاحتياطية، تحتاج إلى إعداد شبكة المواقع المتعددة في ووردبريس أولًا."
+
+msgid "Please select a site to import."
+msgstr "يرجى اختيار موقع لاستيراده."
+
+msgid "Are you sure you want to import this backup? This will overwrite existing data."
+msgstr "هل أنت متأكد من رغبتك في استيراد هذه النسخة الاحتياطية؟ سيؤدي هذا إلى الكتابة فوق البيانات الموجودة."
+
+msgid "Please enter the old URL to search for."
+msgstr "يرجى إدخال عنوان URL القديم للبحث عنه."
+
+msgid "Total matches found:"
+msgstr "إجمالي التطابقات التي عُثر عليها:"
+
+msgid "Table"
+msgstr "الجدول"
+
+msgid "Column"
+msgstr "العمود"
+
+msgid "Before"
+msgstr "قبل"
+
+msgid "After"
+msgstr "بعد"
+
+msgid "Showing first 50 matches only."
+msgstr "عرض أول 50 تطابقًا فقط."
+
+msgid "No matches found for the specified URL."
+msgstr "لم يُعثر على تطابقات لعنوان URL المحدد."
+
+msgid "Preview failed:"
+msgstr "فشلت المعاينة:"
+
+msgid "An error occurred during preview."
+msgstr "حدث خطأ أثناء المعاينة."
+
+msgid "Creating Backup"
+msgstr "جارٍ إنشاء النسخة الاحتياطية"
+
+msgid "Initializing backup..."
+msgstr "جارٍ تهيئة النسخ الاحتياطي..."
+
+msgid "Backup Progress"
+msgstr "تقدم النسخ الاحتياطي"
+
+msgid "Backup Complete!"
+msgstr "اكتمل النسخ الاحتياطي!"
+
+msgid "Download Backup"
+msgstr "تنزيل النسخة الاحتياطية"
+
+msgid "The backup is now running in the background. You can safely navigate away from this page."
+msgstr "يعمل النسخ الاحتياطي الآن في الخلفية. يمكنك مغادرة هذه الصفحة بأمان."
+
+msgid "You will be notified when the backup is complete."
+msgstr "سيتم إشعارك عند اكتمال النسخ الاحتياطي."
+
+msgid "Initializing backup"
+msgstr "تهيئة النسخ الاحتياطي"
+
+msgid "Preparing backup environment"
+msgstr "تحضير بيئة النسخ الاحتياطي"
+
+msgid "WordPress Core Files"
+msgstr "ملفات نواة ووردبريس"
+
+msgid "wp-admin, wp-includes, root files"
+msgstr "wp-admin وwp-includes وملفات الجذر"
+
+msgid "WP-Content Files"
+msgstr "ملفات wp-content"
+
+msgid "wp_users, wp_usermeta, wp_blogs"
+msgstr "wp_users وwp_usermeta وwp_blogs"
+
+msgid "Site Databases"
+msgstr "قواعد بيانات المواقع"
+
+msgid "Creating Archive"
+msgstr "إنشاء الأرشيف"
+
+msgid "Compressing backup files"
+msgstr "ضغط ملفات النسخة الاحتياطية"
+
+msgid "Cleaning Up"
+msgstr "التنظيف"
+
+msgid "Removing temporary files"
+msgstr "إزالة الملفات المؤقتة"
+
+msgid "Failed to start backup."
+msgstr "فشل بدء النسخ الاحتياطي."
+
+msgid "Backup completed successfully!"
+msgstr "اكتمل النسخ الاحتياطي بنجاح!"
+
+msgid "Backup failed."
+msgstr "فشل النسخ الاحتياطي."
+
+msgid "Deselect All"
+msgstr "إلغاء تحديد الكل"
+
+msgid "Load More (%d remaining)"
+msgstr "تحميل المزيد (%d متبقية)"
+
+msgid "Backup Options"
+msgstr "خيارات النسخ الاحتياطي"
+
+msgid "(Database + Files)"
+msgstr "(قاعدة البيانات + الملفات)"
+
+msgid "(Faster, smaller backup)"
+msgstr "(نسخة احتياطية أسرع وأصغر)"
+
+msgid "Include WordPress Core Files"
+msgstr "تضمين ملفات نواة ووردبريس"
+
+msgid "Include wp-admin, wp-includes, and core PHP files."
+msgstr "تضمين wp-admin وwp-includes وملفات PHP الأساسية."
+
+msgid "Include wp-content Folders"
+msgstr "تضمين مجلدات wp-content"
+
+msgid "MU-Plugins"
+msgstr "إضافات MU"
+
+msgid "N/A"
+msgstr "غير متاح"
+
+msgid "Choose how you want to package the backup files."
+msgstr "اختر كيفية حزم ملفات النسخة الاحتياطية."
+
+msgid "Selected %1$d of %2$d sites"
+msgstr "تم تحديد %1$d من أصل %2$d من المواقع"
+
+msgid "Backup Schedules"
+msgstr "جداول النسخ الاحتياطي"
+
+msgid "Add Schedule"
+msgstr "إضافة جدول زمني"
+
+msgid "Add New Schedule"
+msgstr "إضافة جدول زمني جديد"
+
+msgid "Schedule Name"
+msgstr "اسم الجدول الزمني"
+
+msgid "Frequency"
+msgstr "التكرار"
+
+msgid "Hourly"
+msgstr "كل ساعة"
+
+msgid "Twice Daily"
+msgstr "مرتين يوميًا"
+
+msgid "Daily"
+msgstr "يوميًا"
+
+msgid "Weekly"
+msgstr "أسبوعيًا"
+
+msgid "Monthly"
+msgstr "شهريًا"
+
+msgid "Keep Backups"
+msgstr "الاحتفاظ بالنسخ الاحتياطية"
+
+msgid "Number of backups to retain. Older backups will be automatically deleted."
+msgstr "عدد النسخ الاحتياطية المراد الاحتفاظ بها. سيتم حذف النسخ الأقدم تلقائيًا."
+
+msgid "Storage Destinations"
+msgstr "وجهات التخزين"
+
+msgid "Local Storage"
+msgstr "التخزين المحلي"
+
+msgid "Save Schedule"
+msgstr "حفظ الجدول الزمني"
+
+msgid "No Schedules"
+msgstr "لا توجد جداول زمنية"
+
+msgid "Create a backup schedule to automate your backups."
+msgstr "أنشئ جدولًا زمنيًا للنسخ الاحتياطي لأتمتة نسخك الاحتياطية."
+
+msgid "Schedule Backup"
+msgstr "جدولة النسخ الاحتياطي"
+
+msgid "Name"
+msgstr "الاسم"
+
+msgid "Next Run"
+msgstr "التشغيل التالي"
+
+msgid "Not scheduled"
+msgstr "غير مجدول"
+
+msgid "Active"
+msgstr "نشط"
+
+msgid "Paused"
+msgstr "متوقف مؤقتًا"
+
+msgid "Run Now"
+msgstr "التشغيل الآن"
+
+msgid "Pause"
+msgstr "إيقاف مؤقت"
+
+msgid "Activate"
+msgstr "تفعيل"
+
+msgid "Schedule saved successfully."
+msgstr "تم حفظ الجدول الزمني بنجاح."
+
+msgid "Swish Backup Settings"
+msgstr "إعدادات Swish Backup"
+
+msgid "General"
+msgstr "عام"
+
+msgid "Save Changes"
+msgstr "حفظ التغييرات"
+
+msgid "Archive & Storage"
+msgstr "الأرشفة والتخزين"
+
+msgid "Archive Format"
+msgstr "صيغة الأرشيف"
+
+msgid "SWISH - Streaming format with resume support"
+msgstr "SWISH - صيغة تدفقية مع دعم الاستئناف"
+
+msgid "SWISH is our custom streaming format with true append support and resume capability."
+msgstr "SWISH هي صيغتنا التدفقية المخصصة مع دعم حقيقي للإلحاق وقدرة على الاستئناف."
+
+msgid "Compression Level"
+msgstr "مستوى الضغط"
+
+msgid "None (fastest)"
+msgstr "بدون (الأسرع)"
+
+msgid "Low"
+msgstr "منخفض"
+
+msgid "Normal"
+msgstr "عادي"
+
+msgid "Maximum (slowest)"
+msgstr "أقصى (الأبطأ)"
+
+msgid "Default Storage"
+msgstr "التخزين الافتراضي"
+
+msgid "Select what to include in backups. Click on each section to choose specific items."
+msgstr "اختر ما تريد تضمينه في النسخ الاحتياطية. انقر على كل قسم لاختيار عناصر محددة."
+
+msgid "Select plugins to include"
+msgstr "اختر الإضافات المراد تضمينها"
+
+msgid "Loading..."
+msgstr "جارٍ التحميل..."
+
+msgid "Select themes to include"
+msgstr "اختر القوالب المراد تضمينها"
+
+msgid "Select upload folders to include"
+msgstr "اختر مجلدات المرفوعات المراد تضمينها"
+
+msgid "Excludes wp-admin, wp-includes by default."
+msgstr "يستبعد wp-admin وwp-includes افتراضيًا."
+
+msgid "File Exclusions"
+msgstr "استثناءات الملفات"
+
+msgid "Exclude Files/Patterns"
+msgstr "استبعاد ملفات/أنماط"
+
+msgid "One pattern per line. Use * for wildcards. Example: *.log, cache/*"
+msgstr "نمط واحد في كل سطر. استخدم * كرمز بدل. مثال: *.log, cache/*"
+
+msgid "Notifications"
+msgstr "الإشعارات"
+
+msgid "Email Notifications"
+msgstr "إشعارات البريد الإلكتروني"
+
+msgid "Send email after backup completes"
+msgstr "إرسال بريد إلكتروني بعد اكتمال النسخ الاحتياطي"
+
+msgid "Notification Email"
+msgstr "البريد الإلكتروني للإشعارات"
+
+msgid "Leave blank to keep current value."
+msgstr "اتركه فارغًا للاحتفاظ بالقيمة الحالية."
+
+msgid "Test Connection"
+msgstr "اختبار الاتصال"
+
+msgid "Select None"
+msgstr "عدم تحديد أي شيء"
+
+msgid "Show months"
+msgstr "عرض الأشهر"
+
+msgid "No items found."
+msgstr "لم يتم العثور على عناصر."
+
+msgid "Settings saved."
+msgstr "تم حفظ الإعدادات."
+
+msgid "%s settings saved."
+msgstr "تم حفظ إعدادات %s."
+
+msgid "You do not have permission to access this endpoint."
+msgstr "ليس لديك إذن للوصول إلى نقطة النهاية هذه."
+
+msgid "No sites selected for backup."
+msgstr "لم يتم تحديد مواقع للنسخ الاحتياطي."
+
+msgid "Multisite backup creation failed."
+msgstr "فشل إنشاء النسخة الاحتياطية متعددة المواقع."
+
+msgid "Backup job not found."
+msgstr "لم يتم العثور على مهمة النسخ الاحتياطي."
+
+msgid "No sites selected for estimation."
+msgstr "لم يتم تحديد مواقع للتقدير."
+
+msgid "You do not have permission to perform this action."
+msgstr "ليس لديك إذن لتنفيذ هذا الإجراء."
+
+msgid "Import secret key is required."
+msgstr "مفتاح الاستيراد السري مطلوب."
+
+msgid "Invalid or expired import session."
+msgstr "جلسة استيراد غير صالحة أو منتهية الصلاحية."
+
+msgid "You must be an admin or have a valid import session."
+msgstr "يجب أن تكون مديرًا أو أن تمتلك جلسة استيراد صالحة."
+
+msgid "Backup not found."
+msgstr "لم يتم العثور على النسخة الاحتياطية."
+
+msgid "Failed to delete backup."
+msgstr "فشل حذف النسخة الاحتياطية."
+
+msgid "Restore failed."
+msgstr "فشلت الاستعادة."
+
+msgid "No backup file provided."
+msgstr "لم يتم توفير ملف نسخة احتياطية."
+
+msgid "File exceeds upload_max_filesize directive."
+msgstr "يتجاوز الملف قيمة التوجيه upload_max_filesize."
+
+msgid "File exceeds MAX_FILE_SIZE directive."
+msgstr "يتجاوز الملف قيمة التوجيه MAX_FILE_SIZE."
+
+msgid "File was only partially uploaded."
+msgstr "تم رفع الملف جزئيًا فقط."
+
+msgid "No file was uploaded."
+msgstr "لم يتم رفع أي ملف."
+
+msgid "Missing temporary folder."
+msgstr "المجلد المؤقت مفقود."
+
+msgid "Failed to write file to disk."
+msgstr "فشلت كتابة الملف إلى القرص."
+
+msgid "Unknown upload error."
+msgstr "خطأ رفع غير معروف."
+
+msgid "Invalid file type. Allowed types: ZIP, TAR.GZ, SWISH."
+msgstr "نوع ملف غير صالح. الأنواع المسموح بها: ZIP وTAR.GZ وSWISH."
+
+msgid "Current upload limit: %s. For large backups (1GB+), upload via FTP/SFTP to wp-content/swish-backups/ then use the \"Import from Server Path\" option."
+msgstr "حد الرفع الحالي: %s. للنسخ الاحتياطية الكبيرة (أكبر من 1 جيجابايت)، ارفع عبر FTP/SFTP إلى wp-content/swish-backups/ ثم استخدم خيار \"الاستيراد من مسار الخادم\"."
+
+msgid "Failed to analyze backup. The file may be corrupted or not a valid Swish backup."
+msgstr "فشل تحليل النسخة الاحتياطية. قد يكون الملف تالفًا أو ليس نسخة احتياطية صالحة من Swish."
+
+msgid "Server path must be within wp-content directory for security."
+msgstr "يجب أن يكون مسار الخادم داخل مجلد wp-content لأسباب أمنية."
+
+msgid "File not found at path: %s"
+msgstr "لم يتم العثور على الملف في المسار: %s"
+
+msgid "Invalid file type. Only ZIP, TAR.GZ, and SWISH files are supported."
+msgstr "نوع ملف غير صالح. ملفات ZIP وTAR.GZ وSWISH فقط هي المدعومة."
+
+msgid "Storage adapter not found."
+msgstr "لم يتم العثور على محوّل التخزين."
+
+msgid "Storage adapter not configured."
+msgstr "محوّل التخزين غير مُعدّ."
+
+msgid "Connection successful!"
+msgstr "نجح الاتصال!"
+
+msgid "Connection failed."
+msgstr "فشل الاتصال."
+
+msgid "Job not found."
+msgstr "لم يتم العثور على المهمة."
+
+msgid "Cannot cancel job with status: %s"
+msgstr "لا يمكن إلغاء مهمة حالتها: %s"
+
+msgid "Job cancelled successfully."
+msgstr "تم إلغاء المهمة بنجاح."
+
+msgid "Failed to cancel job."
+msgstr "فشل إلغاء المهمة."
+
+msgid "Import failed: Server memory limit (%s) exceeded. Please contact your hosting provider to increase the PHP memory_limit, or try importing a smaller backup."
+msgstr "فشل الاستيراد: تم تجاوز حد ذاكرة الخادم (%s). يرجى التواصل مع مزود الاستضافة لزيادة قيمة memory_limit في PHP، أو جرّب استيراد نسخة احتياطية أصغر."
+
+msgid "Import failed: Server timeout reached. Please contact your hosting provider to increase the max_execution_time limit, or try importing a smaller backup."
+msgstr "فشل الاستيراد: تم بلوغ مهلة الخادم. يرجى التواصل مع مزود الاستضافة لزيادة حد max_execution_time، أو جرّب استيراد نسخة احتياطية أصغر."
+
+msgid "Import failed: File size exceeds server upload limit. Please contact your hosting provider to increase upload_max_filesize and post_max_size limits."
+msgstr "فشل الاستيراد: يتجاوز حجم الملف حد الرفع في الخادم. يرجى التواصل مع مزود الاستضافة لزيادة حدَّي upload_max_filesize وpost_max_size."
+
+msgid "Import failed: A server error occurred. Error: %s"
+msgstr "فشل الاستيراد: حدث خطأ في الخادم. الخطأ: %s"
+
+msgid "Insufficient memory for import. Available: %1$s, Required: %2$s. Your server's PHP memory_limit is set to %3$s. Please contact your hosting provider to increase this limit."
+msgstr "الذاكرة غير كافية للاستيراد. المتاح: %1$s، المطلوب: %2$s. قيمة memory_limit في PHP على خادمك هي %3$s. يرجى التواصل مع مزود الاستضافة لزيادة هذا الحد."
+
+msgid "Failed to finalize backup."
+msgstr "فشل إنهاء النسخة الاحتياطية."
+
+msgid "Schedule not found."
+msgstr "لم يتم العثور على الجدول الزمني."
+
+msgid "Schedule activated."
+msgstr "تم تفعيل الجدول الزمني."
+
+msgid "Schedule paused."
+msgstr "تم إيقاف الجدول الزمني مؤقتًا."
+
+msgid "Scheduled backup started."
+msgstr "بدأ النسخ الاحتياطي المجدول."
+
+msgid "Schedule deleted."
+msgstr "تم حذف الجدول الزمني."
+
+msgid "Failed to delete schedule."
+msgstr "فشل حذف الجدول الزمني."
+
+msgid "An import is already in progress. Use force=true to clear and restart."
+msgstr "هناك عملية استيراد قيد التنفيذ بالفعل. استخدم force=true للمسح وإعادة البدء."
+
+msgid "Backup file not found."
+msgstr "لم يتم العثور على ملف النسخة الاحتياطية."
+
+msgid "No active import session."
+msgstr "لا توجد جلسة استيراد نشطة."
+
+msgid "Job cancelled by user."
+msgstr "تم إلغاء المهمة من قبل المستخدم."
+
+msgid "Swish Migrate and Backup requires PHP 8.1 or higher."
+msgstr "تتطلب إضافة Swish Migrate and Backup الإصدار 8.1 من PHP أو أحدث."
+
+msgid "Plugin Activation Error"
+msgstr "خطأ في تفعيل الإضافة"
+
+msgid "Swish Migrate and Backup requires WordPress 6.0 or higher."
+msgstr "تتطلب إضافة Swish Migrate and Backup ووردبريس 6.0 أو أحدث."
+
+msgid "Swish Migrate and Backup requires the following PHP extensions: %s"
+msgstr "تتطلب إضافة Swish Migrate and Backup امتدادات PHP التالية: %s"
+
+msgid "Once Weekly"
+msgstr "مرة كل أسبوع"
+
+msgid "Once Monthly"
+msgstr "مرة كل شهر"
+
+msgid "Service not found: %s"
+msgstr "لم يتم العثور على الخدمة: %s"
+
+msgid "Swish Migrate and Backup: Pro features (multisite backup, migration, and site duplication) are now built into the main plugin. The separate Pro add-on has been deactivated and can be deleted."
+msgstr "Swish Migrate and Backup: أصبحت ميزات النسخة الاحترافية (النسخ الاحتياطي متعدد المواقع والترحيل واستنساخ المواقع) مدمجة الآن في الإضافة الرئيسية. تم تعطيل إضافة Pro المنفصلة ويمكن حذفها."
+
+msgid "Swish Migrate and Backup: the PHP mysqli extension is not available on this site (common in SQLite-based environments such as WordPress Playground or WordPress Studio). You can browse the plugin screens, but backup, restore, and migration features require a MySQL/MariaDB database with the mysqli extension."
+msgstr "Swish Migrate and Backup: امتداد mysqli في PHP غير متوفر على هذا الموقع (شائع في البيئات المعتمدة على SQLite مثل WordPress Playground أو WordPress Studio). يمكنك تصفح شاشات الإضافة، لكن ميزات النسخ الاحتياطي والاستعادة والترحيل تتطلب قاعدة بيانات MySQL/MariaDB مع امتداد mysqli."
+
+msgid "Download link has expired. Please generate a new one."
+msgstr "انتهت صلاحية رابط التنزيل. يرجى إنشاء رابط جديد."
+
+msgid "Invalid download token."
+msgstr "رمز تنزيل غير صالح."
+
+msgid "Invalid file path."
+msgstr "مسار ملف غير صالح."
+
+msgid "Failed to open backup file."
+msgstr "فشل فتح ملف النسخة الاحتياطية."
+
+msgid "Backup started..."
+msgstr "بدأ النسخ الاحتياطي..."
+
+msgid "Backup failed. Check the logs."
+msgstr "فشل النسخ الاحتياطي. راجع السجلات."
+
+msgid "Restore started..."
+msgstr "بدأت الاستعادة..."
+
+msgid "Restore completed successfully!"
+msgstr "اكتملت الاستعادة بنجاح!"
+
+msgid "Restore failed. Check the logs."
+msgstr "فشلت الاستعادة. راجع السجلات."
+
+msgid "Are you sure you want to delete this backup?"
+msgstr "هل أنت متأكد من رغبتك في حذف هذه النسخة الاحتياطية؟"
+
+msgid "Are you sure you want to restore this backup? This will overwrite your current site."
+msgstr "هل أنت متأكد من رغبتك في استعادة هذه النسخة الاحتياطية؟ سيؤدي هذا إلى الكتابة فوق موقعك الحالي."
+
+msgid "The selected file is too large for your server."
+msgstr "الملف المحدد كبير جدًا على خادمك."
+
+msgid "Backup is from WordPress %1$s, but you are running %2$s. Consider upgrading first."
+msgstr "النسخة الاحتياطية من ووردبريس %1$s، بينما أنت تستخدم %2$s. فكّر في الترقية أولًا."
+
+msgid "URL replacement will be performed to update all references."
+msgstr "سيتم تنفيذ استبدال عناوين URL لتحديث جميع المراجع."
+
+msgid "Large backup file. Import may take some time."
+msgstr "ملف نسخة احتياطية كبير. قد يستغرق الاستيراد بعض الوقت."
+
+msgid "Old URL is not valid."
+msgstr "عنوان URL القديم غير صالح."
+
+msgid "New URL is not valid."
+msgstr "عنوان URL الجديد غير صالح."
+
+msgid "Old and new URLs are the same. No URL replacement will be performed."
+msgstr "عنوانا URL القديم والجديد متطابقان. لن يتم تنفيذ أي استبدال لعناوين URL."
+
+msgid "All sites in one archive - Easier to manage, single backup file"
+msgstr "جميع المواقع في أرشيف واحد - أسهل في الإدارة، ملف نسخة احتياطية واحد"
+
+msgid "Separate archive per site - Individual site restore, multiple files"
+msgstr "أرشيف منفصل لكل موقع - استعادة كل موقع على حدة، ملفات متعددة"
+
+msgid "Separate Archives"
+msgstr "أرشيفات منفصلة"
+
+msgid "Backup scheduled. Starting..."
+msgstr "تمت جدولة النسخ الاحتياطي. جارٍ البدء..."
+
+msgid "Backup parameters not found."
+msgstr "لم يتم العثور على معلمات النسخ الاحتياطي."
+
+msgid "Backing up WordPress core files..."
+msgstr "جارٍ النسخ الاحتياطي لملفات نواة ووردبريس..."
+
+msgid "Backing up shared network tables..."
+msgstr "جارٍ النسخ الاحتياطي لجداول الشبكة المشتركة..."
+
+msgid "Invalid backup file format. Expected a .swish or .zip file."
+msgstr "صيغة ملف نسخة احتياطية غير صالحة. المتوقع ملف .swish أو .zip."
+
+msgid "Could not read backup manifest. Invalid backup file."
+msgstr "تعذرت قراءة بيان النسخة الاحتياطية. ملف نسخة احتياطية غير صالح."
+
+msgid "Multisite backup with single site detected. Will import as single site."
+msgstr "تم اكتشاف نسخة احتياطية متعددة المواقع تحتوي على موقع واحد. سيتم استيرادها كموقع واحد."
+
+msgid "Multisite backup detected. Please select a single site to import into this WordPress installation."
+msgstr "تم اكتشاف نسخة احتياطية متعددة المواقع. يرجى اختيار موقع واحد لاستيراده إلى تركيب ووردبريس هذا."
+
+msgid "Backup file is valid."
+msgstr "ملف النسخة الاحتياطية صالح."
+
+msgid "Failed to copy backup file for processing."
+msgstr "فشل نسخ ملف النسخة الاحتياطية للمعالجة."
+
+msgid "Import started."
+msgstr "بدأ الاستيراد."
+
+msgid "Extracting backup file..."
+msgstr "جارٍ استخراج ملف النسخة الاحتياطية..."
+
+msgid "Failed to extract backup file."
+msgstr "فشل استخراج ملف النسخة الاحتياطية."
+
+msgid "Backup extracted successfully."
+msgstr "تم استخراج النسخة الاحتياطية بنجاح."
+
+msgid "Importing shared network tables..."
+msgstr "جارٍ استيراد جداول الشبكة المشتركة..."
+
+msgid "Shared tables imported."
+msgstr "تم استيراد الجداول المشتركة."
+
+msgid "Importing site databases..."
+msgstr "جارٍ استيراد قواعد بيانات المواقع..."
+
+msgid "Importing database: %1$s (%2$d/%3$d)"
+msgstr "جارٍ استيراد قاعدة البيانات: %1$s (%2$d/%3$d)"
+
+msgid "Site databases imported."
+msgstr "تم استيراد قواعد بيانات المواقع."
+
+msgid "Reactivating plugins..."
+msgstr "جارٍ إعادة تفعيل الإضافات..."
+
+msgid "Importing database..."
+msgstr "جارٍ استيراد قاعدة البيانات..."
+
+msgid "Database imported."
+msgstr "تم استيراد قاعدة البيانات."
+
+msgid "Restoring files..."
+msgstr "جارٍ استعادة الملفات..."
+
+msgid "Extracting tar.gz archives..."
+msgstr "جارٍ استخراج أرشيفات tar.gz..."
+
+msgid "Extracting files archive..."
+msgstr "جارٍ استخراج أرشيف الملفات..."
+
+msgid "Extracting file batch parts..."
+msgstr "جارٍ استخراج أجزاء دفعات الملفات..."
+
+msgid "Restoring wp-content files..."
+msgstr "جارٍ استعادة ملفات wp-content..."
+
+msgid "Restoring WordPress core files..."
+msgstr "جارٍ استعادة ملفات نواة ووردبريس..."
+
+msgid "Files restored."
+msgstr "تمت استعادة الملفات."
+
+msgid "Running search and replace..."
+msgstr "جارٍ تشغيل البحث والاستبدال..."
+
+msgid "Search and replace completed."
+msgstr "اكتمل البحث والاستبدال."
+
+msgid "Fixing site configuration..."
+msgstr "جارٍ إصلاح إعدادات الموقع..."
+
+msgid "Site configuration fixed."
+msgstr "تم إصلاح إعدادات الموقع."
+
+msgid "No URL replacement needed."
+msgstr "لا حاجة لاستبدال عناوين URL."
+
+msgid "Flushing caches..."
+msgstr "جارٍ مسح ذاكرات التخزين المؤقت..."
+
+msgid "Cleaning up temporary files..."
+msgstr "جارٍ تنظيف الملفات المؤقتة..."
+
+msgid "Import completed successfully!"
+msgstr "اكتمل الاستيراد بنجاح!"
+
+msgid "Could not determine which site to import."
+msgstr "تعذر تحديد الموقع المراد استيراده."
+
+msgid "Importing database for %s..."
+msgstr "جارٍ استيراد قاعدة البيانات للموقع %s..."
+
+msgid "Successfully imported multisite \"%s\" as single site!"
+msgstr "تم بنجاح استيراد الموقع \"%s\" من الشبكة متعددة المواقع كموقع واحد!"
+
+msgid "This import requires converting your site to multisite. Please confirm this action."
+msgstr "يتطلب هذا الاستيراد تحويل موقعك إلى شبكة مواقع متعددة. يرجى تأكيد هذا الإجراء."
+
+msgid "Successfully imported %d sites."
+msgstr "تم استيراد %d من المواقع بنجاح."
+
+msgid "Successfully imported backup."
+msgstr "تم استيراد النسخة الاحتياطية بنجاح."
+
+msgid "Site database file not found."
+msgstr "لم يتم العثور على ملف قاعدة بيانات الموقع."
+
+msgid "Site database file is empty."
+msgstr "ملف قاعدة بيانات الموقع فارغ."
+
+msgid "Site imported: %d statements executed."
+msgstr "تم استيراد الموقع: تم تنفيذ %d من العبارات."
+
+msgid "Site import had issues: %d executed, %d errors."
+msgstr "واجه استيراد الموقع مشكلات: %d عبارة منفذة و%d من الأخطاء."
+
+msgid "Already a multisite installation."
+msgstr "التركيب متعدد المواقع بالفعل."
+
+msgid "wp-config.php is not writable. Please make it writable or manually enable multisite."
+msgstr "ملف wp-config.php غير قابل للكتابة. يرجى جعله قابلًا للكتابة أو تفعيل شبكة المواقع المتعددة يدويًا."
+
+msgid "Multisite constants already exist in wp-config.php but multisite is not active. Please check your configuration."
+msgstr "ثوابت شبكة المواقع المتعددة موجودة بالفعل في wp-config.php لكن الشبكة غير نشطة. يرجى التحقق من إعداداتك."
+
+msgid "Successfully converted to multisite. Please refresh the page."
+msgstr "تم التحويل إلى شبكة مواقع متعددة بنجاح. يرجى تحديث الصفحة."
+
+msgid "Failed to convert to multisite: %s"
+msgstr "فشل التحويل إلى شبكة مواقع متعددة: %s"
+
+msgid "Step 1: Edit wp-config.php"
+msgstr "الخطوة 1: تحرير wp-config.php"
+
+msgid "Add this line above the \"/* That's all, stop editing! */\" comment:"
+msgstr "أضف هذا السطر فوق التعليق \"/* That's all, stop editing! */\":"
+
+msgid "Step 2: Install Network"
+msgstr "الخطوة 2: تركيب الشبكة"
+
+msgid "Go to %s in your WordPress admin and follow the setup instructions."
+msgstr "انتقل إلى %s في لوحة تحكم ووردبريس واتبع تعليمات الإعداد."
+
+msgid "Step 3: Update wp-config.php"
+msgstr "الخطوة 3: تحديث wp-config.php"
+
+msgid "Add these lines to wp-config.php above the \"/* That's all, stop editing! */\" comment:"
+msgstr "أضف هذه الأسطر إلى wp-config.php فوق التعليق \"/* That's all, stop editing! */\":"
+
+msgid "Step 4: Update .htaccess"
+msgstr "الخطوة 4: تحديث .htaccess"
+
+msgid "Replace your .htaccess WordPress rules with the multisite rules provided by WordPress during network setup."
+msgstr "استبدل قواعد ووردبريس في ملف .htaccess بقواعد شبكة المواقع المتعددة التي يوفرها ووردبريس أثناء إعداد الشبكة."
+
+msgid "Step 5: Log In Again"
+msgstr "الخطوة 5: تسجيل الدخول مرة أخرى"
+
+msgid "After making these changes, log out and log back in. Then return to this page to import your multisite backup."
+msgstr "بعد إجراء هذه التغييرات، سجّل الخروج ثم سجّل الدخول مرة أخرى. ثم عد إلى هذه الصفحة لاستيراد نسختك الاحتياطية متعددة المواقع."
+
+msgid "Swish Multisite Backup"
+msgstr "النسخ الاحتياطي متعدد المواقع من Swish"
+
+msgid "Multisite Import"
+msgstr "استيراد متعدد المواقع"
+
+msgid "Export backups for migration or import backups from another installation."
+msgstr "صدّر النسخ الاحتياطية للترحيل أو استورد نسخًا احتياطية من تركيب آخر."
+
+msgid "This feature is only available on multisite installations."
+msgstr "هذه الميزة متاحة فقط في تركيبات المواقع المتعددة."
+
+msgid "Create a copy of any site in your network with a new URL."
+msgstr "أنشئ نسخة من أي موقع في شبكتك بعنوان URL جديد."
+
+msgid "Multisite Backup"
+msgstr "النسخ الاحتياطي متعدد المواقع"
+
+msgid "Overview of your multisite backup system."
+msgstr "نظرة عامة على نظام النسخ الاحتياطي متعدد المواقع لديك."
+
+msgid "Backup Storage"
+msgstr "تخزين النسخ الاحتياطية"
+
+msgid "Network Sites"
+msgstr "مواقع الشبكة"
+
+msgid "Domain"
+msgstr "النطاق"
+
+msgid "Subdomain"
+msgstr "نطاق فرعي"
+
+msgid "Subdirectory"
+msgstr "مجلد فرعي"
+
+msgid "View History"
+msgstr "عرض السجل"
+
+msgid "Recent Backups"
+msgstr "النسخ الاحتياطية الأخيرة"
+
+msgid "Create your first multisite backup to get started."
+msgstr "أنشئ أول نسخة احتياطية متعددة المواقع للبدء."
+
+msgid "Select sites and configure backup options."
+msgstr "اختر المواقع واضبط خيارات النسخ الاحتياطي."
+
+msgid "Select Sites to Backup"
+msgstr "اختر المواقع المراد نسخها احتياطيًا"
+
+msgid "Choose which sites you want to include in the backup."
+msgstr "اختر المواقع التي تريد تضمينها في النسخة الاحتياطية."
+
+msgid "Start Backup"
+msgstr "بدء النسخ الاحتياطي"
+
+msgid "Select at least one site to enable backup."
+msgstr "اختر موقعًا واحدًا على الأقل لتفعيل النسخ الاحتياطي."
+
+msgid "Please select at least one site."
+msgstr "يرجى اختيار موقع واحد على الأقل."
+
+msgid "View and manage your previous backups."
+msgstr "اعرض نسخك الاحتياطية السابقة وأدرها."
+
+msgid "Low Memory"
+msgstr "ذاكرة منخفضة"
+
+msgid "Low Timeout"
+msgstr "مهلة منخفضة"
+
+msgid "Please select at least one site to backup."
+msgstr "يرجى اختيار موقع واحد على الأقل للنسخ الاحتياطي."
+
+msgid "Backup failed: "
+msgstr "فشل النسخ الاحتياطي: "
+
+msgid "Invalid job ID."
+msgstr "معرّف مهمة غير صالح."
+
+msgid "Backup deleted successfully."
+msgstr "تم حذف النسخة الاحتياطية بنجاح."
+
+msgid "View All Multisite Backups"
+msgstr "عرض جميع النسخ الاحتياطية متعددة المواقع"
+
+msgid "No backup file specified."
+msgstr "لم يتم تحديد ملف نسخة احتياطية."
+
+msgid "Failed to upload backup file."
+msgstr "فشل رفع ملف النسخة الاحتياطية."
+
+msgid "Please enter a URL to search for."
+msgstr "يرجى إدخال عنوان URL للبحث عنه."
+
+msgid "Import job not found."
+msgstr "لم يتم العثور على مهمة الاستيراد."
+
+msgid "Import job lost after execution."
+msgstr "فُقدت مهمة الاستيراد بعد التنفيذ."
+
+msgid "Backup started."
+msgstr "بدأ النسخ الاحتياطي."
+
+msgid "Theme preference saved."
+msgstr "تم حفظ تفضيل المظهر."
+
+msgid "Invalid source site."
+msgstr "موقع مصدر غير صالح."
+
+msgid "Duplication started."
+msgstr "بدأ الاستنساخ."
+
+msgid "Job lost after execution."
+msgstr "فُقدت المهمة بعد التنفيذ."
+
+msgid "Permission denied."
+msgstr "تم رفض الإذن."
+
+msgid "URL \"%s\" is already taken."
+msgstr "عنوان URL \"%s\" مستخدم بالفعل."
+
+msgid "This slug is reserved and cannot be used."
+msgstr "هذا الاسم اللطيف محجوز ولا يمكن استخدامه."
+
+msgid "URL is available!"
+msgstr "عنوان URL متاح!"
+
+msgid "Invalid site ID."
+msgstr "معرّف موقع غير صالح."
+
+msgid "Site not found."
+msgstr "لم يتم العثور على الموقع."
+
+msgid "Cannot delete the main site."
+msgstr "لا يمكن حذف الموقع الرئيسي."
+
+msgid "Failed to delete site. Please try again."
+msgstr "فشل حذف الموقع. يرجى المحاولة مرة أخرى."
+
+msgid "Site deleted successfully."
+msgstr "تم حذف الموقع بنجاح."
+
+msgid "WordPress core files backed up."
+msgstr "تم النسخ الاحتياطي لملفات نواة ووردبريس."
+
+msgid "Backing up site databases..."
+msgstr "جارٍ النسخ الاحتياطي لقواعد بيانات المواقع..."
+
+msgid "Backing up site %1$d of %2$d: %3$s"
+msgstr "جارٍ النسخ الاحتياطي للموقع %1$d من أصل %2$d: %3$s"
+
+msgid "Backing up wp-content folders..."
+msgstr "جارٍ النسخ الاحتياطي لمجلدات wp-content..."
+
+msgid "Files backed up."
+msgstr "تم النسخ الاحتياطي للملفات."
+
+msgid "Creating backup archive..."
+msgstr "جارٍ إنشاء أرشيف النسخة الاحتياطية..."
+
+msgid "Successfully backed up databases for %d sites."
+msgstr "تم بنجاح النسخ الاحتياطي لقواعد بيانات %d من المواقع."
+
+msgid "Successfully backed up %d sites in single archive."
+msgstr "تم بنجاح النسخ الاحتياطي لـ %d من المواقع في أرشيف واحد."
+
+msgid "Creating archive for site %1$d of %2$d: %3$s"
+msgstr "جارٍ إنشاء أرشيف للموقع %1$d من أصل %2$d: %3$s"
+
+msgid "Successfully backed up databases for %d sites as separate archives."
+msgstr "تم بنجاح النسخ الاحتياطي لقواعد بيانات %d من المواقع كأرشيفات منفصلة."
+
+msgid "Successfully backed up %d sites as separate archives."
+msgstr "تم بنجاح النسخ الاحتياطي لـ %d من المواقع كأرشيفات منفصلة."
+
+msgid "Source site not found."
+msgstr "لم يتم العثور على الموقع المصدر."
+
+msgid "Invalid site slug."
+msgstr "اسم لطيف غير صالح للموقع."
+
+msgid "A site with URL \"%s\" already exists."
+msgstr "يوجد بالفعل موقع بعنوان URL \"%s\"."
+
+msgid "Duplication scheduled. Starting..."
+msgstr "تمت جدولة الاستنساخ. جارٍ البدء..."
+
+msgid "Job parameters not found."
+msgstr "لم يتم العثور على معلمات المهمة."
+
+msgid "Creating new site..."
+msgstr "جارٍ إنشاء موقع جديد..."
+
+msgid "Copying database tables..."
+msgstr "جارٍ نسخ جداول قاعدة البيانات..."
+
+msgid "Failed to copy database: %s"
+msgstr "فشل نسخ قاعدة البيانات: %s"
+
+msgid "Copying uploads..."
+msgstr "جارٍ نسخ المرفوعات..."
+
+msgid "Skipping uploads (not selected)..."
+msgstr "جارٍ تخطي المرفوعات (غير محددة)..."
+
+msgid "Replacing URLs..."
+msgstr "جارٍ استبدال عناوين URL..."
+
+msgid "Finalizing..."
+msgstr "جارٍ الإنهاء..."
+
+msgid "Site duplicated successfully! New site ID: %d"
+msgstr "تم استنساخ الموقع بنجاح! معرّف الموقع الجديد: %d"
+
+msgid "Site duplicated successfully. New site ID: %d"
+msgstr "تم استنساخ الموقع بنجاح. معرّف الموقع الجديد: %d"
+
+msgid "Copying table %1$d of %2$d..."
+msgstr "جارٍ نسخ الجدول %1$d من أصل %2$d..."
+
+msgid "Replacing: %s"
+msgstr "جارٍ استبدال: %s"
+
+msgid "Access Token"
+msgstr "رمز الوصول"
+
+msgid "Your Dropbox access token. Generate one from the Dropbox App Console."
+msgstr "رمز الوصول الخاص بك في Dropbox. أنشئ واحدًا من Dropbox App Console."
+
+msgid "Backup Folder"
+msgstr "مجلد النسخ الاحتياطية"
+
+msgid "Folder path for storing backups (e.g., /Backups/MySite)."
+msgstr "مسار المجلد لتخزين النسخ الاحتياطية (مثال: /Backups/MySite)."
+
+msgid "Client ID"
+msgstr "معرّف العميل (Client ID)"
+
+msgid "Your Google OAuth Client ID."
+msgstr "معرّف عميل Google OAuth الخاص بك."
+
+msgid "Client Secret"
+msgstr "سر العميل (Client Secret)"
+
+msgid "Your Google OAuth Client Secret."
+msgstr "سر عميل Google OAuth الخاص بك."
+
+msgid "Name of the folder for storing backups."
+msgstr "اسم المجلد لتخزين النسخ الاحتياطية."
+
+msgid "Backup Directory"
+msgstr "مجلد النسخ الاحتياطي"
+
+msgid "Custom backup directory path (leave empty for default)."
+msgstr "مسار مخصص لمجلد النسخ الاحتياطية (اتركه فارغًا للإعداد الافتراضي)."
+
+msgid "Retention Days"
+msgstr "أيام الاحتفاظ"
+
+msgid "Number of days to keep backups (0 = forever)."
+msgstr "عدد أيام الاحتفاظ بالنسخ الاحتياطية (0 = للأبد)."
+
+msgid "Access Key ID"
+msgstr "معرّف مفتاح الوصول (Access Key ID)"
+
+msgid "Your AWS Access Key ID."
+msgstr "معرّف مفتاح الوصول الخاص بك في AWS."
+
+msgid "Secret Access Key"
+msgstr "مفتاح الوصول السري (Secret Access Key)"
+
+msgid "Your AWS Secret Access Key."
+msgstr "مفتاح الوصول السري الخاص بك في AWS."
+
+msgid "Bucket Name"
+msgstr "اسم الحاوية (Bucket)"
+
+msgid "The S3 bucket to store backups in."
+msgstr "حاوية S3 لتخزين النسخ الاحتياطية فيها."
+
+msgid "Region"
+msgstr "المنطقة"
+
+msgid "Path Prefix"
+msgstr "بادئة المسار"
+
+msgid "Optional folder path within the bucket."
+msgstr "مسار مجلد اختياري داخل الحاوية."
+
+msgid "Custom Endpoint"
+msgstr "نقطة نهاية مخصصة"
+
+msgid "Custom S3-compatible endpoint (e.g., for MinIO, DigitalOcean Spaces)."
+msgstr "نقطة نهاية مخصصة متوافقة مع S3 (مثل MinIO أو DigitalOcean Spaces)."
+
+msgid "Storage adapter not found: %s"
+msgstr "لم يتم العثور على محوّل التخزين: %s"
+
+msgid "Adapter not found"
+msgstr "لم يتم العثور على المحوّل"
+
+msgid "Adapter not configured"
+msgstr "المحوّل غير مُعدّ"
+
+msgid "Upload failed"
+msgstr "فشل الرفع"
+
+msgid "Starting Backup..."
+msgstr "جارٍ بدء النسخ الاحتياطي..."
+
+msgid "full"
+msgstr "كامل"
+
+msgid "database"
+msgstr "قاعدة بيانات"
+
+msgid "files"
+msgstr "ملفات"
+
+msgid "backup job..."
+msgstr "مهمة النسخ الاحتياطي..."
+
+msgid "No backups yet. Create your first backup to get started."
+msgstr "لا توجد نسخ احتياطية بعد. أنشئ أول نسخة احتياطية للبدء."
+
+msgid "Backup Now"
+msgstr "نسخ احتياطي الآن"
+
+msgid "Create a new backup of your site."
+msgstr "أنشئ نسخة احتياطية جديدة لموقعك."
+
+msgid "Search and replace URLs in the database."
+msgstr "ابحث عن عناوين URL في قاعدة البيانات واستبدلها."
+
+msgid "Hide Panel"
+msgstr "إخفاء اللوحة"
+
+msgid "Open Panel"
+msgstr "فتح اللوحة"
+
+msgid "Migrate Site"
+msgstr "ترحيل الموقع"
+
+msgid "Import a backup from another site."
+msgstr "استورد نسخة احتياطية من موقع آخر."
+
+msgid "Storage Used"
+msgstr "المساحة المستخدمة"
+
+msgid "Never"
+msgstr "أبدًا"
+
+msgid "Last Backup"
+msgstr "آخر نسخة احتياطية"
+
+msgid "Batch Size (DB/Files)"
+msgstr "حجم الدفعة (قاعدة البيانات/الملفات)"
+
+msgid "Connected"
+msgstr "متصل"
+
+msgid "Not Configured"
+msgstr "غير مُعدّ"
+
+msgid "Please enter both search and replace URLs."
+msgstr "يرجى إدخال عنواني URL للبحث والاستبدال معًا."
+
+msgid "Preview failed"
+msgstr "فشلت المعاينة"
+
+msgid "This will permanently modify your database. Are you sure you want to continue?"
+msgstr "سيؤدي هذا إلى تعديل قاعدة بياناتك نهائيًا. هل أنت متأكد من رغبتك في المتابعة؟"
+
+msgid "Migration failed"
+msgstr "فشل الترحيل"
+
+msgid "Search and Replace URLs"
+msgstr "البحث والاستبدال لعناوين URL"
+
+msgid "Replace old URLs with new ones across your entire database. This is useful when migrating to a new domain."
+msgstr "استبدل عناوين URL القديمة بأخرى جديدة عبر قاعدة بياناتك بأكملها. هذا مفيد عند الترحيل إلى نطاق جديد."
+
+msgid "Search for (old URL)"
+msgstr "البحث عن (عنوان URL القديم)"
+
+msgid "Replace with (new URL)"
+msgstr "الاستبدال بـ (عنوان URL الجديد)"
+
+msgid "Run Migration"
+msgstr "تشغيل الترحيل"
+
+msgid "Found"
+msgstr "تم العثور على"
+
+msgid "replacements across"
+msgstr "من الاستبدالات عبر"
+
+msgid "tables."
+msgstr "من الجداول."
+
+msgid "Replacements"
+msgstr "الاستبدالات"
+
+msgid "Migration completed!"
+msgstr "اكتمل الترحيل!"
+
+msgid "Replaced"
+msgstr "تم استبدال"
+
+msgid "occurrences."
+msgstr "من التكرارات."
+
+msgid "Database Export"
+msgstr "تصدير قاعدة البيانات"
+
+msgid "Exporting WordPress database tables"
+msgstr "تصدير جداول قاعدة بيانات ووردبريس"
+
+msgid "File Backup"
+msgstr "النسخ الاحتياطي للملفات"
+
+msgid "Copying WordPress files"
+msgstr "نسخ ملفات ووردبريس"
+
+msgid "Saving backup and cleaning up"
+msgstr "حفظ النسخة الاحتياطية والتنظيف"
+
+msgid "Indexing Files"
+msgstr "فهرسة الملفات"
+
+msgid "Scanning files to backup"
+msgstr "فحص الملفات المراد نسخها احتياطيًا"
+
+msgid "Adding files to archive"
+msgstr "إضافة الملفات إلى الأرشيف"
+
+msgid "Completing backup"
+msgstr "إكمال النسخ الاحتياطي"
+
+msgid "An error occurred"
+msgstr "حدث خطأ"
+
+msgid "Backup Complete"
+msgstr "اكتمل النسخ الاحتياطي"
+
+msgid "Please wait while the backup completes. Do not close this window."
+msgstr "يرجى الانتظار حتى يكتمل النسخ الاحتياطي. لا تغلق هذه النافذة."

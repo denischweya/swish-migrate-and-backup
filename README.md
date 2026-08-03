@@ -52,6 +52,9 @@ Migrating to a new domain? Swish handles serialization-safe search and replace f
 - **Signed Download URLs**: Temporary, expiring, token-verified download links
 - **Hardened Extraction**: Path-traversal rejection on every archive entry
 
+### Languages
+Fully translated into English, Japanese (日本語), Spanish (Español), French (Français), Simplified Chinese (简体中文), and Arabic (العربية). Translation files ship with the plugin in `languages/`.
+
 ## Requirements
 
 - PHP 8.1 or higher
@@ -251,6 +254,9 @@ For support, please open an issue on the GitHub repository.
 ## Changelog
 
 Condensed highlights — see [CHANGELOG.md](CHANGELOG.md) for full details.
+
+### 1.4.0 (2026-08-03)
+- Added full translations for Spanish, French, Simplified Chinese, and Arabic, bundled in `languages/` (Japanese already available via translate.wordpress.org)
 
 ### 1.3.1 (2026-07-14)
 - Fixed: literal `%` characters in database content leaked into SQL dumps as `{64-hex}` placeholder-escape tokens, corrupting serialized data on restore

@@ -1,0 +1,2735 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Swish Migrate and Backup 1.4.0\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: fr_FR\n"
+"Plural-Forms: nplurals=2; plural=n > 1;\n"
+"X-Generator: manual\n"
+
+msgid "Swish Migrate and Backup"
+msgstr "Swish Migrate and Backup"
+
+msgid "https://swishbackup.swishfolio.com/"
+msgstr "https://swishbackup.swishfolio.com/"
+
+msgid "A WordPress backup and migration plugin with cloud storage support, multisite network backups, site duplication & no limits."
+msgstr "Une extension WordPress de sauvegarde et de migration avec prise en charge du stockage cloud, sauvegardes de réseau multisite, duplication de site et sans limites."
+
+msgid "Fortisthemes, afrothemes"
+msgstr "Fortisthemes, afrothemes"
+
+msgid "https://denis.swishfolio.com"
+msgstr "https://denis.swishfolio.com"
+
+msgid "Swish Backup"
+msgstr "Swish Backup"
+
+msgid "Dashboard"
+msgstr "Tableau de bord"
+
+msgid "Backups"
+msgstr "Sauvegardes"
+
+msgid "Schedules"
+msgstr "Planifications"
+
+msgid "Migration"
+msgstr "Migration"
+
+msgid "Settings"
+msgstr "Réglages"
+
+msgid "Logs"
+msgstr "Journaux"
+
+msgid "Documentation"
+msgstr "Documentation"
+
+msgid "Create Backup"
+msgstr "Créer une sauvegarde"
+
+msgid "Select Backup Type"
+msgstr "Sélectionner le type de sauvegarde"
+
+msgid "Full Backup"
+msgstr "Sauvegarde complète"
+
+msgid "Database, files, themes, plugins, and uploads"
+msgstr "Base de données, fichiers, thèmes, extensions et téléversements"
+
+msgid "Database Only"
+msgstr "Base de données uniquement"
+
+msgid "Just the database (fastest)"
+msgstr "Uniquement la base de données (le plus rapide)"
+
+msgid "Files Only"
+msgstr "Fichiers uniquement"
+
+msgid "Themes, plugins, and uploads"
+msgstr "Thèmes, extensions et téléversements"
+
+msgid "No Backups Yet"
+msgstr "Aucune sauvegarde pour le moment"
+
+msgid "Create your first backup to protect your site."
+msgstr "Créez votre première sauvegarde pour protéger votre site."
+
+msgid "Create First Backup"
+msgstr "Créer la première sauvegarde"
+
+msgid "backup(s) selected"
+msgstr "sauvegarde(s) sélectionnée(s)"
+
+msgid "Download Selected"
+msgstr "Télécharger la sélection"
+
+msgid "Delete Selected"
+msgstr "Supprimer la sélection"
+
+msgid "Select All"
+msgstr "Tout sélectionner"
+
+msgid "Backup"
+msgstr "Sauvegarde"
+
+msgid "Type"
+msgstr "Type"
+
+msgid "Size"
+msgstr "Taille"
+
+msgid "Date"
+msgstr "Date"
+
+msgid "Actions"
+msgstr "Actions"
+
+msgid "SHA256: %s"
+msgstr "SHA256 : %s"
+
+msgid "Restore"
+msgstr "Restaurer"
+
+msgid "Download"
+msgstr "Télécharger"
+
+msgid "CLI Download"
+msgstr "Téléchargement CLI"
+
+msgid "Delete"
+msgstr "Supprimer"
+
+msgid "Backup in Progress"
+msgstr "Sauvegarde en cours"
+
+msgid "Initializing..."
+msgstr "Initialisation…"
+
+msgid "Restore Backup"
+msgstr "Restaurer la sauvegarde"
+
+msgid "Warning: This will overwrite your current site data. This action cannot be undone."
+msgstr "Avertissement : ceci écrasera les données actuelles de votre site. Cette action est irréversible."
+
+msgid "Restore Database"
+msgstr "Restaurer la base de données"
+
+msgid "Restore Files"
+msgstr "Restaurer les fichiers"
+
+msgid "Create backup before restore"
+msgstr "Créer une sauvegarde avant la restauration"
+
+msgid "Restore Now"
+msgstr "Restaurer maintenant"
+
+msgid "Cancel"
+msgstr "Annuler"
+
+msgid "CLI Download Command"
+msgstr "Commande de téléchargement CLI"
+
+msgid "Use these commands to download the backup via command line. Both support resume on failure."
+msgstr "Utilisez ces commandes pour télécharger la sauvegarde en ligne de commande. Les deux prennent en charge la reprise en cas d’échec."
+
+msgid "curl"
+msgstr "curl"
+
+msgid "aria2c"
+msgstr "aria2c"
+
+msgid "Recommended for 3GB+"
+msgstr "Recommandé pour 3 Go et plus"
+
+msgid "Copy"
+msgstr "Copier"
+
+msgid "aria2c not installed? See %s for installation instructions."
+msgstr "aria2c n’est pas installé ? Consultez %s pour les instructions d’installation."
+
+msgid "documentation"
+msgstr "la documentation"
+
+msgid "Note:"
+msgstr "Note :"
+
+msgid "The download link expires in 24 hours. If interrupted, re-run the same command to resume."
+msgstr "Le lien de téléchargement expire dans 24 heures. En cas d’interruption, relancez la même commande pour reprendre."
+
+msgid "Close"
+msgstr "Fermer"
+
+msgid "Backup Settings"
+msgstr "Réglages de sauvegarde"
+
+msgid "Performance"
+msgstr "Performance"
+
+msgid "Adjust batch sizes based on your hosting environment. Lower values are safer for shared hosting."
+msgstr "Ajustez les tailles de lots selon votre environnement d’hébergement. Des valeurs plus basses sont plus sûres pour un hébergement mutualisé."
+
+msgid "Files per Request"
+msgstr "Fichiers par requête"
+
+msgid "Shared (50)"
+msgstr "Mutualisé (50)"
+
+msgid "VPS (150)"
+msgstr "VPS (150)"
+
+msgid "Dedicated (300)"
+msgstr "Dédié (300)"
+
+msgid "Database Rows per Batch"
+msgstr "Lignes de base de données par lot"
+
+msgid "Default Backup Contents"
+msgstr "Contenu de sauvegarde par défaut"
+
+msgid "Database"
+msgstr "Base de données"
+
+msgid "Plugins"
+msgstr "Extensions"
+
+msgid "Themes"
+msgstr "Thèmes"
+
+msgid "Uploads"
+msgstr "Téléversements"
+
+msgid "Core Files"
+msgstr "Fichiers du cœur"
+
+msgid "Quick Presets"
+msgstr "Préréglages rapides"
+
+msgid "Shared Hosting"
+msgstr "Hébergement mutualisé"
+
+msgid "VPS / Managed"
+msgstr "VPS / Infogéré"
+
+msgid "Dedicated"
+msgstr "Dédié"
+
+msgid "Save Settings"
+msgstr "Enregistrer les réglages"
+
+msgid "Overview of your backups and system."
+msgstr "Vue d’ensemble de vos sauvegardes et de votre système."
+
+msgid "Total Backups"
+msgstr "Total des sauvegardes"
+
+msgid "%s stored"
+msgstr "%s stockés"
+
+msgid "System Status"
+msgstr "État du système"
+
+msgid "Ready"
+msgstr "Prêt"
+
+msgid "PHP"
+msgstr "PHP"
+
+msgid "Memory"
+msgstr "Mémoire"
+
+msgid "Max Exec"
+msgstr "Exéc. max"
+
+msgid "Disk Storage"
+msgstr "Stockage disque"
+
+msgid "%s%% of disk used"
+msgstr "%s%% du disque utilisé"
+
+msgid "Quick Actions"
+msgstr "Actions rapides"
+
+msgid "Create New Backup"
+msgstr "Créer une nouvelle sauvegarde"
+
+msgid "Migration Tools"
+msgstr "Outils de migration"
+
+msgid "Backup History"
+msgstr "Historique des sauvegardes"
+
+msgid "View All"
+msgstr "Tout afficher"
+
+msgid "Create your first backup to get started."
+msgstr "Créez votre première sauvegarde pour commencer."
+
+msgid "Date & Time"
+msgstr "Date et heure"
+
+msgid "Status"
+msgstr "État"
+
+msgid "Completed"
+msgstr "Terminé"
+
+msgid "Getting Started"
+msgstr "Premiers pas"
+
+msgid "Creating Backups"
+msgstr "Créer des sauvegardes"
+
+msgid "Restoring Backups"
+msgstr "Restaurer des sauvegardes"
+
+msgid "Scheduled Backups"
+msgstr "Sauvegardes planifiées"
+
+msgid "Cloud Storage"
+msgstr "Stockage cloud"
+
+msgid "Site Migration"
+msgstr "Migration de site"
+
+msgid "Advanced Features"
+msgstr "Fonctionnalités avancées"
+
+msgid "Installing aria2c"
+msgstr "Installation d’aria2c"
+
+msgid "Troubleshooting"
+msgstr "Dépannage"
+
+msgid "FAQ"
+msgstr "FAQ"
+
+msgid "Learn how to use Swish Backup to protect your WordPress site with easy-to-follow guides."
+msgstr "Apprenez à utiliser Swish Backup pour protéger votre site WordPress grâce à des guides faciles à suivre."
+
+msgid "Welcome to Swish Backup"
+msgstr "Bienvenue dans Swish Backup"
+
+msgid "Swish Backup is a powerful WordPress plugin that helps you create backups of your website, store them safely, and restore them when needed. Whether you're protecting against data loss or migrating to a new server, Swish Backup has you covered."
+msgstr "Swish Backup est une extension WordPress puissante qui vous aide à créer des sauvegardes de votre site, à les stocker en toute sécurité et à les restaurer en cas de besoin. Que vous vous protégiez contre la perte de données ou que vous migriez vers un nouveau serveur, Swish Backup s’occupe de tout."
+
+msgid "Dashboard Overview"
+msgstr "Vue d’ensemble du tableau de bord"
+
+msgid "The Dashboard is your central hub for managing backups. Here you can:"
+msgstr "Le tableau de bord est votre centre de gestion des sauvegardes. Vous pouvez y :"
+
+msgid "Create new backups with one click"
+msgstr "Créer de nouvelles sauvegardes en un clic"
+
+msgid "View your recent backups"
+msgstr "Consulter vos sauvegardes récentes"
+
+msgid "See storage status and space used"
+msgstr "Voir l’état du stockage et l’espace utilisé"
+
+msgid "Access quick actions for common tasks"
+msgstr "Accéder aux actions rapides pour les tâches courantes"
+
+msgid "First Steps"
+msgstr "Premières étapes"
+
+msgid "Create your first backup:"
+msgstr "Créez votre première sauvegarde :"
+
+msgid "Go to %s and click \"Create Backup\" to protect your site immediately."
+msgstr "Allez dans %s et cliquez sur « Créer une sauvegarde » pour protéger votre site immédiatement."
+
+msgid "Configure settings:"
+msgstr "Configurez les réglages :"
+
+msgid "Visit %s to customize backup options and set up cloud storage."
+msgstr "Rendez-vous dans %s pour personnaliser les options de sauvegarde et configurer le stockage cloud."
+
+msgid "Set up automatic backups:"
+msgstr "Configurez des sauvegardes automatiques :"
+
+msgid "Go to %s to enable automatic backups so you never forget."
+msgstr "Allez dans %s pour activer les sauvegardes automatiques afin de ne jamais oublier."
+
+msgid "Backup Types"
+msgstr "Types de sauvegarde"
+
+msgid "Swish Backup offers three types of backups:"
+msgstr "Swish Backup propose trois types de sauvegardes :"
+
+msgid "Includes everything: database, themes, plugins, uploads, and media files. This is the most complete backup option and recommended for most users."
+msgstr "Inclut tout : base de données, thèmes, extensions, téléversements et fichiers média. C’est l’option de sauvegarde la plus complète, recommandée pour la plupart des utilisateurs."
+
+msgid "Only backs up your WordPress database (posts, pages, settings, users). This is the fastest option and creates smaller backup files."
+msgstr "Sauvegarde uniquement votre base de données WordPress (articles, pages, réglages, utilisateurs). C’est l’option la plus rapide et elle produit des fichiers de sauvegarde plus petits."
+
+msgid "Backs up only your files (themes, plugins, uploads) without the database. Useful if you have a separate database backup solution."
+msgstr "Sauvegarde uniquement vos fichiers (thèmes, extensions, téléversements) sans la base de données. Utile si vous disposez d’une solution de sauvegarde de base de données distincte."
+
+msgid "How to Create a Backup"
+msgstr "Comment créer une sauvegarde"
+
+msgid "Go to %1$s or %2$s"
+msgstr "Allez dans %1$s ou %2$s"
+
+msgid "Click the \"Create Backup\" button"
+msgstr "Cliquez sur le bouton « Créer une sauvegarde »"
+
+msgid "Select your backup type (Full, Database, or Files)"
+msgstr "Sélectionnez votre type de sauvegarde (Complète, Base de données ou Fichiers)"
+
+msgid "Wait for the backup to complete - you'll see a progress bar"
+msgstr "Attendez la fin de la sauvegarde – une barre de progression s’affichera"
+
+msgid "Once complete, your backup will appear in the backups list"
+msgstr "Une fois terminée, votre sauvegarde apparaîtra dans la liste des sauvegardes"
+
+msgid "Tip: Create a full backup before making major changes to your site, such as updating WordPress, themes, or plugins."
+msgstr "Astuce : créez une sauvegarde complète avant toute modification majeure de votre site, comme la mise à jour de WordPress, des thèmes ou des extensions."
+
+msgid "How to Restore a Backup"
+msgstr "Comment restaurer une sauvegarde"
+
+msgid "Go to %s"
+msgstr "Allez dans %s"
+
+msgid "Find the backup you want to restore"
+msgstr "Trouvez la sauvegarde que vous souhaitez restaurer"
+
+msgid "Click the \"Restore\" button"
+msgstr "Cliquez sur le bouton « Restaurer »"
+
+msgid "Choose what to restore (database, files, or both)"
+msgstr "Choisissez ce que vous voulez restaurer (base de données, fichiers ou les deux)"
+
+msgid "Optionally, enable \"Create backup before restore\" for safety"
+msgstr "Activez éventuellement « Créer une sauvegarde avant la restauration » par sécurité"
+
+msgid "Click \"Restore Now\" to begin"
+msgstr "Cliquez sur « Restaurer maintenant » pour commencer"
+
+msgid "Warning: Restoring a backup will overwrite your current site data. Always enable \"Create backup before restore\" unless you're sure you want to replace everything."
+msgstr "Avertissement : restaurer une sauvegarde écrasera les données actuelles de votre site. Activez toujours « Créer une sauvegarde avant la restauration », sauf si vous êtes certain de vouloir tout remplacer."
+
+msgid "Restore Options"
+msgstr "Options de restauration"
+
+msgid "Restore Database:"
+msgstr "Restaurer la base de données :"
+
+msgid "Restores all your content, settings, and user data"
+msgstr "Restaure tout votre contenu, vos réglages et vos données utilisateurs"
+
+msgid "Restore Files:"
+msgstr "Restaurer les fichiers :"
+
+msgid "Restores themes, plugins, and uploaded files"
+msgstr "Restaure les thèmes, les extensions et les fichiers téléversés"
+
+msgid "Create backup before restore:"
+msgstr "Créer une sauvegarde avant la restauration :"
+
+msgid "Creates a safety backup of your current site first"
+msgstr "Crée d’abord une sauvegarde de sécurité de votre site actuel"
+
+msgid "Setting Up Automatic Backups"
+msgstr "Configurer des sauvegardes automatiques"
+
+msgid "Automatic backups ensure your site is always protected without you having to remember to create backups manually."
+msgstr "Les sauvegardes automatiques garantissent que votre site est toujours protégé sans que vous ayez à penser à créer des sauvegardes manuellement."
+
+msgid "Click \"Add New Schedule\""
+msgstr "Cliquez sur « Ajouter une planification »"
+
+msgid "Choose a frequency (Hourly, Daily, Weekly, or Monthly)"
+msgstr "Choisissez une fréquence (Toutes les heures, Quotidienne, Hebdomadaire ou Mensuelle)"
+
+msgid "Select the backup type"
+msgstr "Sélectionnez le type de sauvegarde"
+
+msgid "Choose where to store backups"
+msgstr "Choisissez où stocker les sauvegardes"
+
+msgid "Save your schedule"
+msgstr "Enregistrez votre planification"
+
+msgid "Recommended Schedule"
+msgstr "Planification recommandée"
+
+msgid "Busy sites (e-commerce, news):"
+msgstr "Sites très actifs (e-commerce, actualités) :"
+
+msgid "Daily full backups"
+msgstr "Sauvegardes complètes quotidiennes"
+
+msgid "Regular blogs:"
+msgstr "Blogs classiques :"
+
+msgid "Weekly full backups"
+msgstr "Sauvegardes complètes hebdomadaires"
+
+msgid "Static sites:"
+msgstr "Sites statiques :"
+
+msgid "Monthly full backups"
+msgstr "Sauvegardes complètes mensuelles"
+
+msgid "Why Use Cloud Storage?"
+msgstr "Pourquoi utiliser le stockage cloud ?"
+
+msgid "Storing backups in the cloud protects you even if something happens to your server. Your backups are safe and accessible from anywhere."
+msgstr "Stocker vos sauvegardes dans le cloud vous protège même en cas de problème sur votre serveur. Vos sauvegardes sont en sécurité et accessibles depuis n’importe où."
+
+msgid "Supported Storage Providers"
+msgstr "Fournisseurs de stockage pris en charge"
+
+msgid "Amazon S3"
+msgstr "Amazon S3"
+
+msgid "Professional-grade cloud storage from Amazon Web Services. Great for businesses needing reliable, scalable storage."
+msgstr "Stockage cloud de niveau professionnel proposé par Amazon Web Services. Idéal pour les entreprises ayant besoin d’un stockage fiable et évolutif."
+
+msgid "Dropbox"
+msgstr "Dropbox"
+
+msgid "Easy-to-use cloud storage. Perfect if you already use Dropbox for other files."
+msgstr "Stockage cloud facile à utiliser. Parfait si vous utilisez déjà Dropbox pour d’autres fichiers."
+
+msgid "Google Drive"
+msgstr "Google Drive"
+
+msgid "Store backups in your Google Drive account. Great integration with Google Workspace."
+msgstr "Stockez vos sauvegardes dans votre compte Google Drive. Excellente intégration avec Google Workspace."
+
+msgid "Setting Up Cloud Storage"
+msgstr "Configurer le stockage cloud"
+
+msgid "Find the Storage section"
+msgstr "Trouvez la section Stockage"
+
+msgid "Click on your preferred storage provider"
+msgstr "Cliquez sur votre fournisseur de stockage préféré"
+
+msgid "Enter your API credentials (instructions provided)"
+msgstr "Saisissez vos identifiants API (instructions fournies)"
+
+msgid "Test the connection"
+msgstr "Testez la connexion"
+
+msgid "Save your settings"
+msgstr "Enregistrez vos réglages"
+
+msgid "Moving Your Site to a New Domain"
+msgstr "Déplacer votre site vers un nouveau domaine"
+
+msgid "Create a full backup on your current site"
+msgstr "Créez une sauvegarde complète sur votre site actuel"
+
+msgid "Download the backup file"
+msgstr "Téléchargez le fichier de sauvegarde"
+
+msgid "Install WordPress on your new server/domain"
+msgstr "Installez WordPress sur votre nouveau serveur/domaine"
+
+msgid "Install and activate Swish Backup"
+msgstr "Installez et activez Swish Backup"
+
+msgid "Upload your backup file"
+msgstr "Téléversez votre fichier de sauvegarde"
+
+msgid "Enter your old and new URLs"
+msgstr "Saisissez vos ancienne et nouvelle URL"
+
+msgid "Click \"Migrate\" - the plugin will update all URLs automatically"
+msgstr "Cliquez sur « Migrer » – l’extension mettra à jour toutes les URL automatiquement"
+
+msgid "Search and Replace"
+msgstr "Rechercher et remplacer"
+
+msgid "The Migration page also includes a Search and Replace tool. This is useful for:"
+msgstr "La page Migration comprend également un outil Rechercher et remplacer. Il est utile pour :"
+
+msgid "Changing URLs throughout your database"
+msgstr "Modifier les URL dans toute votre base de données"
+
+msgid "Switching from HTTP to HTTPS"
+msgstr "Passer de HTTP à HTTPS"
+
+msgid "Fixing broken links after a domain change"
+msgstr "Corriger les liens cassés après un changement de domaine"
+
+msgid "Tip: Always create a backup before running Search and Replace, just in case you need to undo the changes."
+msgstr "Astuce : créez toujours une sauvegarde avant de lancer Rechercher et remplacer, au cas où vous devriez annuler les modifications."
+
+msgid "Unlimited Backup Size"
+msgstr "Taille de sauvegarde illimitée"
+
+msgid "There is no backup size limit. You can back up sites of any size, including:"
+msgstr "Il n’y a aucune limite de taille de sauvegarde. Vous pouvez sauvegarder des sites de toute taille, y compris :"
+
+msgid "E-commerce sites with large product catalogs"
+msgstr "Sites e-commerce avec de vastes catalogues de produits"
+
+msgid "Media-heavy websites with lots of images and videos"
+msgstr "Sites riches en médias avec beaucoup d’images et de vidéos"
+
+msgid "Established blogs with years of content"
+msgstr "Blogs établis avec des années de contenu"
+
+msgid "Enterprise sites with extensive data"
+msgstr "Sites d’entreprise avec des données volumineuses"
+
+msgid "WordPress Multisite Support"
+msgstr "Prise en charge de WordPress multisite"
+
+msgid "Full support for WordPress Multisite networks:"
+msgstr "Prise en charge complète des réseaux WordPress multisite :"
+
+msgid "Network-wide Backups"
+msgstr "Sauvegardes de tout le réseau"
+
+msgid "Backup your entire multisite network with all subsites in a single operation."
+msgstr "Sauvegardez l’ensemble de votre réseau multisite avec tous les sous-sites en une seule opération."
+
+msgid "Selective Site Backup"
+msgstr "Sauvegarde sélective de sites"
+
+msgid "Choose specific sites to include in your backup instead of backing up the entire network."
+msgstr "Choisissez des sites spécifiques à inclure dans votre sauvegarde au lieu de sauvegarder tout le réseau."
+
+msgid "Flexible Archive Modes"
+msgstr "Modes d’archive flexibles"
+
+msgid "Create a single archive containing all sites, or generate separate archives for each site."
+msgstr "Créez une archive unique contenant tous les sites, ou générez des archives séparées pour chaque site."
+
+msgid "WordPress Core Files Backup"
+msgstr "Sauvegarde des fichiers du cœur de WordPress"
+
+msgid "Include WordPress core files (wp-admin, wp-includes) in your backups. This is useful for:"
+msgstr "Incluez les fichiers du cœur de WordPress (wp-admin, wp-includes) dans vos sauvegardes. C’est utile pour :"
+
+msgid "Complete site cloning to a new server"
+msgstr "Le clonage complet du site vers un nouveau serveur"
+
+msgid "Disaster recovery where WordPress needs to be fully restored"
+msgstr "La reprise après sinistre lorsque WordPress doit être entièrement restauré"
+
+msgid "Preserving custom core modifications (not recommended, but sometimes necessary)"
+msgstr "La préservation de modifications personnalisées du cœur (déconseillé, mais parfois nécessaire)"
+
+msgid "Selective Folder Backup"
+msgstr "Sauvegarde sélective de dossiers"
+
+msgid "Choose exactly which wp-content folders to include in your backup:"
+msgstr "Choisissez précisément les dossiers de wp-content à inclure dans votre sauvegarde :"
+
+msgid "Themes:"
+msgstr "Thèmes :"
+
+msgid "All installed themes"
+msgstr "Tous les thèmes installés"
+
+msgid "Plugins:"
+msgstr "Extensions :"
+
+msgid "All installed plugins"
+msgstr "Toutes les extensions installées"
+
+msgid "Uploads:"
+msgstr "Téléversements :"
+
+msgid "Media library files"
+msgstr "Fichiers de la médiathèque"
+
+msgid "MU-Plugins:"
+msgstr "Extensions MU :"
+
+msgid "Must-use plugins"
+msgstr "Extensions indispensables (must-use)"
+
+msgid "Tip: Exclude large folders like uploads when you only need to backup code changes, making backups faster and smaller."
+msgstr "Astuce : excluez les gros dossiers comme les téléversements quand vous n’avez besoin de sauvegarder que des modifications de code, pour des sauvegardes plus rapides et plus légères."
+
+msgid "Recommended for large files (3GB+)"
+msgstr "Recommandé pour les fichiers volumineux (3 Go et plus)"
+
+msgid "aria2c is a lightweight download utility with better resume capabilities than curl. It handles connection drops more gracefully and is recommended for downloading large backup files."
+msgstr "aria2c est un utilitaire de téléchargement léger offrant de meilleures capacités de reprise que curl. Il gère mieux les coupures de connexion et est recommandé pour télécharger de gros fichiers de sauvegarde."
+
+msgid "Linux (Ubuntu/Debian)"
+msgstr "Linux (Ubuntu/Debian)"
+
+msgid "macOS (using Homebrew)"
+msgstr "macOS (avec Homebrew)"
+
+msgid "Windows (using Chocolatey)"
+msgstr "Windows (avec Chocolatey)"
+
+msgid "Windows (Manual Installation)"
+msgstr "Windows (installation manuelle)"
+
+msgid "Download the latest release from the"
+msgstr "Téléchargez la dernière version depuis la"
+
+msgid "aria2 GitHub releases page"
+msgstr "page des versions GitHub d’aria2"
+
+msgid "Extract the zip file"
+msgstr "Extrayez le fichier zip"
+
+msgid "Add the extracted folder containing aria2c.exe to your system's PATH environment variable"
+msgstr "Ajoutez le dossier extrait contenant aria2c.exe à la variable d’environnement PATH de votre système"
+
+msgid "Arch Linux"
+msgstr "Arch Linux"
+
+msgid "Verify Installation"
+msgstr "Vérifier l’installation"
+
+msgid "After installation, verify aria2c is working by checking the version:"
+msgstr "Après l’installation, vérifiez qu’aria2c fonctionne en contrôlant la version :"
+
+msgid "You should see version information if installed correctly."
+msgstr "Vous devriez voir les informations de version si l’installation est correcte."
+
+msgid "Why aria2c for Large Downloads?"
+msgstr "Pourquoi aria2c pour les téléchargements volumineux ?"
+
+msgid "Better Resume Support"
+msgstr "Meilleure prise en charge de la reprise"
+
+msgid "Automatically resumes interrupted downloads without losing progress"
+msgstr "Reprend automatiquement les téléchargements interrompus sans perdre la progression"
+
+msgid "Connection Handling"
+msgstr "Gestion des connexions"
+
+msgid "More resilient to connection drops and timeouts"
+msgstr "Plus résistant aux coupures de connexion et aux délais d’attente"
+
+msgid "Automatic Retries"
+msgstr "Nouvelles tentatives automatiques"
+
+msgid "Configurable retry attempts with delays between retries"
+msgstr "Nombre de tentatives configurable avec délais entre les tentatives"
+
+msgid "Progress Tracking"
+msgstr "Suivi de la progression"
+
+msgid "Saves download state for seamless continuation"
+msgstr "Enregistre l’état du téléchargement pour une reprise transparente"
+
+msgid "Backup is Taking Too Long"
+msgstr "La sauvegarde prend trop de temps"
+
+msgid "Large sites may take longer to backup. Try these solutions:"
+msgstr "Les sites volumineux peuvent prendre plus de temps à sauvegarder. Essayez ces solutions :"
+
+msgid "Create a Database-only backup first (it's faster)"
+msgstr "Créez d’abord une sauvegarde de la base de données uniquement (c’est plus rapide)"
+
+msgid "Check your server's PHP memory limit in Settings"
+msgstr "Vérifiez la limite de mémoire PHP de votre serveur dans les Réglages"
+
+msgid "Consider backing up during low-traffic periods"
+msgstr "Envisagez de sauvegarder pendant les périodes de faible trafic"
+
+msgid "Backup Failed"
+msgstr "Échec de la sauvegarde"
+
+msgid "If a backup fails, check the following:"
+msgstr "Si une sauvegarde échoue, vérifiez les points suivants :"
+
+msgid "Disk space: Make sure you have enough free space"
+msgstr "Espace disque : assurez-vous d’avoir suffisamment d’espace libre"
+
+msgid "Permissions: The wp-content folder must be writable"
+msgstr "Droits : le dossier wp-content doit être accessible en écriture"
+
+msgid "Memory limit: Increase PHP memory if your host allows"
+msgstr "Limite de mémoire : augmentez la mémoire PHP si votre hébergeur le permet"
+
+msgid "File size: There is no backup size limit, but very large sites need adequate disk space"
+msgstr "Taille de fichier : il n’y a pas de limite de taille de sauvegarde, mais les très gros sites nécessitent un espace disque suffisant"
+
+msgid "Cloud Storage Not Working"
+msgstr "Le stockage cloud ne fonctionne pas"
+
+msgid "Double-check your API credentials"
+msgstr "Vérifiez à nouveau vos identifiants API"
+
+msgid "Use the \"Test Connection\" button to verify settings"
+msgstr "Utilisez le bouton « Tester la connexion » pour vérifier les réglages"
+
+msgid "Make sure your server can make outbound connections"
+msgstr "Assurez-vous que votre serveur peut établir des connexions sortantes"
+
+msgid "Check that the cURL PHP extension is enabled"
+msgstr "Vérifiez que l’extension PHP cURL est activée"
+
+msgid "Frequently Asked Questions"
+msgstr "Questions fréquentes"
+
+msgid "Where are my backups stored?"
+msgstr "Où mes sauvegardes sont-elles stockées ?"
+
+msgid "By default, backups are stored in wp-content/swish-backups/ on your server. You can also configure cloud storage to save copies to Amazon S3, Dropbox, or Google Drive."
+msgstr "Par défaut, les sauvegardes sont stockées dans wp-content/swish-backups/ sur votre serveur. Vous pouvez également configurer un stockage cloud pour enregistrer des copies sur Amazon S3, Dropbox ou Google Drive."
+
+msgid "How large can my backups be?"
+msgstr "Quelle taille mes sauvegardes peuvent-elles atteindre ?"
+
+msgid "There is no backup size limit. Make sure your server has enough free disk space to hold the archive."
+msgstr "Il n’y a aucune limite de taille de sauvegarde. Assurez-vous que votre serveur dispose de suffisamment d’espace disque libre pour contenir l’archive."
+
+msgid "Can I restore a backup to a different site?"
+msgstr "Puis-je restaurer une sauvegarde sur un autre site ?"
+
+msgid "Yes! Download your backup and use the Migration tool on the new site. The plugin will automatically update URLs during the migration process."
+msgstr "Oui ! Téléchargez votre sauvegarde et utilisez l’outil de migration sur le nouveau site. L’extension mettra automatiquement à jour les URL pendant le processus de migration."
+
+msgid "Will backups slow down my site?"
+msgstr "Les sauvegardes vont-elles ralentir mon site ?"
+
+msgid "Backups use server resources while running, but they don't affect your site when not active. Schedule backups during low-traffic times for best results."
+msgstr "Les sauvegardes utilisent des ressources serveur pendant leur exécution, mais n’affectent pas votre site lorsqu’elles sont inactives. Planifiez les sauvegardes pendant les périodes de faible trafic pour de meilleurs résultats."
+
+msgid "Are my cloud storage credentials secure?"
+msgstr "Mes identifiants de stockage cloud sont-ils sécurisés ?"
+
+msgid "Yes, all credentials are encrypted using AES-256-CBC encryption before being stored in your database. Only your site can decrypt them."
+msgstr "Oui, tous les identifiants sont chiffrés avec l’algorithme AES-256-CBC avant d’être stockés dans votre base de données. Seul votre site peut les déchiffrer."
+
+msgid "Does this plugin work with WordPress Multisite?"
+msgstr "Cette extension fonctionne-t-elle avec WordPress multisite ?"
+
+msgid "Yes. On multisite installations you get network-wide backups, selective site backup, multisite migration, and site duplication under Network Admin → Swish Backup."
+msgstr "Oui. Sur les installations multisites, vous bénéficiez de sauvegardes de tout le réseau, de la sauvegarde sélective de sites, de la migration multisite et de la duplication de site sous Admin du réseau → Swish Backup."
+
+msgid "How do I get support?"
+msgstr "Comment obtenir de l’aide ?"
+
+msgid "Email us at %s for assistance. Pro users receive priority support."
+msgstr "Écrivez-nous à %s pour obtenir de l’aide. Les utilisateurs Pro bénéficient d’un support prioritaire."
+
+msgid "Enable Logging"
+msgstr "Activer la journalisation"
+
+msgid "Logging is enabled. Backup operations will be recorded."
+msgstr "La journalisation est activée. Les opérations de sauvegarde seront enregistrées."
+
+msgid "Logging is disabled. Enable to record backup operations for debugging."
+msgstr "La journalisation est désactivée. Activez-la pour enregistrer les opérations de sauvegarde à des fins de débogage."
+
+msgid "Filter by level:"
+msgstr "Filtrer par niveau :"
+
+msgid "All Levels"
+msgstr "Tous les niveaux"
+
+msgid "Error"
+msgstr "Erreur"
+
+msgid "Warning"
+msgstr "Avertissement"
+
+msgid "Info"
+msgstr "Info"
+
+msgid "Debug"
+msgstr "Débogage"
+
+msgid "Are you sure you want to delete all logs?"
+msgstr "Voulez-vous vraiment supprimer tous les journaux ?"
+
+msgid "Delete All Logs"
+msgstr "Supprimer tous les journaux"
+
+msgid "No Logs Found"
+msgstr "Aucun journal trouvé"
+
+msgid "Logs will appear here after backup operations are performed."
+msgstr "Les journaux apparaîtront ici après l’exécution d’opérations de sauvegarde."
+
+msgid "Time"
+msgstr "Heure"
+
+msgid "Level"
+msgstr "Niveau"
+
+msgid "Message"
+msgstr "Message"
+
+msgid "Job ID"
+msgstr "ID de tâche"
+
+msgid "Showing %d most recent log entries"
+msgstr "Affichage des %d entrées de journal les plus récentes"
+
+msgid "Logging has been enabled."
+msgstr "La journalisation a été activée."
+
+msgid "Logging has been disabled."
+msgstr "La journalisation a été désactivée."
+
+msgid "All logs have been deleted."
+msgstr "Tous les journaux ont été supprimés."
+
+msgid "Step 1: Choose Migration Method"
+msgstr "Étape 1 : choisir la méthode de migration"
+
+msgid "Import Backup"
+msgstr "Importer une sauvegarde"
+
+msgid "Import a backup file from another site"
+msgstr "Importer un fichier de sauvegarde depuis un autre site"
+
+msgid "Export for Migration"
+msgstr "Exporter pour migration"
+
+msgid "Create a migration package for this site"
+msgstr "Créer un paquet de migration pour ce site"
+
+msgid "Search & Replace"
+msgstr "Rechercher et remplacer"
+
+msgid "Replace URLs or strings in the database"
+msgstr "Remplacer des URL ou des chaînes dans la base de données"
+
+msgid "Step 2: Upload Backup File"
+msgstr "Étape 2 : téléverser le fichier de sauvegarde"
+
+msgid "Drag and drop a backup file here, or click to select"
+msgstr "Glissez-déposez un fichier de sauvegarde ici, ou cliquez pour le sélectionner"
+
+msgid "Select File"
+msgstr "Sélectionner un fichier"
+
+msgid "Max upload size: %s"
+msgstr "Taille de téléversement maximale : %s"
+
+msgid "Selected file:"
+msgstr "Fichier sélectionné :"
+
+msgid "Or Import from Server"
+msgstr "Ou importer depuis le serveur"
+
+msgid "For large backups (1GB+), upload via FTP/SFTP to wp-content/swish-backups/ then select from the list below."
+msgstr "Pour les sauvegardes volumineuses (1 Go et plus), téléversez via FTP/SFTP dans wp-content/swish-backups/ puis sélectionnez le fichier dans la liste ci-dessous."
+
+msgid "Browse Server Files"
+msgstr "Parcourir les fichiers du serveur"
+
+msgid "File"
+msgstr "Fichier"
+
+msgid "Action"
+msgstr "Action"
+
+msgid "Files from: %s"
+msgstr "Fichiers depuis : %s"
+
+msgid "Backup Analysis"
+msgstr "Analyse de la sauvegarde"
+
+msgid "Back"
+msgstr "Retour"
+
+msgid "Continue"
+msgstr "Continuer"
+
+msgid "Step 3: URL Configuration"
+msgstr "Étape 3 : configuration des URL"
+
+msgid "Configure URL replacement to update all references in the database."
+msgstr "Configurez le remplacement d’URL pour mettre à jour toutes les références dans la base de données."
+
+msgid "Old Site URL"
+msgstr "Ancienne URL du site"
+
+msgid "The URL of the site where the backup was created."
+msgstr "L’URL du site sur lequel la sauvegarde a été créée."
+
+msgid "New Site URL"
+msgstr "Nouvelle URL du site"
+
+msgid "The URL of this site."
+msgstr "L’URL de ce site."
+
+msgid "Preview Changes"
+msgstr "Prévisualiser les modifications"
+
+msgid "Start Migration"
+msgstr "Démarrer la migration"
+
+msgid "Create a migration package that can be imported on another site."
+msgstr "Créez un paquet de migration pouvant être importé sur un autre site."
+
+msgid "Include in Export"
+msgstr "Inclure dans l’export"
+
+msgid "WordPress Core (not recommended)"
+msgstr "Cœur de WordPress (déconseillé)"
+
+msgid "Create Export"
+msgstr "Créer l’export"
+
+msgid "Search and replace text in your database. Supports serialized data."
+msgstr "Recherchez et remplacez du texte dans votre base de données. Prend en charge les données sérialisées."
+
+msgid "Search For"
+msgstr "Rechercher"
+
+msgid "Replace With"
+msgstr "Remplacer par"
+
+msgid "Preview"
+msgstr "Prévisualiser"
+
+msgid "Run Search & Replace"
+msgstr "Lancer Rechercher et remplacer"
+
+msgid "Migration in Progress"
+msgstr "Migration en cours"
+
+msgid "Migration Progress"
+msgstr "Progression de la migration"
+
+msgid "Migration completed successfully!"
+msgstr "Migration terminée avec succès !"
+
+msgid "View Site"
+msgstr "Voir le site"
+
+msgid "Go to Dashboard"
+msgstr "Aller au tableau de bord"
+
+msgid "Duplicate"
+msgstr "Dupliquer"
+
+msgid "History"
+msgstr "Historique"
+
+msgid "Multisite"
+msgstr "Multisite"
+
+msgid "Search..."
+msgstr "Rechercher…"
+
+msgid "All Statuses"
+msgstr "Tous les états"
+
+msgid "Success"
+msgstr "Succès"
+
+msgid "Failed"
+msgstr "Échec"
+
+msgid "In Progress"
+msgstr "En cours"
+
+msgid "Create your first multisite backup using the form above."
+msgstr "Créez votre première sauvegarde multisite à l’aide du formulaire ci-dessus."
+
+msgid "Archive Mode"
+msgstr "Mode d’archive"
+
+msgid "Sites"
+msgstr "Sites"
+
+msgid "Single Archive"
+msgstr "Archive unique"
+
+msgid "Separate"
+msgstr "Séparées"
+
+msgid "%d site"
+msgid_plural "%d sites"
+msgstr[0] "%d site"
+msgstr[1] "%d sites"
+
+msgid "View Files"
+msgstr "Voir les fichiers"
+
+msgid "Site %d"
+msgstr "Site %d"
+
+msgid "Showing %d backups"
+msgstr "Affichage de %d sauvegardes"
+
+msgid "Are you sure you want to delete this backup? This action cannot be undone."
+msgstr "Voulez-vous vraiment supprimer cette sauvegarde ? Cette action est irréversible."
+
+msgid "Error:"
+msgstr "Erreur :"
+
+msgid "Failed to delete backup"
+msgstr "Échec de la suppression de la sauvegarde"
+
+msgid "AJAX error. Please try again."
+msgstr "Erreur AJAX. Veuillez réessayer."
+
+msgid "Search sites..."
+msgstr "Rechercher des sites…"
+
+msgid "%d sites in network"
+msgstr "%d sites dans le réseau"
+
+msgid "Site Name"
+msgstr "Nom du site"
+
+msgid "URL"
+msgstr "URL"
+
+msgid "MAIN"
+msgstr "PRINCIPAL"
+
+msgid "No Sites Found"
+msgstr "Aucun site trouvé"
+
+msgid "There are no sites available in this network."
+msgstr "Aucun site n’est disponible dans ce réseau."
+
+msgid "Duplicate Site"
+msgstr "Dupliquer le site"
+
+msgid "Source Site"
+msgstr "Site source"
+
+msgid "New Site Title"
+msgstr "Titre du nouveau site"
+
+msgid "Enter site title..."
+msgstr "Saisissez le titre du site…"
+
+msgid "newsite"
+msgstr "nouveausite"
+
+msgid "Use only lowercase letters, numbers, and hyphens."
+msgstr "Utilisez uniquement des lettres minuscules, des chiffres et des tirets."
+
+msgid "Duplication Options"
+msgstr "Options de duplication"
+
+msgid "Copy media uploads"
+msgstr "Copier les médias téléversés"
+
+msgid "Include all images, videos, and other uploaded files from the source site."
+msgstr "Inclure toutes les images, vidéos et autres fichiers téléversés du site source."
+
+msgid "Start Duplication"
+msgstr "Démarrer la duplication"
+
+msgid "Delete Site"
+msgstr "Supprimer le site"
+
+msgid "This action cannot be undone!"
+msgstr "Cette action est irréversible !"
+
+msgid "Deleting this site will permanently remove all its content, media files, and database tables."
+msgstr "La suppression de ce site retirera définitivement tout son contenu, ses fichiers média et ses tables de base de données."
+
+msgid "Site to Delete"
+msgstr "Site à supprimer"
+
+msgid "Type %s to confirm:"
+msgstr "Saisissez %s pour confirmer :"
+
+msgid "Type DELETE here..."
+msgstr "Saisissez DELETE ici…"
+
+msgid "This confirmation is required to prevent accidental deletions."
+msgstr "Cette confirmation est requise pour éviter les suppressions accidentelles."
+
+msgid "Delete Site Permanently"
+msgstr "Supprimer le site définitivement"
+
+msgid "Duplicating Site"
+msgstr "Duplication du site"
+
+msgid "Duplication Progress"
+msgstr "Progression de la duplication"
+
+msgid "Site Duplicated!"
+msgstr "Site dupliqué !"
+
+msgid "Visit New Site"
+msgstr "Visiter le nouveau site"
+
+msgid "Duplication Failed"
+msgstr "Échec de la duplication"
+
+msgid "Retry"
+msgstr "Réessayer"
+
+msgid "Initializing"
+msgstr "Initialisation"
+
+msgid "Preparing duplication"
+msgstr "Préparation de la duplication"
+
+msgid "Copying Database"
+msgstr "Copie de la base de données"
+
+msgid "Duplicating site tables"
+msgstr "Duplication des tables du site"
+
+msgid "Copying Uploads"
+msgstr "Copie des téléversements"
+
+msgid "Duplicating media files"
+msgstr "Duplication des fichiers média"
+
+msgid "URL Replacement"
+msgstr "Remplacement des URL"
+
+msgid "Updating URLs in database"
+msgstr "Mise à jour des URL dans la base de données"
+
+msgid "Finalizing"
+msgstr "Finalisation"
+
+msgid "Completing duplication"
+msgstr "Finalisation de la duplication"
+
+msgid "Checking availability..."
+msgstr "Vérification de la disponibilité…"
+
+msgid "Could not verify availability."
+msgstr "Impossible de vérifier la disponibilité."
+
+msgid "Please enter a site title."
+msgstr "Veuillez saisir un titre de site."
+
+msgid "Please enter a URL slug."
+msgstr "Veuillez saisir un slug d’URL."
+
+msgid "URL slug must be at least 2 characters."
+msgstr "Le slug d’URL doit comporter au moins 2 caractères."
+
+msgid "Please choose an available URL."
+msgstr "Veuillez choisir une URL disponible."
+
+msgid "Failed to start duplication."
+msgstr "Échec du démarrage de la duplication."
+
+msgid "Network error. Please try again."
+msgstr "Erreur réseau. Veuillez réessayer."
+
+msgid "Site duplicated successfully!"
+msgstr "Site dupliqué avec succès !"
+
+msgid "Duplication failed."
+msgstr "Échec de la duplication."
+
+msgid "Please type DELETE to confirm."
+msgstr "Veuillez saisir DELETE pour confirmer."
+
+msgid "Deleting..."
+msgstr "Suppression…"
+
+msgid "Failed to delete site."
+msgstr "Échec de la suppression du site."
+
+msgid "Export / Download"
+msgstr "Exporter / Télécharger"
+
+msgid "Import / Restore"
+msgstr "Importer / Restaurer"
+
+msgid "Available Multisite Backups"
+msgstr "Sauvegardes multisites disponibles"
+
+msgid "Download backups to migrate to another server or keep as off-site storage."
+msgstr "Téléchargez des sauvegardes pour migrer vers un autre serveur ou les conserver comme stockage hors site."
+
+msgid "No Backups Available"
+msgstr "Aucune sauvegarde disponible"
+
+msgid "Create a multisite backup first to enable migration."
+msgstr "Créez d’abord une sauvegarde multisite pour activer la migration."
+
+msgid "Import Multisite Backup"
+msgstr "Importer une sauvegarde multisite"
+
+msgid "Upload a multisite backup file to restore or migrate sites."
+msgstr "Téléversez un fichier de sauvegarde multisite pour restaurer ou migrer des sites."
+
+msgid "Warning:"
+msgstr "Avertissement :"
+
+msgid "Importing a backup will overwrite existing data. Make sure you have a current backup before proceeding."
+msgstr "L’import d’une sauvegarde écrasera les données existantes. Assurez-vous de disposer d’une sauvegarde récente avant de continuer."
+
+msgid "Upload Backup File"
+msgstr "Téléverser un fichier de sauvegarde"
+
+msgid "Drag and drop your backup file here"
+msgstr "Glissez-déposez votre fichier de sauvegarde ici"
+
+msgid "or"
+msgstr "ou"
+
+msgid "Choose File"
+msgstr "Choisir un fichier"
+
+msgid "Accepts .zip and .swish files"
+msgstr "Accepte les fichiers .zip et .swish"
+
+msgid "Remove file"
+msgstr "Retirer le fichier"
+
+msgid "Or Select Existing Backup"
+msgstr "Ou sélectionner une sauvegarde existante"
+
+msgid "— Select a backup —"
+msgstr "— Sélectionner une sauvegarde —"
+
+msgid "sites"
+msgstr "sites"
+
+msgid "No existing multisite backups found."
+msgstr "Aucune sauvegarde multisite existante trouvée."
+
+msgid "WordPress Multisite Setup Required"
+msgstr "Configuration de WordPress multisite requise"
+
+msgid "This backup was created from a WordPress multisite network. To import it, you must first convert your WordPress installation to a multisite network."
+msgstr "Cette sauvegarde a été créée depuis un réseau WordPress multisite. Pour l’importer, vous devez d’abord convertir votre installation WordPress en réseau multisite."
+
+msgid "Automatic conversion is not supported."
+msgstr "La conversion automatique n’est pas prise en charge."
+
+msgid "Please follow the manual steps below to set up multisite, then return to this page to import your backup."
+msgstr "Veuillez suivre les étapes manuelles ci-dessous pour configurer le multisite, puis revenez sur cette page pour importer votre sauvegarde."
+
+msgid "Read Official Documentation"
+msgstr "Lire la documentation officielle"
+
+msgid "Select Site to Import"
+msgstr "Sélectionner le site à importer"
+
+msgid "This multisite backup contains multiple sites. Select which site to import into this WordPress installation."
+msgstr "Cette sauvegarde multisite contient plusieurs sites. Sélectionnez le site à importer dans cette installation WordPress."
+
+msgid "— Select a site —"
+msgstr "— Sélectionner un site —"
+
+msgid "Import Options"
+msgstr "Options d’import"
+
+msgid "URL Search & Replace"
+msgstr "Rechercher et remplacer des URL"
+
+msgid "Old URL (e.g., https://old-site.com)"
+msgstr "Ancienne URL (par ex. https://old-site.com)"
+
+msgid "New URL (e.g., https://new-site.com)"
+msgstr "Nouvelle URL (par ex. https://new-site.com)"
+
+msgid "Replace URLs in the database during import. Leave empty to keep original URLs."
+msgstr "Remplacer les URL dans la base de données pendant l’import. Laissez vide pour conserver les URL d’origine."
+
+msgid "Preview Results"
+msgstr "Prévisualiser les résultats"
+
+msgid "Import shared network tables (users, usermeta, etc.)"
+msgstr "Importer les tables partagées du réseau (users, usermeta, etc.)"
+
+msgid "Warning: This will overwrite all user data across the network."
+msgstr "Avertissement : ceci écrasera toutes les données utilisateurs de l’ensemble du réseau."
+
+msgid "Backup Contents"
+msgstr "Contenu de la sauvegarde"
+
+msgid "Start Import"
+msgstr "Démarrer l’import"
+
+msgid "Importing Backup"
+msgstr "Import de la sauvegarde"
+
+msgid "Initializing import..."
+msgstr "Initialisation de l’import…"
+
+msgid "Import Progress"
+msgstr "Progression de l’import"
+
+msgid "Run in Background"
+msgstr "Exécuter en arrière-plan"
+
+msgid "Import Complete!"
+msgstr "Import terminé !"
+
+msgid "Your backup has been imported successfully."
+msgstr "Votre sauvegarde a été importée avec succès."
+
+msgid "Close & Reload"
+msgstr "Fermer et recharger"
+
+msgid "Import Failed"
+msgstr "Échec de l’import"
+
+msgid "Try Again"
+msgstr "Réessayer"
+
+msgid "Running in Background"
+msgstr "Exécution en arrière-plan"
+
+msgid "The import is now running in the background. You can safely navigate away from this page."
+msgstr "L’import s’exécute maintenant en arrière-plan. Vous pouvez quitter cette page en toute sécurité."
+
+msgid "You may need to log in again after the import completes."
+msgstr "Vous devrez peut-être vous reconnecter une fois l’import terminé."
+
+msgid "Got it"
+msgstr "Compris"
+
+msgid "Import Likely Completed!"
+msgstr "Import probablement terminé !"
+
+msgid "The database has been imported successfully. Your session was invalidated because the users table was replaced."
+msgstr "La base de données a été importée avec succès. Votre session a été invalidée car la table des utilisateurs a été remplacée."
+
+msgid "Please log in again to verify your site. Use credentials from the imported backup."
+msgstr "Veuillez vous reconnecter pour vérifier votre site. Utilisez les identifiants de la sauvegarde importée."
+
+msgid "Go to Login"
+msgstr "Aller à la connexion"
+
+msgid "Your file size:"
+msgstr "Taille de votre fichier :"
+
+msgid "Server limit:"
+msgstr "Limite du serveur :"
+
+msgid "To fix this:"
+msgstr "Pour corriger cela :"
+
+msgid "Increase post_max_size and upload_max_filesize in php.ini"
+msgstr "Augmentez post_max_size et upload_max_filesize dans php.ini"
+
+msgid "Ask your host to increase PHP upload limits"
+msgstr "Demandez à votre hébergeur d’augmenter les limites de téléversement PHP"
+
+msgid "Upload via SFTP/FTP to"
+msgstr "Téléversez via SFTP/FTP vers"
+
+msgid "then select from existing backups"
+msgstr "puis sélectionnez parmi les sauvegardes existantes"
+
+msgid "Use a smaller backup (e.g., database-only)"
+msgstr "Utilisez une sauvegarde plus petite (par ex. base de données uniquement)"
+
+msgid "File Too Large"
+msgstr "Fichier trop volumineux"
+
+msgid "The upload was blocked before it reached WordPress. This usually means the file is larger than an upload limit set by your host, server, or a CDN/proxy in front of your site."
+msgstr "Le téléversement a été bloqué avant d’atteindre WordPress. Cela signifie généralement que le fichier dépasse une limite de téléversement définie par votre hébergeur, votre serveur ou un CDN/proxy devant votre site."
+
+msgid "For example, Cloudflare rejects request bodies larger than about 100 MB and closes the connection before the upload finishes."
+msgstr "Par exemple, Cloudflare rejette les corps de requête supérieurs à environ 100 Mo et ferme la connexion avant la fin du téléversement."
+
+msgid "Recommended workaround (no upload needed):"
+msgstr "Solution de contournement recommandée (aucun téléversement nécessaire) :"
+
+msgid "Copy the backup file to"
+msgstr "Copiez le fichier de sauvegarde vers"
+
+msgid "on the server (via SFTP/FTP or your host file manager)"
+msgstr "sur le serveur (via SFTP/FTP ou le gestionnaire de fichiers de votre hébergeur)"
+
+msgid "Then pick it from the \"Or Select Existing Backup\" dropdown above and click Continue"
+msgstr "Puis choisissez-le dans la liste déroulante « Ou sélectionner une sauvegarde existante » ci-dessus et cliquez sur Continuer"
+
+msgid "Upload Blocked by a Size Limit"
+msgstr "Téléversement bloqué par une limite de taille"
+
+msgid "Please select a .zip or .swish backup file."
+msgstr "Veuillez sélectionner un fichier de sauvegarde .zip ou .swish."
+
+msgid "Please select a backup file or choose an existing backup."
+msgstr "Veuillez sélectionner un fichier de sauvegarde ou choisir une sauvegarde existante."
+
+msgid "Required for multisite-to-multisite import."
+msgstr "Requis pour un import de multisite à multisite."
+
+msgid "Backup Type"
+msgstr "Type de sauvegarde"
+
+msgid "Created"
+msgstr "Créée"
+
+msgid "No site information available"
+msgstr "Aucune information de site disponible"
+
+msgid "Sites in backup"
+msgstr "Sites dans la sauvegarde"
+
+msgid "Unknown error"
+msgstr "Erreur inconnue"
+
+msgid "Validation Failed"
+msgstr "Échec de la validation"
+
+msgid "Validation Error"
+msgstr "Erreur de validation"
+
+msgid "An error occurred while validating the backup."
+msgstr "Une erreur est survenue lors de la validation de la sauvegarde."
+
+msgid "Check the browser console for more details."
+msgstr "Consultez la console du navigateur pour plus de détails."
+
+msgid "Extracting Backup"
+msgstr "Extraction de la sauvegarde"
+
+msgid "Shared Network Tables"
+msgstr "Tables partagées du réseau"
+
+msgid "Importing Database"
+msgstr "Import de la base de données"
+
+msgid "Restoring Files"
+msgstr "Restauration des fichiers"
+
+msgid "Complete"
+msgstr "Terminé"
+
+msgid "Import failed."
+msgstr "Échec de l’import."
+
+msgid "Restoring database — the site may be briefly unreachable. Waiting for it to come back..."
+msgstr "Restauration de la base de données — le site peut être brièvement inaccessible. En attente de son retour…"
+
+msgid "Lost connection to the server. The import may still be running in the background."
+msgstr "Connexion au serveur perdue. L’import peut toujours être en cours en arrière-plan."
+
+msgid "Failed to start import."
+msgstr "Échec du démarrage de l’import."
+
+msgid "Please click Continue to validate the backup first."
+msgstr "Veuillez d’abord cliquer sur Continuer pour valider la sauvegarde."
+
+msgid "Multisite Required"
+msgstr "Multisite requis"
+
+msgid "This is a multisite network backup and cannot be imported to a single site installation."
+msgstr "Ceci est une sauvegarde de réseau multisite et elle ne peut pas être importée dans une installation monosite."
+
+msgid "To import this backup, you need to set up WordPress multisite first."
+msgstr "Pour importer cette sauvegarde, vous devez d’abord configurer WordPress multisite."
+
+msgid "Please select a site to import."
+msgstr "Veuillez sélectionner un site à importer."
+
+msgid "Are you sure you want to import this backup? This will overwrite existing data."
+msgstr "Voulez-vous vraiment importer cette sauvegarde ? Ceci écrasera les données existantes."
+
+msgid "Please enter the old URL to search for."
+msgstr "Veuillez saisir l’ancienne URL à rechercher."
+
+msgid "Total matches found:"
+msgstr "Nombre total de correspondances trouvées :"
+
+msgid "Table"
+msgstr "Table"
+
+msgid "Column"
+msgstr "Colonne"
+
+msgid "Before"
+msgstr "Avant"
+
+msgid "After"
+msgstr "Après"
+
+msgid "Showing first 50 matches only."
+msgstr "Affichage des 50 premières correspondances uniquement."
+
+msgid "No matches found for the specified URL."
+msgstr "Aucune correspondance trouvée pour l’URL indiquée."
+
+msgid "Preview failed:"
+msgstr "Échec de la prévisualisation :"
+
+msgid "An error occurred during preview."
+msgstr "Une erreur est survenue pendant la prévisualisation."
+
+msgid "Creating Backup"
+msgstr "Création de la sauvegarde"
+
+msgid "Initializing backup..."
+msgstr "Initialisation de la sauvegarde…"
+
+msgid "Backup Progress"
+msgstr "Progression de la sauvegarde"
+
+msgid "Backup Complete!"
+msgstr "Sauvegarde terminée !"
+
+msgid "Download Backup"
+msgstr "Télécharger la sauvegarde"
+
+msgid "The backup is now running in the background. You can safely navigate away from this page."
+msgstr "La sauvegarde s’exécute maintenant en arrière-plan. Vous pouvez quitter cette page en toute sécurité."
+
+msgid "You will be notified when the backup is complete."
+msgstr "Vous serez notifié lorsque la sauvegarde sera terminée."
+
+msgid "Initializing backup"
+msgstr "Initialisation de la sauvegarde"
+
+msgid "Preparing backup environment"
+msgstr "Préparation de l’environnement de sauvegarde"
+
+msgid "WordPress Core Files"
+msgstr "Fichiers du cœur de WordPress"
+
+msgid "wp-admin, wp-includes, root files"
+msgstr "wp-admin, wp-includes, fichiers racine"
+
+msgid "WP-Content Files"
+msgstr "Fichiers wp-content"
+
+msgid "wp_users, wp_usermeta, wp_blogs"
+msgstr "wp_users, wp_usermeta, wp_blogs"
+
+msgid "Site Databases"
+msgstr "Bases de données des sites"
+
+msgid "Creating Archive"
+msgstr "Création de l’archive"
+
+msgid "Compressing backup files"
+msgstr "Compression des fichiers de sauvegarde"
+
+msgid "Cleaning Up"
+msgstr "Nettoyage"
+
+msgid "Removing temporary files"
+msgstr "Suppression des fichiers temporaires"
+
+msgid "Failed to start backup."
+msgstr "Échec du démarrage de la sauvegarde."
+
+msgid "Backup completed successfully!"
+msgstr "Sauvegarde terminée avec succès !"
+
+msgid "Backup failed."
+msgstr "Échec de la sauvegarde."
+
+msgid "Deselect All"
+msgstr "Tout désélectionner"
+
+msgid "Load More (%d remaining)"
+msgstr "Charger plus (%d restants)"
+
+msgid "Backup Options"
+msgstr "Options de sauvegarde"
+
+msgid "(Database + Files)"
+msgstr "(Base de données + fichiers)"
+
+msgid "(Faster, smaller backup)"
+msgstr "(Sauvegarde plus rapide et plus légère)"
+
+msgid "Include WordPress Core Files"
+msgstr "Inclure les fichiers du cœur de WordPress"
+
+msgid "Include wp-admin, wp-includes, and core PHP files."
+msgstr "Inclure wp-admin, wp-includes et les fichiers PHP du cœur."
+
+msgid "Include wp-content Folders"
+msgstr "Inclure les dossiers de wp-content"
+
+msgid "MU-Plugins"
+msgstr "Extensions MU"
+
+msgid "N/A"
+msgstr "N/D"
+
+msgid "Choose how you want to package the backup files."
+msgstr "Choisissez comment empaqueter les fichiers de sauvegarde."
+
+msgid "Selected %1$d of %2$d sites"
+msgstr "%1$d sites sélectionnés sur %2$d"
+
+msgid "Backup Schedules"
+msgstr "Planifications de sauvegarde"
+
+msgid "Add Schedule"
+msgstr "Ajouter une planification"
+
+msgid "Add New Schedule"
+msgstr "Ajouter une planification"
+
+msgid "Schedule Name"
+msgstr "Nom de la planification"
+
+msgid "Frequency"
+msgstr "Fréquence"
+
+msgid "Hourly"
+msgstr "Toutes les heures"
+
+msgid "Twice Daily"
+msgstr "Deux fois par jour"
+
+msgid "Daily"
+msgstr "Quotidienne"
+
+msgid "Weekly"
+msgstr "Hebdomadaire"
+
+msgid "Monthly"
+msgstr "Mensuelle"
+
+msgid "Keep Backups"
+msgstr "Sauvegardes à conserver"
+
+msgid "Number of backups to retain. Older backups will be automatically deleted."
+msgstr "Nombre de sauvegardes à conserver. Les sauvegardes plus anciennes seront automatiquement supprimées."
+
+msgid "Storage Destinations"
+msgstr "Destinations de stockage"
+
+msgid "Local Storage"
+msgstr "Stockage local"
+
+msgid "Save Schedule"
+msgstr "Enregistrer la planification"
+
+msgid "No Schedules"
+msgstr "Aucune planification"
+
+msgid "Create a backup schedule to automate your backups."
+msgstr "Créez une planification de sauvegarde pour automatiser vos sauvegardes."
+
+msgid "Schedule Backup"
+msgstr "Planifier une sauvegarde"
+
+msgid "Name"
+msgstr "Nom"
+
+msgid "Next Run"
+msgstr "Prochaine exécution"
+
+msgid "Not scheduled"
+msgstr "Non planifiée"
+
+msgid "Active"
+msgstr "Active"
+
+msgid "Paused"
+msgstr "En pause"
+
+msgid "Run Now"
+msgstr "Exécuter maintenant"
+
+msgid "Pause"
+msgstr "Mettre en pause"
+
+msgid "Activate"
+msgstr "Activer"
+
+msgid "Schedule saved successfully."
+msgstr "Planification enregistrée avec succès."
+
+msgid "Swish Backup Settings"
+msgstr "Réglages de Swish Backup"
+
+msgid "General"
+msgstr "Général"
+
+msgid "Save Changes"
+msgstr "Enregistrer les modifications"
+
+msgid "Archive & Storage"
+msgstr "Archive et stockage"
+
+msgid "Archive Format"
+msgstr "Format d’archive"
+
+msgid "SWISH - Streaming format with resume support"
+msgstr "SWISH - Format en flux avec prise en charge de la reprise"
+
+msgid "SWISH is our custom streaming format with true append support and resume capability."
+msgstr "SWISH est notre format en flux personnalisé avec un véritable ajout incrémental et une capacité de reprise."
+
+msgid "Compression Level"
+msgstr "Niveau de compression"
+
+msgid "None (fastest)"
+msgstr "Aucune (le plus rapide)"
+
+msgid "Low"
+msgstr "Faible"
+
+msgid "Normal"
+msgstr "Normale"
+
+msgid "Maximum (slowest)"
+msgstr "Maximale (le plus lent)"
+
+msgid "Default Storage"
+msgstr "Stockage par défaut"
+
+msgid "Select what to include in backups. Click on each section to choose specific items."
+msgstr "Sélectionnez ce qu’il faut inclure dans les sauvegardes. Cliquez sur chaque section pour choisir des éléments spécifiques."
+
+msgid "Select plugins to include"
+msgstr "Sélectionner les extensions à inclure"
+
+msgid "Loading..."
+msgstr "Chargement…"
+
+msgid "Select themes to include"
+msgstr "Sélectionner les thèmes à inclure"
+
+msgid "Select upload folders to include"
+msgstr "Sélectionner les dossiers de téléversement à inclure"
+
+msgid "Excludes wp-admin, wp-includes by default."
+msgstr "Exclut wp-admin et wp-includes par défaut."
+
+msgid "File Exclusions"
+msgstr "Exclusions de fichiers"
+
+msgid "Exclude Files/Patterns"
+msgstr "Exclure des fichiers/motifs"
+
+msgid "One pattern per line. Use * for wildcards. Example: *.log, cache/*"
+msgstr "Un motif par ligne. Utilisez * comme joker. Exemple : *.log, cache/*"
+
+msgid "Notifications"
+msgstr "Notifications"
+
+msgid "Email Notifications"
+msgstr "Notifications par e-mail"
+
+msgid "Send email after backup completes"
+msgstr "Envoyer un e-mail à la fin de la sauvegarde"
+
+msgid "Notification Email"
+msgstr "E-mail de notification"
+
+msgid "Leave blank to keep current value."
+msgstr "Laissez vide pour conserver la valeur actuelle."
+
+msgid "Test Connection"
+msgstr "Tester la connexion"
+
+msgid "Select None"
+msgstr "Ne rien sélectionner"
+
+msgid "Show months"
+msgstr "Afficher les mois"
+
+msgid "No items found."
+msgstr "Aucun élément trouvé."
+
+msgid "Settings saved."
+msgstr "Réglages enregistrés."
+
+msgid "%s settings saved."
+msgstr "Réglages %s enregistrés."
+
+msgid "You do not have permission to access this endpoint."
+msgstr "Vous n’avez pas le droit d’accéder à ce point de terminaison."
+
+msgid "No sites selected for backup."
+msgstr "Aucun site sélectionné pour la sauvegarde."
+
+msgid "Multisite backup creation failed."
+msgstr "Échec de la création de la sauvegarde multisite."
+
+msgid "Backup job not found."
+msgstr "Tâche de sauvegarde introuvable."
+
+msgid "No sites selected for estimation."
+msgstr "Aucun site sélectionné pour l’estimation."
+
+msgid "You do not have permission to perform this action."
+msgstr "Vous n’avez pas le droit d’effectuer cette action."
+
+msgid "Import secret key is required."
+msgstr "La clé secrète d’import est requise."
+
+msgid "Invalid or expired import session."
+msgstr "Session d’import non valide ou expirée."
+
+msgid "You must be an admin or have a valid import session."
+msgstr "Vous devez être administrateur ou disposer d’une session d’import valide."
+
+msgid "Backup not found."
+msgstr "Sauvegarde introuvable."
+
+msgid "Failed to delete backup."
+msgstr "Échec de la suppression de la sauvegarde."
+
+msgid "Restore failed."
+msgstr "Échec de la restauration."
+
+msgid "No backup file provided."
+msgstr "Aucun fichier de sauvegarde fourni."
+
+msgid "File exceeds upload_max_filesize directive."
+msgstr "Le fichier dépasse la directive upload_max_filesize."
+
+msgid "File exceeds MAX_FILE_SIZE directive."
+msgstr "Le fichier dépasse la directive MAX_FILE_SIZE."
+
+msgid "File was only partially uploaded."
+msgstr "Le fichier n’a été que partiellement téléversé."
+
+msgid "No file was uploaded."
+msgstr "Aucun fichier n’a été téléversé."
+
+msgid "Missing temporary folder."
+msgstr "Dossier temporaire manquant."
+
+msgid "Failed to write file to disk."
+msgstr "Échec de l’écriture du fichier sur le disque."
+
+msgid "Unknown upload error."
+msgstr "Erreur de téléversement inconnue."
+
+msgid "Invalid file type. Allowed types: ZIP, TAR.GZ, SWISH."
+msgstr "Type de fichier non valide. Types autorisés : ZIP, TAR.GZ, SWISH."
+
+msgid "Current upload limit: %s. For large backups (1GB+), upload via FTP/SFTP to wp-content/swish-backups/ then use the \"Import from Server Path\" option."
+msgstr "Limite de téléversement actuelle : %s. Pour les sauvegardes volumineuses (1 Go et plus), téléversez via FTP/SFTP dans wp-content/swish-backups/ puis utilisez l’option « Importer depuis un chemin serveur »."
+
+msgid "Failed to analyze backup. The file may be corrupted or not a valid Swish backup."
+msgstr "Échec de l’analyse de la sauvegarde. Le fichier est peut-être corrompu ou n’est pas une sauvegarde Swish valide."
+
+msgid "Server path must be within wp-content directory for security."
+msgstr "Pour des raisons de sécurité, le chemin serveur doit se trouver dans le répertoire wp-content."
+
+msgid "File not found at path: %s"
+msgstr "Fichier introuvable au chemin : %s"
+
+msgid "Invalid file type. Only ZIP, TAR.GZ, and SWISH files are supported."
+msgstr "Type de fichier non valide. Seuls les fichiers ZIP, TAR.GZ et SWISH sont pris en charge."
+
+msgid "Storage adapter not found."
+msgstr "Adaptateur de stockage introuvable."
+
+msgid "Storage adapter not configured."
+msgstr "Adaptateur de stockage non configuré."
+
+msgid "Connection successful!"
+msgstr "Connexion réussie !"
+
+msgid "Connection failed."
+msgstr "Échec de la connexion."
+
+msgid "Job not found."
+msgstr "Tâche introuvable."
+
+msgid "Cannot cancel job with status: %s"
+msgstr "Impossible d’annuler une tâche avec l’état : %s"
+
+msgid "Job cancelled successfully."
+msgstr "Tâche annulée avec succès."
+
+msgid "Failed to cancel job."
+msgstr "Échec de l’annulation de la tâche."
+
+msgid "Import failed: Server memory limit (%s) exceeded. Please contact your hosting provider to increase the PHP memory_limit, or try importing a smaller backup."
+msgstr "Échec de l’import : limite de mémoire du serveur (%s) dépassée. Veuillez contacter votre hébergeur pour augmenter la memory_limit PHP, ou essayez d’importer une sauvegarde plus petite."
+
+msgid "Import failed: Server timeout reached. Please contact your hosting provider to increase the max_execution_time limit, or try importing a smaller backup."
+msgstr "Échec de l’import : délai d’exécution du serveur atteint. Veuillez contacter votre hébergeur pour augmenter la limite max_execution_time, ou essayez d’importer une sauvegarde plus petite."
+
+msgid "Import failed: File size exceeds server upload limit. Please contact your hosting provider to increase upload_max_filesize and post_max_size limits."
+msgstr "Échec de l’import : la taille du fichier dépasse la limite de téléversement du serveur. Veuillez contacter votre hébergeur pour augmenter les limites upload_max_filesize et post_max_size."
+
+msgid "Import failed: A server error occurred. Error: %s"
+msgstr "Échec de l’import : une erreur serveur est survenue. Erreur : %s"
+
+msgid "Insufficient memory for import. Available: %1$s, Required: %2$s. Your server's PHP memory_limit is set to %3$s. Please contact your hosting provider to increase this limit."
+msgstr "Mémoire insuffisante pour l’import. Disponible : %1$s, requise : %2$s. La memory_limit PHP de votre serveur est définie à %3$s. Veuillez contacter votre hébergeur pour augmenter cette limite."
+
+msgid "Failed to finalize backup."
+msgstr "Échec de la finalisation de la sauvegarde."
+
+msgid "Schedule not found."
+msgstr "Planification introuvable."
+
+msgid "Schedule activated."
+msgstr "Planification activée."
+
+msgid "Schedule paused."
+msgstr "Planification mise en pause."
+
+msgid "Scheduled backup started."
+msgstr "Sauvegarde planifiée démarrée."
+
+msgid "Schedule deleted."
+msgstr "Planification supprimée."
+
+msgid "Failed to delete schedule."
+msgstr "Échec de la suppression de la planification."
+
+msgid "An import is already in progress. Use force=true to clear and restart."
+msgstr "Un import est déjà en cours. Utilisez force=true pour l’effacer et redémarrer."
+
+msgid "Backup file not found."
+msgstr "Fichier de sauvegarde introuvable."
+
+msgid "No active import session."
+msgstr "Aucune session d’import active."
+
+msgid "Job cancelled by user."
+msgstr "Tâche annulée par l’utilisateur."
+
+msgid "Swish Migrate and Backup requires PHP 8.1 or higher."
+msgstr "Swish Migrate and Backup nécessite PHP 8.1 ou supérieur."
+
+msgid "Plugin Activation Error"
+msgstr "Erreur d’activation de l’extension"
+
+msgid "Swish Migrate and Backup requires WordPress 6.0 or higher."
+msgstr "Swish Migrate and Backup nécessite WordPress 6.0 ou supérieur."
+
+msgid "Swish Migrate and Backup requires the following PHP extensions: %s"
+msgstr "Swish Migrate and Backup nécessite les extensions PHP suivantes : %s"
+
+msgid "Once Weekly"
+msgstr "Une fois par semaine"
+
+msgid "Once Monthly"
+msgstr "Une fois par mois"
+
+msgid "Service not found: %s"
+msgstr "Service introuvable : %s"
+
+msgid "Swish Migrate and Backup: Pro features (multisite backup, migration, and site duplication) are now built into the main plugin. The separate Pro add-on has been deactivated and can be deleted."
+msgstr "Swish Migrate and Backup : les fonctionnalités Pro (sauvegarde multisite, migration et duplication de site) sont désormais intégrées à l’extension principale. Le module Pro séparé a été désactivé et peut être supprimé."
+
+msgid "Swish Migrate and Backup: the PHP mysqli extension is not available on this site (common in SQLite-based environments such as WordPress Playground or WordPress Studio). You can browse the plugin screens, but backup, restore, and migration features require a MySQL/MariaDB database with the mysqli extension."
+msgstr "Swish Migrate and Backup : l’extension PHP mysqli n’est pas disponible sur ce site (fréquent dans les environnements basés sur SQLite comme WordPress Playground ou WordPress Studio). Vous pouvez parcourir les écrans de l’extension, mais les fonctionnalités de sauvegarde, de restauration et de migration nécessitent une base de données MySQL/MariaDB avec l’extension mysqli."
+
+msgid "Download link has expired. Please generate a new one."
+msgstr "Le lien de téléchargement a expiré. Veuillez en générer un nouveau."
+
+msgid "Invalid download token."
+msgstr "Jeton de téléchargement non valide."
+
+msgid "Invalid file path."
+msgstr "Chemin de fichier non valide."
+
+msgid "Failed to open backup file."
+msgstr "Échec de l’ouverture du fichier de sauvegarde."
+
+msgid "Backup started..."
+msgstr "Sauvegarde démarrée…"
+
+msgid "Backup failed. Check the logs."
+msgstr "Échec de la sauvegarde. Consultez les journaux."
+
+msgid "Restore started..."
+msgstr "Restauration démarrée…"
+
+msgid "Restore completed successfully!"
+msgstr "Restauration terminée avec succès !"
+
+msgid "Restore failed. Check the logs."
+msgstr "Échec de la restauration. Consultez les journaux."
+
+msgid "Are you sure you want to delete this backup?"
+msgstr "Voulez-vous vraiment supprimer cette sauvegarde ?"
+
+msgid "Are you sure you want to restore this backup? This will overwrite your current site."
+msgstr "Voulez-vous vraiment restaurer cette sauvegarde ? Ceci écrasera votre site actuel."
+
+msgid "The selected file is too large for your server."
+msgstr "Le fichier sélectionné est trop volumineux pour votre serveur."
+
+msgid "Backup is from WordPress %1$s, but you are running %2$s. Consider upgrading first."
+msgstr "La sauvegarde provient de WordPress %1$s, mais vous utilisez la version %2$s. Envisagez d’abord une mise à niveau."
+
+msgid "URL replacement will be performed to update all references."
+msgstr "Un remplacement d’URL sera effectué pour mettre à jour toutes les références."
+
+msgid "Large backup file. Import may take some time."
+msgstr "Fichier de sauvegarde volumineux. L’import peut prendre un certain temps."
+
+msgid "Old URL is not valid."
+msgstr "L’ancienne URL n’est pas valide."
+
+msgid "New URL is not valid."
+msgstr "La nouvelle URL n’est pas valide."
+
+msgid "Old and new URLs are the same. No URL replacement will be performed."
+msgstr "L’ancienne et la nouvelle URL sont identiques. Aucun remplacement d’URL ne sera effectué."
+
+msgid "All sites in one archive - Easier to manage, single backup file"
+msgstr "Tous les sites dans une seule archive - Plus facile à gérer, un seul fichier de sauvegarde"
+
+msgid "Separate archive per site - Individual site restore, multiple files"
+msgstr "Archive séparée par site - Restauration site par site, plusieurs fichiers"
+
+msgid "Separate Archives"
+msgstr "Archives séparées"
+
+msgid "Backup scheduled. Starting..."
+msgstr "Sauvegarde programmée. Démarrage…"
+
+msgid "Backup parameters not found."
+msgstr "Paramètres de sauvegarde introuvables."
+
+msgid "Backing up WordPress core files..."
+msgstr "Sauvegarde des fichiers du cœur de WordPress…"
+
+msgid "Backing up shared network tables..."
+msgstr "Sauvegarde des tables partagées du réseau…"
+
+msgid "Invalid backup file format. Expected a .swish or .zip file."
+msgstr "Format de fichier de sauvegarde non valide. Un fichier .swish ou .zip est attendu."
+
+msgid "Could not read backup manifest. Invalid backup file."
+msgstr "Impossible de lire le manifeste de la sauvegarde. Fichier de sauvegarde non valide."
+
+msgid "Multisite backup with single site detected. Will import as single site."
+msgstr "Sauvegarde multisite avec un seul site détectée. Elle sera importée comme site unique."
+
+msgid "Multisite backup detected. Please select a single site to import into this WordPress installation."
+msgstr "Sauvegarde multisite détectée. Veuillez sélectionner un seul site à importer dans cette installation WordPress."
+
+msgid "Backup file is valid."
+msgstr "Le fichier de sauvegarde est valide."
+
+msgid "Failed to copy backup file for processing."
+msgstr "Échec de la copie du fichier de sauvegarde pour traitement."
+
+msgid "Import started."
+msgstr "Import démarré."
+
+msgid "Extracting backup file..."
+msgstr "Extraction du fichier de sauvegarde…"
+
+msgid "Failed to extract backup file."
+msgstr "Échec de l’extraction du fichier de sauvegarde."
+
+msgid "Backup extracted successfully."
+msgstr "Sauvegarde extraite avec succès."
+
+msgid "Importing shared network tables..."
+msgstr "Import des tables partagées du réseau…"
+
+msgid "Shared tables imported."
+msgstr "Tables partagées importées."
+
+msgid "Importing site databases..."
+msgstr "Import des bases de données des sites…"
+
+msgid "Importing database: %1$s (%2$d/%3$d)"
+msgstr "Import de la base de données : %1$s (%2$d/%3$d)"
+
+msgid "Site databases imported."
+msgstr "Bases de données des sites importées."
+
+msgid "Reactivating plugins..."
+msgstr "Réactivation des extensions…"
+
+msgid "Importing database..."
+msgstr "Import de la base de données…"
+
+msgid "Database imported."
+msgstr "Base de données importée."
+
+msgid "Restoring files..."
+msgstr "Restauration des fichiers…"
+
+msgid "Extracting tar.gz archives..."
+msgstr "Extraction des archives tar.gz…"
+
+msgid "Extracting files archive..."
+msgstr "Extraction de l’archive de fichiers…"
+
+msgid "Extracting file batch parts..."
+msgstr "Extraction des lots de fichiers…"
+
+msgid "Restoring wp-content files..."
+msgstr "Restauration des fichiers de wp-content…"
+
+msgid "Restoring WordPress core files..."
+msgstr "Restauration des fichiers du cœur de WordPress…"
+
+msgid "Files restored."
+msgstr "Fichiers restaurés."
+
+msgid "Running search and replace..."
+msgstr "Exécution de rechercher et remplacer…"
+
+msgid "Search and replace completed."
+msgstr "Rechercher et remplacer terminé."
+
+msgid "Fixing site configuration..."
+msgstr "Correction de la configuration du site…"
+
+msgid "Site configuration fixed."
+msgstr "Configuration du site corrigée."
+
+msgid "No URL replacement needed."
+msgstr "Aucun remplacement d’URL nécessaire."
+
+msgid "Flushing caches..."
+msgstr "Vidage des caches…"
+
+msgid "Cleaning up temporary files..."
+msgstr "Nettoyage des fichiers temporaires…"
+
+msgid "Import completed successfully!"
+msgstr "Import terminé avec succès !"
+
+msgid "Could not determine which site to import."
+msgstr "Impossible de déterminer quel site importer."
+
+msgid "Importing database for %s..."
+msgstr "Import de la base de données pour %s…"
+
+msgid "Successfully imported multisite \"%s\" as single site!"
+msgstr "Le multisite « %s » a été importé avec succès comme site unique !"
+
+msgid "This import requires converting your site to multisite. Please confirm this action."
+msgstr "Cet import nécessite de convertir votre site en multisite. Veuillez confirmer cette action."
+
+msgid "Successfully imported %d sites."
+msgstr "%d sites importés avec succès."
+
+msgid "Successfully imported backup."
+msgstr "Sauvegarde importée avec succès."
+
+msgid "Site database file not found."
+msgstr "Fichier de base de données du site introuvable."
+
+msgid "Site database file is empty."
+msgstr "Le fichier de base de données du site est vide."
+
+msgid "Site imported: %d statements executed."
+msgstr "Site importé : %d instructions exécutées."
+
+msgid "Site import had issues: %d executed, %d errors."
+msgstr "L’import du site a rencontré des problèmes : %d exécutées, %d erreurs."
+
+msgid "Already a multisite installation."
+msgstr "Installation déjà en multisite."
+
+msgid "wp-config.php is not writable. Please make it writable or manually enable multisite."
+msgstr "wp-config.php n’est pas accessible en écriture. Veuillez le rendre accessible en écriture ou activer le multisite manuellement."
+
+msgid "Multisite constants already exist in wp-config.php but multisite is not active. Please check your configuration."
+msgstr "Les constantes multisite existent déjà dans wp-config.php mais le multisite n’est pas actif. Veuillez vérifier votre configuration."
+
+msgid "Successfully converted to multisite. Please refresh the page."
+msgstr "Conversion en multisite réussie. Veuillez actualiser la page."
+
+msgid "Failed to convert to multisite: %s"
+msgstr "Échec de la conversion en multisite : %s"
+
+msgid "Step 1: Edit wp-config.php"
+msgstr "Étape 1 : modifier wp-config.php"
+
+msgid "Add this line above the \"/* That's all, stop editing! */\" comment:"
+msgstr "Ajoutez cette ligne au-dessus du commentaire \"/* That's all, stop editing! */\" :"
+
+msgid "Step 2: Install Network"
+msgstr "Étape 2 : installer le réseau"
+
+msgid "Go to %s in your WordPress admin and follow the setup instructions."
+msgstr "Allez dans %s dans votre administration WordPress et suivez les instructions de configuration."
+
+msgid "Step 3: Update wp-config.php"
+msgstr "Étape 3 : mettre à jour wp-config.php"
+
+msgid "Add these lines to wp-config.php above the \"/* That's all, stop editing! */\" comment:"
+msgstr "Ajoutez ces lignes dans wp-config.php au-dessus du commentaire \"/* That's all, stop editing! */\" :"
+
+msgid "Step 4: Update .htaccess"
+msgstr "Étape 4 : mettre à jour .htaccess"
+
+msgid "Replace your .htaccess WordPress rules with the multisite rules provided by WordPress during network setup."
+msgstr "Remplacez vos règles WordPress du fichier .htaccess par les règles multisite fournies par WordPress lors de la configuration du réseau."
+
+msgid "Step 5: Log In Again"
+msgstr "Étape 5 : se reconnecter"
+
+msgid "After making these changes, log out and log back in. Then return to this page to import your multisite backup."
+msgstr "Après avoir effectué ces modifications, déconnectez-vous puis reconnectez-vous. Revenez ensuite sur cette page pour importer votre sauvegarde multisite."
+
+msgid "Swish Multisite Backup"
+msgstr "Sauvegarde multisite Swish"
+
+msgid "Multisite Import"
+msgstr "Import multisite"
+
+msgid "Export backups for migration or import backups from another installation."
+msgstr "Exportez des sauvegardes pour la migration ou importez des sauvegardes depuis une autre installation."
+
+msgid "This feature is only available on multisite installations."
+msgstr "Cette fonctionnalité n’est disponible que sur les installations multisites."
+
+msgid "Create a copy of any site in your network with a new URL."
+msgstr "Créez une copie de n’importe quel site de votre réseau avec une nouvelle URL."
+
+msgid "Multisite Backup"
+msgstr "Sauvegarde multisite"
+
+msgid "Overview of your multisite backup system."
+msgstr "Vue d’ensemble de votre système de sauvegarde multisite."
+
+msgid "Backup Storage"
+msgstr "Stockage des sauvegardes"
+
+msgid "Network Sites"
+msgstr "Sites du réseau"
+
+msgid "Domain"
+msgstr "Domaine"
+
+msgid "Subdomain"
+msgstr "Sous-domaine"
+
+msgid "Subdirectory"
+msgstr "Sous-répertoire"
+
+msgid "View History"
+msgstr "Voir l’historique"
+
+msgid "Recent Backups"
+msgstr "Sauvegardes récentes"
+
+msgid "Create your first multisite backup to get started."
+msgstr "Créez votre première sauvegarde multisite pour commencer."
+
+msgid "Select sites and configure backup options."
+msgstr "Sélectionnez les sites et configurez les options de sauvegarde."
+
+msgid "Select Sites to Backup"
+msgstr "Sélectionner les sites à sauvegarder"
+
+msgid "Choose which sites you want to include in the backup."
+msgstr "Choisissez les sites que vous souhaitez inclure dans la sauvegarde."
+
+msgid "Start Backup"
+msgstr "Démarrer la sauvegarde"
+
+msgid "Select at least one site to enable backup."
+msgstr "Sélectionnez au moins un site pour activer la sauvegarde."
+
+msgid "Please select at least one site."
+msgstr "Veuillez sélectionner au moins un site."
+
+msgid "View and manage your previous backups."
+msgstr "Consultez et gérez vos sauvegardes précédentes."
+
+msgid "Low Memory"
+msgstr "Mémoire faible"
+
+msgid "Low Timeout"
+msgstr "Délai d’exécution faible"
+
+msgid "Please select at least one site to backup."
+msgstr "Veuillez sélectionner au moins un site à sauvegarder."
+
+msgid "Backup failed: "
+msgstr "Échec de la sauvegarde : "
+
+msgid "Invalid job ID."
+msgstr "ID de tâche non valide."
+
+msgid "Backup deleted successfully."
+msgstr "Sauvegarde supprimée avec succès."
+
+msgid "View All Multisite Backups"
+msgstr "Voir toutes les sauvegardes multisites"
+
+msgid "No backup file specified."
+msgstr "Aucun fichier de sauvegarde spécifié."
+
+msgid "Failed to upload backup file."
+msgstr "Échec du téléversement du fichier de sauvegarde."
+
+msgid "Please enter a URL to search for."
+msgstr "Veuillez saisir une URL à rechercher."
+
+msgid "Import job not found."
+msgstr "Tâche d’import introuvable."
+
+msgid "Import job lost after execution."
+msgstr "Tâche d’import perdue après exécution."
+
+msgid "Backup started."
+msgstr "Sauvegarde démarrée."
+
+msgid "Theme preference saved."
+msgstr "Préférence de thème enregistrée."
+
+msgid "Invalid source site."
+msgstr "Site source non valide."
+
+msgid "Duplication started."
+msgstr "Duplication démarrée."
+
+msgid "Job lost after execution."
+msgstr "Tâche perdue après exécution."
+
+msgid "Permission denied."
+msgstr "Droit refusé."
+
+msgid "URL \"%s\" is already taken."
+msgstr "L’URL « %s » est déjà utilisée."
+
+msgid "This slug is reserved and cannot be used."
+msgstr "Ce slug est réservé et ne peut pas être utilisé."
+
+msgid "URL is available!"
+msgstr "L’URL est disponible !"
+
+msgid "Invalid site ID."
+msgstr "ID de site non valide."
+
+msgid "Site not found."
+msgstr "Site introuvable."
+
+msgid "Cannot delete the main site."
+msgstr "Impossible de supprimer le site principal."
+
+msgid "Failed to delete site. Please try again."
+msgstr "Échec de la suppression du site. Veuillez réessayer."
+
+msgid "Site deleted successfully."
+msgstr "Site supprimé avec succès."
+
+msgid "WordPress core files backed up."
+msgstr "Fichiers du cœur de WordPress sauvegardés."
+
+msgid "Backing up site databases..."
+msgstr "Sauvegarde des bases de données des sites…"
+
+msgid "Backing up site %1$d of %2$d: %3$s"
+msgstr "Sauvegarde du site %1$d sur %2$d : %3$s"
+
+msgid "Backing up wp-content folders..."
+msgstr "Sauvegarde des dossiers de wp-content…"
+
+msgid "Files backed up."
+msgstr "Fichiers sauvegardés."
+
+msgid "Creating backup archive..."
+msgstr "Création de l’archive de sauvegarde…"
+
+msgid "Successfully backed up databases for %d sites."
+msgstr "Bases de données de %d sites sauvegardées avec succès."
+
+msgid "Successfully backed up %d sites in single archive."
+msgstr "%d sites sauvegardés avec succès dans une archive unique."
+
+msgid "Creating archive for site %1$d of %2$d: %3$s"
+msgstr "Création de l’archive du site %1$d sur %2$d : %3$s"
+
+msgid "Successfully backed up databases for %d sites as separate archives."
+msgstr "Bases de données de %d sites sauvegardées avec succès dans des archives séparées."
+
+msgid "Successfully backed up %d sites as separate archives."
+msgstr "%d sites sauvegardés avec succès dans des archives séparées."
+
+msgid "Source site not found."
+msgstr "Site source introuvable."
+
+msgid "Invalid site slug."
+msgstr "Slug de site non valide."
+
+msgid "A site with URL \"%s\" already exists."
+msgstr "Un site avec l’URL « %s » existe déjà."
+
+msgid "Duplication scheduled. Starting..."
+msgstr "Duplication programmée. Démarrage…"
+
+msgid "Job parameters not found."
+msgstr "Paramètres de la tâche introuvables."
+
+msgid "Creating new site..."
+msgstr "Création du nouveau site…"
+
+msgid "Copying database tables..."
+msgstr "Copie des tables de la base de données…"
+
+msgid "Failed to copy database: %s"
+msgstr "Échec de la copie de la base de données : %s"
+
+msgid "Copying uploads..."
+msgstr "Copie des téléversements…"
+
+msgid "Skipping uploads (not selected)..."
+msgstr "Téléversements ignorés (non sélectionnés)…"
+
+msgid "Replacing URLs..."
+msgstr "Remplacement des URL…"
+
+msgid "Finalizing..."
+msgstr "Finalisation…"
+
+msgid "Site duplicated successfully! New site ID: %d"
+msgstr "Site dupliqué avec succès ! ID du nouveau site : %d"
+
+msgid "Site duplicated successfully. New site ID: %d"
+msgstr "Site dupliqué avec succès. ID du nouveau site : %d"
+
+msgid "Copying table %1$d of %2$d..."
+msgstr "Copie de la table %1$d sur %2$d…"
+
+msgid "Replacing: %s"
+msgstr "Remplacement : %s"
+
+msgid "Access Token"
+msgstr "Jeton d’accès"
+
+msgid "Your Dropbox access token. Generate one from the Dropbox App Console."
+msgstr "Votre jeton d’accès Dropbox. Générez-en un depuis la console d’applications Dropbox."
+
+msgid "Backup Folder"
+msgstr "Dossier de sauvegarde"
+
+msgid "Folder path for storing backups (e.g., /Backups/MySite)."
+msgstr "Chemin du dossier de stockage des sauvegardes (par ex. /Backups/MySite)."
+
+msgid "Client ID"
+msgstr "ID client"
+
+msgid "Your Google OAuth Client ID."
+msgstr "Votre ID client OAuth Google."
+
+msgid "Client Secret"
+msgstr "Secret client"
+
+msgid "Your Google OAuth Client Secret."
+msgstr "Votre secret client OAuth Google."
+
+msgid "Name of the folder for storing backups."
+msgstr "Nom du dossier de stockage des sauvegardes."
+
+msgid "Backup Directory"
+msgstr "Répertoire de sauvegarde"
+
+msgid "Custom backup directory path (leave empty for default)."
+msgstr "Chemin personnalisé du répertoire de sauvegarde (laissez vide pour la valeur par défaut)."
+
+msgid "Retention Days"
+msgstr "Jours de conservation"
+
+msgid "Number of days to keep backups (0 = forever)."
+msgstr "Nombre de jours de conservation des sauvegardes (0 = pour toujours)."
+
+msgid "Access Key ID"
+msgstr "ID de clé d’accès"
+
+msgid "Your AWS Access Key ID."
+msgstr "Votre ID de clé d’accès AWS."
+
+msgid "Secret Access Key"
+msgstr "Clé d’accès secrète"
+
+msgid "Your AWS Secret Access Key."
+msgstr "Votre clé d’accès secrète AWS."
+
+msgid "Bucket Name"
+msgstr "Nom du bucket"
+
+msgid "The S3 bucket to store backups in."
+msgstr "Le bucket S3 où stocker les sauvegardes."
+
+msgid "Region"
+msgstr "Région"
+
+msgid "Path Prefix"
+msgstr "Préfixe de chemin"
+
+msgid "Optional folder path within the bucket."
+msgstr "Chemin de dossier facultatif dans le bucket."
+
+msgid "Custom Endpoint"
+msgstr "Point de terminaison personnalisé"
+
+msgid "Custom S3-compatible endpoint (e.g., for MinIO, DigitalOcean Spaces)."
+msgstr "Point de terminaison personnalisé compatible S3 (par ex. pour MinIO, DigitalOcean Spaces)."
+
+msgid "Storage adapter not found: %s"
+msgstr "Adaptateur de stockage introuvable : %s"
+
+msgid "Adapter not found"
+msgstr "Adaptateur introuvable"
+
+msgid "Adapter not configured"
+msgstr "Adaptateur non configuré"
+
+msgid "Upload failed"
+msgstr "Échec du téléversement"
+
+msgid "Starting Backup..."
+msgstr "Démarrage de la sauvegarde…"
+
+msgid "full"
+msgstr "complète"
+
+msgid "database"
+msgstr "base de données"
+
+msgid "files"
+msgstr "fichiers"
+
+msgid "backup job..."
+msgstr "tâche de sauvegarde…"
+
+msgid "No backups yet. Create your first backup to get started."
+msgstr "Aucune sauvegarde pour le moment. Créez votre première sauvegarde pour commencer."
+
+msgid "Backup Now"
+msgstr "Sauvegarder maintenant"
+
+msgid "Create a new backup of your site."
+msgstr "Créez une nouvelle sauvegarde de votre site."
+
+msgid "Search and replace URLs in the database."
+msgstr "Recherchez et remplacez des URL dans la base de données."
+
+msgid "Hide Panel"
+msgstr "Masquer le panneau"
+
+msgid "Open Panel"
+msgstr "Ouvrir le panneau"
+
+msgid "Migrate Site"
+msgstr "Migrer le site"
+
+msgid "Import a backup from another site."
+msgstr "Importez une sauvegarde depuis un autre site."
+
+msgid "Storage Used"
+msgstr "Stockage utilisé"
+
+msgid "Never"
+msgstr "Jamais"
+
+msgid "Last Backup"
+msgstr "Dernière sauvegarde"
+
+msgid "Batch Size (DB/Files)"
+msgstr "Taille des lots (BD/Fichiers)"
+
+msgid "Connected"
+msgstr "Connecté"
+
+msgid "Not Configured"
+msgstr "Non configuré"
+
+msgid "Please enter both search and replace URLs."
+msgstr "Veuillez saisir les URL de recherche et de remplacement."
+
+msgid "Preview failed"
+msgstr "Échec de la prévisualisation"
+
+msgid "This will permanently modify your database. Are you sure you want to continue?"
+msgstr "Ceci modifiera définitivement votre base de données. Voulez-vous vraiment continuer ?"
+
+msgid "Migration failed"
+msgstr "Échec de la migration"
+
+msgid "Search and Replace URLs"
+msgstr "Rechercher et remplacer des URL"
+
+msgid "Replace old URLs with new ones across your entire database. This is useful when migrating to a new domain."
+msgstr "Remplacez les anciennes URL par les nouvelles dans toute votre base de données. C’est utile lors d’une migration vers un nouveau domaine."
+
+msgid "Search for (old URL)"
+msgstr "Rechercher (ancienne URL)"
+
+msgid "Replace with (new URL)"
+msgstr "Remplacer par (nouvelle URL)"
+
+msgid "Run Migration"
+msgstr "Lancer la migration"
+
+msgid "Found"
+msgstr "Trouvé"
+
+msgid "replacements across"
+msgstr "remplacements dans"
+
+msgid "tables."
+msgstr "tables."
+
+msgid "Replacements"
+msgstr "Remplacements"
+
+msgid "Migration completed!"
+msgstr "Migration terminée !"
+
+msgid "Replaced"
+msgstr "Remplacé"
+
+msgid "occurrences."
+msgstr "occurrences."
+
+msgid "Database Export"
+msgstr "Export de la base de données"
+
+msgid "Exporting WordPress database tables"
+msgstr "Export des tables de la base de données WordPress"
+
+msgid "File Backup"
+msgstr "Sauvegarde des fichiers"
+
+msgid "Copying WordPress files"
+msgstr "Copie des fichiers WordPress"
+
+msgid "Saving backup and cleaning up"
+msgstr "Enregistrement de la sauvegarde et nettoyage"
+
+msgid "Indexing Files"
+msgstr "Indexation des fichiers"
+
+msgid "Scanning files to backup"
+msgstr "Analyse des fichiers à sauvegarder"
+
+msgid "Adding files to archive"
+msgstr "Ajout des fichiers à l’archive"
+
+msgid "Completing backup"
+msgstr "Finalisation de la sauvegarde"
+
+msgid "An error occurred"
+msgstr "Une erreur est survenue"
+
+msgid "Backup Complete"
+msgstr "Sauvegarde terminée"
+
+msgid "Please wait while the backup completes. Do not close this window."
+msgstr "Veuillez patienter pendant que la sauvegarde se termine. Ne fermez pas cette fenêtre."
