@@ -241,10 +241,12 @@ final class FileQueue {
 	 * Uses a single atomic query to update status and increment attempts,
 	 * preventing race conditions if the process crashes between operations.
 	 *
-	 * @param int $file_id File queue ID.
+	 * @param int  $file_id       File queue ID.
+	 * @param bool $count_attempt Whether this is a new attempt (false when resuming a
+	 *                            partially written file across requests).
 	 * @return bool
 	 */
-	public static function mark_processing( int $file_id ): bool {
+	public static function mark_processing( int $file_id, bool $count_attempt = true ): bool {
 		global $wpdb;
 		$table_name = self::get_table_name();
 
@@ -252,7 +254,9 @@ final class FileQueue {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$result = $wpdb->query(
 			$wpdb->prepare(
-				"UPDATE {$table_name} SET status = %s, attempts = attempts + 1 WHERE id = %d",
+				$count_attempt
+					? "UPDATE {$table_name} SET status = %s, attempts = attempts + 1 WHERE id = %d"
+					: "UPDATE {$table_name} SET status = %s WHERE id = %d",
 				self::STATUS_PROCESSING,
 				$file_id
 			)

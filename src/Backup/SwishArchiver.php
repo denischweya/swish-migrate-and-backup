@@ -37,7 +37,7 @@ final class SwishArchiver {
 	/**
 	 * Header block size in bytes.
 	 */
-	private const HEADER_SIZE = 4377;
+	public const HEADER_SIZE = 4377;
 
 	/**
 	 * Filename field size.
@@ -185,11 +185,21 @@ final class SwishArchiver {
 	 * This method supports resuming - if a file was partially written,
 	 * pass the file_offset to continue from that position.
 	 *
+	 * Exactly $declared_size bytes (default: the file's current size) are
+	 * written after the header, regardless of how the source changes while
+	 * the backup runs: a file that grew is cut at the declared size and a
+	 * file that shrank or vanished is padded with null bytes. The header
+	 * and the content therefore always agree, which is what keeps every
+	 * following entry readable.
+	 *
 	 * @param string $source_path   Full path to source file.
 	 * @param string $archive_path  Path to use inside archive (relative).
 	 * @param int    $file_offset   Offset within file to resume from.
 	 * @param int    $bytes_written Output: bytes written in this call.
 	 * @param int    $timeout       Timeout in seconds (0 = no timeout).
+	 * @param int    $declared_size Size to record in the header (-1 = current file size).
+	 *                              Pass the size captured when the file was indexed, and
+	 *                              pass the same value again when resuming.
 	 * @return bool True if file completely written, false if timed out.
 	 */
 	public function add_file(
@@ -197,68 +207,73 @@ final class SwishArchiver {
 		string $archive_path,
 		int $file_offset = 0,
 		int &$bytes_written = 0,
-		int $timeout = self::DEFAULT_TIMEOUT
+		int $timeout = self::DEFAULT_TIMEOUT,
+		int $declared_size = -1
 	): bool {
 		$bytes_written = 0;
 		$start_time    = microtime( true );
 
-		// Get file info.
-		$stat = @stat( $source_path );
-		if ( false === $stat ) {
-			return true; // Skip missing files.
+		$stat          = @stat( $source_path );
+		$source_handle = false !== $stat ? @fopen( $source_path, 'rb' ) : false;
+
+		// Nothing written yet and the source is missing/unreadable: skip the entry.
+		if ( false === $source_handle && 0 === $file_offset ) {
+			return true;
 		}
 
-		$file_size = $stat['size'];
-		$mtime     = $stat['mtime'];
-
-		// Open source file.
-		$source_handle = @fopen( $source_path, 'rb' );
-		if ( false === $source_handle ) {
-			return true; // Skip unreadable files.
-		}
+		$file_size = $declared_size >= 0 ? $declared_size : (int) $stat['size'];
+		$mtime     = false !== $stat ? (int) $stat['mtime'] : time();
 
 		// Write header only on first chunk (offset = 0).
 		if ( 0 === $file_offset ) {
-			$header = $this->create_header( $archive_path, $file_size, $mtime );
+			$header  = $this->create_header( $archive_path, $file_size, $mtime );
 			$written = @fwrite( $this->file_handle, $header );
 
 			if ( false === $written || strlen( $header ) !== $written ) {
-				@fclose( $source_handle );
-				return false;
+				if ( $source_handle ) {
+					@fclose( $source_handle );
+				}
+				throw new ArchiveWriteException( $this->describe_write_failure() );
 			}
 		}
 
-		// Seek to offset in source file.
-		if ( $file_offset > 0 ) {
+		$remaining = $file_size - $file_offset;
+
+		if ( $source_handle && $file_offset > 0 ) {
 			@fseek( $source_handle, $file_offset, SEEK_SET );
 		}
 
-		// Read and write file content in chunks.
+		// Write exactly $remaining bytes: source content first, null padding if the source ran short.
 		$completed = true;
 
-		while ( ! @feof( $source_handle ) ) {
-			$chunk = @fread( $source_handle, self::CHUNK_SIZE );
-
-			if ( false === $chunk ) {
-				break;
+		while ( $remaining > 0 ) {
+			$chunk = '';
+			if ( $source_handle ) {
+				$chunk = @fread( $source_handle, min( self::CHUNK_SIZE, $remaining ) );
+				if ( false === $chunk ) {
+					$chunk = '';
+				}
 			}
-
-			$chunk_len = strlen( $chunk );
-			if ( 0 === $chunk_len ) {
-				break;
+			if ( '' === $chunk ) {
+				$chunk = str_repeat( "\0", min( self::CHUNK_SIZE, $remaining ) );
 			}
 
 			$written = @fwrite( $this->file_handle, $chunk );
 
-			if ( false === $written || $chunk_len !== $written ) {
-				$completed = false;
-				break;
+			if ( false === $written || strlen( $chunk ) !== $written ) {
+				// A write failure (disk full, quota) is not a timeout: the caller must
+				// not retry it forever as if more time would help.
+				if ( $source_handle ) {
+					@fclose( $source_handle );
+				}
+				throw new ArchiveWriteException( $this->describe_write_failure() );
 			}
 
 			$bytes_written += $written;
+			$remaining     -= $written;
 
 			// Check timeout.
-			if ( $timeout > 0 ) {
+			if ( $remaining > 0 && $timeout > 0 ) {
 				$elapsed = microtime( true ) - $start_time;
 				if ( $elapsed >= $timeout ) {
 					$completed = false;
@@ -267,9 +282,321 @@ final class SwishArchiver {
 			}
 		}
 
-		@fclose( $source_handle );
+		if ( $source_handle ) {
+			@fclose( $source_handle );
+		}
 
 		return $completed;
+	}
+
+	/**
+	 * Human-readable reason for a failed archive write.
+	 *
+	 * @return string
+	 */
+	private function describe_write_failure(): string {
+		$last = error_get_last();
+		$why  = $last['message'] ?? '';
+		if ( '' === $why ) {
+			$free = @disk_free_space( dirname( $this->archive_path ) );
+			$why  = ( false !== $free && $free < 10485760 ) ? 'disk full' : 'write error';
+		}
+
+		return sprintf( 'Failed to write to backup archive %s (%s)', basename( $this->archive_path ), $why );
+	}
+
+	/**
+	 * Walk the entries that start at $from and return the end of the last one
+	 * that is complete (header plus exactly its declared size).
+	 *
+	 * Used after a request died without recording what it appended: every
+	 * complete entry is kept, only the trailing incomplete one is cut.
+	 *
+	 * @param int $from Byte offset of an entry boundary to start from.
+	 * @return int Offset just after the last complete entry (>= $from).
+	 */
+	public function find_last_complete_entry_end( int $from ): int {
+		$size   = $this->get_end_position();
+		$handle = @fopen( $this->archive_path, 'rb' );
+		if ( false === $handle ) {
+			return $from;
+		}
+
+		$pos = max( 0, $from );
+		while ( $pos + self::HEADER_SIZE <= $size ) {
+			if ( 0 !== @fseek( $handle, $pos, SEEK_SET ) ) {
+				break;
+			}
+			$header = @fread( $handle, self::HEADER_SIZE );
+			if ( false === $header || strlen( $header ) < self::HEADER_SIZE || $header === $this->eof_block ) {
+				break;
+			}
+			$parsed     = $this->parse_header( $header );
+			$size_field = rtrim( substr( $header, self::FILENAME_SIZE, self::FILESIZE_SIZE ), "\0" );
+			if ( null === $parsed || '' === $parsed['filename'] || '' === $size_field || ! ctype_digit( $size_field ) ) {
+				break;
+			}
+			$end = $pos + self::HEADER_SIZE + $parsed['size'];
+			if ( $end > $size ) {
+				break; // Incomplete trailing entry.
+			}
+			$pos = $end;
+		}
+		@fclose( $handle );
+
+		return $pos;
+	}
+
+	/**
+	 * Get the current end of the archive in bytes.
+	 *
+	 * ftell() is unreliable on a handle opened in append mode before the first
+	 * write, so the size is taken from the file descriptor instead.
+	 *
+	 * @return int Archive size in bytes.
+	 */
+	public function get_end_position(): int {
+		if ( null === $this->file_handle ) {
+			return $this->get_size();
+		}
+
+		@fflush( $this->file_handle );
+		$stat = @fstat( $this->file_handle );
+
+		return $stat ? (int) $stat['size'] : $this->get_size();
+	}
+
+	/**
+	 * Cut the archive back to $offset bytes.
+	 *
+	 * Used to discard the tail of an entry that a previous request wrote only
+	 * partially (and could not record), so the next write starts at a clean
+	 * entry boundary.
+	 *
+	 * @param int $offset Byte offset to truncate at.
+	 * @return bool True on success.
+	 */
+	public function truncate_to( int $offset ): bool {
+		if ( null === $this->file_handle ) {
+			return false;
+		}
+
+		@fflush( $this->file_handle );
+
+		return @ftruncate( $this->file_handle, max( 0, $offset ) );
+	}
+
+	/**
+	 * Walk the archive header by header and check that every entry is complete
+	 * and that the EOF marker is the last block.
+	 *
+	 * This is a structural check (headers and sizes), not a content checksum,
+	 * so it costs one seek per entry even on multi-gigabyte archives. With a
+	 * time budget the walk can be resumed: pass back 'pos' and 'entries' from a
+	 * result whose 'completed' is false.
+	 *
+	 * @param int   $start_pos   Byte offset to resume from (an entry boundary).
+	 * @param int   $entries     Entries already verified before $start_pos.
+	 * @param float $time_budget Seconds to work before yielding (0 = no limit).
+	 * @return array{valid: bool, completed: bool, entries: int, pos: int, error: string}
+	 */
+	public function verify_structure( int $start_pos = 0, int $entries = 0, float $time_budget = 0 ): array {
+		if ( ! file_exists( $this->archive_path ) ) {
+			return array(
+				'valid'     => false,
+				'completed' => true,
+				'entries'   => 0,
+				'pos'       => 0,
+				'error'     => 'Archive file not found',
+			);
+		}
+
+		$size   = (int) filesize( $this->archive_path );
+		$handle = @fopen( $this->archive_path, 'rb' );
+
+		if ( false === $handle ) {
+			return array(
+				'valid'     => false,
+				'completed' => true,
+				'entries'   => 0,
+				'pos'       => 0,
+				'error'     => 'Archive cannot be opened',
+			);
+		}
+
+		$pos    = max( 0, $start_pos );
+		$result = null;
+		$start  = microtime( true );
+
+		if ( $pos > 0 && 0 !== @fseek( $handle, $pos, SEEK_SET ) ) {
+			@fclose( $handle );
+			return array(
+				'valid'     => false,
+				'completed' => true,
+				'entries'   => $entries,
+				'pos'       => $pos,
+				'error'     => sprintf( 'Cannot seek to byte %d', $pos ),
+			);
+		}
+
+		while ( null === $result ) {
+			if ( $time_budget > 0 && ( microtime( true ) - $start ) >= $time_budget ) {
+				@fclose( $handle );
+				return array(
+					'valid'     => false,
+					'completed' => false,
+					'entries'   => $entries,
+					'pos'       => $pos,
+					'error'     => '',
+				);
+			}
+
+			$header = @fread( $handle, self::HEADER_SIZE );
+
+			if ( false === $header || strlen( $header ) < self::HEADER_SIZE ) {
+				$result = array(
+					'valid'   => false,
+					'entries' => $entries,
+					'error'   => sprintf( 'Archive ends without an EOF marker at byte %d', $pos ),
+				);
+				break;
+			}
+
+			if ( $header === $this->eof_block ) {
+				$valid  = ( $pos + self::HEADER_SIZE === $size );
+				$result = array(
+					'valid'   => $valid,
+					'entries' => $entries,
+					'error'   => $valid ? '' : 'Unexpected data after the EOF marker',
+				);
+				break;
+			}
+
+			$parsed     = $this->parse_header( $header );
+			$size_field = rtrim( substr( $header, self::FILENAME_SIZE, self::FILESIZE_SIZE ), "\0" );
+
+			if (
+				null === $parsed ||
+				'' === $parsed['filename'] ||
+				'' === $size_field ||
+				! ctype_digit( $size_field ) ||
+				$pos + self::HEADER_SIZE + $parsed['size'] > $size
+			) {
+				$result = array(
+					'valid'   => false,
+					'entries' => $entries,
+					'error'   => sprintf( 'Corrupt entry header at byte %d', $pos ),
+				);
+				break;
+			}
+
+			$pos += self::HEADER_SIZE + $parsed['size'];
+			++$entries;
+
+			if ( 0 !== @fseek( $handle, $pos, SEEK_SET ) ) {
+				$result = array(
+					'valid'   => false,
+					'entries' => $entries,
+					'error'   => sprintf( 'Cannot seek to byte %d', $pos ),
+				);
+				break;
+			}
+		}
+
+		@fclose( $handle );
+
+		$result['completed'] = true;
+		$result['pos']       = $pos;
+
+		return $result;
+	}
+
+	/**
+	 * Compute the archive's MD5 in time-bounded, resumable steps.
+	 *
+	 * Hashing a multi-gigabyte archive in one request outlives proxy timeouts,
+	 * so the hash context is serialised between calls (PHP 8.1+). Pass back
+	 * 'offset' and 'context' until 'completed' is true.
+	 *
+	 * @param int    $offset      Byte offset to resume from.
+	 * @param string $context     Serialised hash context from the previous call ('' to start).
+	 * @param float  $time_budget Seconds to work before yielding (0 = no limit).
+	 * @return array{completed: bool, offset: int, context: string, checksum: string, error: string}
+	 */
+	public function checksum_chunked( int $offset = 0, string $context = '', float $time_budget = 0 ): array {
+		$fail = static function ( string $error ) use ( $offset ): array {
+			return array(
+				'completed' => true,
+				'offset'    => $offset,
+				'context'   => '',
+				'checksum'  => '',
+				'error'     => $error,
+			);
+		};
+
+		$handle = @fopen( $this->archive_path, 'rb' );
+		if ( false === $handle ) {
+			return $fail( 'Archive cannot be opened' );
+		}
+
+		$ctx = null;
+		if ( '' !== $context && $offset > 0 ) {
+			try {
+				// phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.serialize_unserialize
+				$restored = unserialize( base64_decode( $context ), array( 'allowed_classes' => array( \HashContext::class ) ) );
+				if ( $restored instanceof \HashContext ) {
+					$ctx = $restored;
+				}
+			} catch ( \Throwable $e ) {
+				$ctx = null;
+			}
+		}
+		if ( null === $ctx ) {
+			$ctx    = hash_init( 'md5' );
+			$offset = 0;
+		}
+
+		if ( $offset > 0 && 0 !== @fseek( $handle, $offset, SEEK_SET ) ) {
+			@fclose( $handle );
+			return $fail( sprintf( 'Cannot seek to byte %d', $offset ) );
+		}
+
+		$start = microtime( true );
+		while ( ! feof( $handle ) ) {
+			$chunk = @fread( $handle, 1048576 );
+			if ( false === $chunk || '' === $chunk ) {
+				break;
+			}
+			hash_update( $ctx, $chunk );
+			$offset += strlen( $chunk );
+
+			if ( $time_budget > 0 && ! feof( $handle ) && ( microtime( true ) - $start ) >= $time_budget ) {
+				@fclose( $handle );
+				try {
+					// phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.serialize_serialize
+					$saved = base64_encode( serialize( $ctx ) );
+				} catch ( \Throwable $e ) {
+					// Context cannot be serialised on this PHP build: finish in one go.
+					return $this->checksum_chunked( 0, '', 0 );
+				}
+				return array(
+					'completed' => false,
+					'offset'    => $offset,
+					'context'   => $saved,
+					'checksum'  => '',
+					'error'     => '',
+				);
+			}
+		}
+		@fclose( $handle );
+
+		return array(
+			'completed' => true,
+			'offset'    => $offset,
+			'context'   => '',
+			'checksum'  => hash_final( $ctx ),
+			'error'     => '',
+		);
 	}
 
 	/**

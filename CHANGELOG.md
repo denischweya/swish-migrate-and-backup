@@ -5,6 +5,41 @@ All notable changes to Swish Migrate and Backup will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-11-05
+
+### Fixed
+- **Backups from the Backups page could never finish on real hosts and could produce unreadable archives.** The browser-driven pipeline had several independent defects, all fixed:
+  - A file that did not fit in one request's time budget was appended again from the start on the next request, forever: the archive grew without bound and the header of the first attempt pointed into garbage. Large files are now resumed from the exact byte where the previous request stopped; the archive position is recorded with every step and anything a crashed request appended without recording is cut off before writing continues.
+  - The whole database was dumped inside a single request, and that dump silently dropped tables once it had used `max_execution_time - 10` seconds (on hosts with a 20-second limit it wrote zero tables and still reported success). The dump now runs in time slices across requests, resumed from a checkpoint, and is streamed into the archive instead of being read into memory (a 200 MB dump fataled under a 128M memory limit).
+  - The archive header recorded a file's size at index time but the content was whatever the file contained at archive time, so a log, cache or upload that changed in between desynchronised every entry after it. Exactly the recorded size is now written (long files are cut, short files padded).
+  - Two requests could write the same archive at once (a proxy timed out one request while PHP kept running it, and the browser retried). A per-job database lock now serialises steps; a request that meets the lock gets a `busy` answer and the browser simply waits.
+  - File indexing ran inside the "start" request. On large sites that request outlived proxy timeouts and the browser never learned the job id. Start now returns immediately and indexing runs in the first continue steps.
+  - The browser gave up on a backup after 30 polls total, so one hiccup on a long backup silently abandoned it. It now retries consecutive errors with backoff and shows the server's failure message when a job really fails.
+  - The backup type was ignored: a "Database" backup archived every file and a "Files" backup included the database. Types are honoured.
+  - Every archive is now walked header by header before it is registered; a structurally broken archive is discarded with a clear error instead of being listed as a good backup. Verification and the MD5 checksum run in time-bounded, resumable steps (hashing a 5 GB archive used to be one 86-second request).
+  - With "WordPress core files" enabled, `wp-content` was indexed twice (once via the site root, once on its own) and archives were twice their real size. Directories nested inside another scanned directory are skipped.
+  - On hosts with `max_execution_time = 0` (unlimited) the pipeline never archived a single file: `ServerLimits::is_approaching_time_limit()` compared the float "unlimited" marker with a strict integer check that never matched, so every request looked out of time before it started. The same stall was triggered by the new `set_time_limit(0)` in continue requests until this was fixed.
+  - The job state option is no longer autoloaded on every page load.
+  - Hard-kill windows (PHP-FPM `request_terminate_timeout`, out-of-memory, worker restart) are handled: a request that dies after finishing files but before saving its cursor no longer causes the next request to cut those files out of the archive (the archive tail is walked header by header and only the incomplete entry is removed); a partial entry with zero content bytes is restarted instead of being given a second header; a database dump slice that died after writing rows is truncated back to the recorded length before resuming; job state is re-read under the per-job lock so a retry never acts on a stale cursor.
+  - An archive that cannot be written (disk full, quota) now fails the job with the real reason instead of being retried forever as a "timeout".
+  - If the database cannot provide named locks (`GET_LOCK` returns NULL), steps run unlocked instead of waiting forever.
+  - Failed jobs remove their `temp-<job>/database.sql` directory.
+- **Imports (Migration page) failed or stalled on anything but small sites.**
+  - `.swish` archives were extracted in one request (300-second internal limit) and files were copied into place in one request. Both now run in bounded, resumable chunks; a request that dies mid-file is cut back to the last recorded byte on resume.
+  - The browser poll and the server's own loopback request both executed the same import step concurrently (duplicate SQL, racing offsets). A per-session database lock now allows one executor at a time.
+  - Choosing "clear stale session and start fresh" fataled (`$this->logger` was never set in the REST controller).
+  - Moving files from the temp directory to `wp-content` across filesystems no longer turns into one multi-gigabyte `rename()` copy (PHP silently copies on cross-device renames; the move now checks the device first and copies in resumable chunks).
+  - `/*!40000 ALTER TABLE ... DISABLE KEYS */;` lines in dumps lost only their opening comment marker, so every table produced two SQL syntax errors during restore. The closing marker is stripped as well.
+  - The per-request import budget now adapts to the host's `max_execution_time` like the backup pipeline (10-25 seconds) instead of a fixed 25.
+  - An extraction that makes no progress (truncated archive, unwritable destination) or a file copy that fails mid-way (disk full) now fails the import with a message instead of looping or silently installing a truncated file; the extracted-file list is written atomically; the extraction directory is kept alive for the whole import so a concurrent backup's orphan cleanup cannot remove it.
+- **Scheduled backups**: a request killed during the file scan no longer leaves the job stuck in "processing" (the scan is checkpointed and restarted); an archive that was already finalized when the request died is kept instead of being rebuilt; temp directories and on-disk file lists are cleaned up when a job fails; overlapping scan directories are de-nested instead of keeping every path in memory.
+  - The plugin's own directory is skipped on extraction so an import can no longer overwrite the code that is running it; backups also exclude it (as scheduled backups already did).
+- **Scheduled backups silently stopped at 50,000 files** and stored the entire file list inside the checkpoint row rewritten every 10 seconds (exceeding `max_allowed_packet` and memory on large sites, after which the job failed with "Backup checkpoint expired or not found"). The file list now lives on disk and is streamed; files-only scheduled backups now include a manifest so they can be imported.
+
+### Added
+- `tests/ddev/` integration tests runnable against the DDEV site (`bash tests/ddev/run.sh`), covering archive resume, chunked database dump, structural verification, the REST pipeline, locks, chunked import and the scheduled engine.
+- Filter `swish_import_time_budget` (default 25 seconds per import request).
+
 ## [1.4.0] - 2026-08-03
 
 ### Added

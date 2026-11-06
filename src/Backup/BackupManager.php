@@ -522,6 +522,10 @@ final class BackupManager {
 			try {
 				if ( 'database' === $phase ) {
 					$this->continue_database_backup( $job_id, $checkpoint );
+				} elseif ( 'scan' === $phase ) {
+					// The request that scanned the files died before the first archive
+					// chunk could save its own checkpoint: scan again.
+					$this->continue_full_backup_after_database( $job_id, $checkpoint['db_file'] ?? '', $temp_dir, $options );
 				} elseif ( 'streaming_files' === $phase ) {
 					$this->continue_streaming_backup( $job_id, $checkpoint );
 				} elseif ( 'files' === $phase ) {
@@ -575,6 +579,12 @@ final class BackupManager {
 			'server_timeout'   => $server_timeout,
 			'max_request_time' => $max_request_time,
 		) );
+
+		// Keep the temp dir's mtime fresh: cleanup_orphaned_files() removes temp
+		// directories untouched for an hour, and a large dump can take longer.
+		if ( '' !== $temp_dir && is_dir( $temp_dir ) ) {
+			@touch( $temp_dir );
+		}
 
 		// Progress callback.
 		$progress_callback = function ( int $progress, string $table, int $tables_done, int $total_tables ) use ( $job_id ) {
@@ -758,12 +768,37 @@ final class BackupManager {
 	 * @return void
 	 */
 	private function continue_full_backup_after_database( string $job_id, string $db_file, string $temp_dir, array $options ): void {
-		// Step 2: Prepare file list.
+		// Step 2: Write the special files and scan the file list straight to disk.
 		$this->update_job_status( $job_id, 'processing', 10, 'Scanning files...' );
 
-		$file_list = $this->file_backup->prepare_file_list( $options );
-		$files = $file_list['files'] ?? array();
-		$total_files = count( $files );
+		// Checkpoint the scan itself: if this request dies mid-scan, the status
+		// poll / cron can restart it instead of leaving the job in limbo.
+		$this->save_checkpoint( $job_id, array(
+			'phase'       => 'scan',
+			'db_file'     => $db_file,
+			'temp_dir'    => $temp_dir,
+			'options'     => $options,
+			'backup_type' => 'full',
+		) );
+		@touch( $temp_dir );
+
+		$this->file_backup->backup_wp_config( $temp_dir );
+
+		$manifest_path = $temp_dir . '/manifest.json';
+		$config_file   = $temp_dir . '/wp-config.php';
+
+		// Placeholder manifest so its list entry exists; rewritten with the count after the scan.
+		$metadata = $this->create_backup_manifest( $job_id, 'full', $options );
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+		file_put_contents( $manifest_path, wp_json_encode( $metadata, JSON_PRETTY_PRINT ) );
+
+		$scan        = $this->file_backup->prepare_file_list_to_state(
+			$job_id,
+			$options,
+			$this->special_file_entries( $manifest_path, $db_file, $config_file )
+		);
+		$total_files = $scan['scanned'];
+		$total_all   = $scan['count'];
 
 		if ( 0 === $total_files ) {
 			throw new \RuntimeException( 'No files found to backup' );
@@ -771,34 +806,12 @@ final class BackupManager {
 
 		$this->logger->info( 'File list prepared after database continuation', array( 'count' => $total_files ) );
 
-		// Step 3: Add special files.
-		$this->update_job_status( $job_id, 'processing', 12, 'Adding configuration files...' );
-		$this->file_backup->backup_wp_config( $temp_dir );
-
-		// Create manifest.
+		// Final manifest with the real file count.
 		$metadata = $this->create_backup_manifest( $job_id, 'full', $options, array(
 			'count' => $total_files,
 		) );
-		$manifest_path = $temp_dir . '/manifest.json';
 		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
 		file_put_contents( $manifest_path, wp_json_encode( $metadata, JSON_PRETTY_PRINT ) );
-
-		// Add special files to the beginning of the file list.
-		$special_files = array();
-		if ( file_exists( $manifest_path ) ) {
-			$special_files[] = array( 'path' => $manifest_path, 'relative' => 'manifest.json' );
-		}
-		if ( file_exists( $db_file ) ) {
-			$special_files[] = array( 'path' => $db_file, 'relative' => 'database.sql' );
-		}
-		$config_file = $temp_dir . '/wp-config.php';
-		if ( file_exists( $config_file ) ) {
-			$special_files[] = array( 'path' => $config_file, 'relative' => 'wp-config.php' );
-		}
-
-		// Merge special files with regular files.
-		$all_files = array_merge( $special_files, $files );
-		$total_all = count( $all_files );
 
 		// Step 4: Create streaming archive.
 		$this->update_job_status( $job_id, 'processing', 15, 'Creating archive...' );
@@ -817,7 +830,7 @@ final class BackupManager {
 
 		// Run streaming backup.
 		$streaming = $this->get_streaming_tar();
-		$result = $streaming->run_chunk( $job_id, $all_files, $backup_path, $progress_callback );
+		$result = $streaming->run_chunk_from_list( $job_id, $scan['list_path'], $total_all, $backup_path, $progress_callback );
 
 		// Handle result.
 		if ( StreamingTarBackup::RESULT_ERROR === $result['result'] ) {
@@ -827,14 +840,14 @@ final class BackupManager {
 		if ( StreamingTarBackup::RESULT_CONTINUE === $result['result'] ) {
 			// Save checkpoint for file streaming continuation.
 			$checkpoint = array(
-				'phase'        => 'streaming_files',
-				'backup_path'  => $backup_path,
-				'temp_dir'     => $temp_dir,
-				'files'        => $all_files,
-				'total_files'  => $total_all,
-				'processed'    => $result['processed'],
-				'options'      => $options,
-				'metadata'     => $metadata,
+				'phase'          => 'streaming_files',
+				'backup_path'    => $backup_path,
+				'temp_dir'       => $temp_dir,
+				'file_list_path' => $scan['list_path'],
+				'total_files'    => $total_all,
+				'processed'      => $result['processed'],
+				'options'        => $options,
+				'metadata'       => $metadata,
 			);
 			$this->save_checkpoint( $job_id, $checkpoint );
 			$this->schedule_continuation( $job_id );
@@ -844,6 +857,33 @@ final class BackupManager {
 
 		// Backup complete!
 		$this->finalize_streaming_backup( $job_id, $backup_path, $backup_filename, $temp_dir, $options );
+	}
+
+	/**
+	 * List entries for the generated files that lead every archive.
+	 *
+	 * @param string $manifest_path Path to manifest.json.
+	 * @param string $db_file       Path to database.sql (may not exist).
+	 * @param string $config_file   Path to the sanitised wp-config.php copy (may not exist).
+	 * @return array Entries with 'path' and 'relative' keys.
+	 */
+	private function special_file_entries( string $manifest_path, string $db_file, string $config_file ): array {
+		$entries = array();
+
+		foreach ( array(
+			'manifest.json' => $manifest_path,
+			'database.sql'  => $db_file,
+			'wp-config.php' => $config_file,
+		) as $relative => $path ) {
+			if ( '' !== $path && file_exists( $path ) ) {
+				$entries[] = array(
+					'path'     => $path,
+					'relative' => $relative,
+				);
+			}
+		}
+
+		return $entries;
 	}
 
 	/**
@@ -873,6 +913,7 @@ final class BackupManager {
 		$this->storage_manager->store( $backup_path, $destinations );
 
 		$this->cleanup_temp_directory( $temp_dir );
+		$this->delete_checkpoint( $job_id );
 
 		$result = array(
 			'job_id'   => $job_id,
@@ -1045,17 +1086,22 @@ final class BackupManager {
 	 * @return void
 	 */
 	private function continue_streaming_backup( string $job_id, array $checkpoint ): void {
-		$backup_path  = $checkpoint['backup_path'] ?? '';
-		$temp_dir     = $checkpoint['temp_dir'] ?? '';
-		$files        = $checkpoint['files'] ?? array();
-		$total_files  = $checkpoint['total_files'] ?? count( $files );
-		$options      = $checkpoint['options'] ?? array();
-		$metadata     = $checkpoint['metadata'] ?? array();
+		$backup_path    = $checkpoint['backup_path'] ?? '';
+		$temp_dir       = $checkpoint['temp_dir'] ?? '';
+		$files          = $checkpoint['files'] ?? array();
+		$file_list_path = $checkpoint['file_list_path'] ?? '';
+		$total_files    = (int) ( $checkpoint['total_files'] ?? count( $files ) );
+		$options        = $checkpoint['options'] ?? array();
+		$metadata       = $checkpoint['metadata'] ?? array();
 
 		$this->logger->info( 'Continuing streaming backup', array(
 			'processed'   => $checkpoint['processed'] ?? 0,
 			'total_files' => $total_files,
 		) );
+
+		if ( '' !== $temp_dir && is_dir( $temp_dir ) ) {
+			@touch( $temp_dir ); // See continue_database_backup(): protect against orphan cleanup.
+		}
 
 		// Progress callback.
 		$progress_callback = function ( float $progress, string $message, int $processed, int $total ) use ( $job_id ) {
@@ -1064,9 +1110,14 @@ final class BackupManager {
 			$this->update_job_status( $job_id, 'processing', $job_progress, $message );
 		};
 
-		// Continue streaming backup.
+		// Continue streaming backup from the on-disk list (checkpoints written by
+		// older versions carried the list inline; honour those too).
 		$streaming = $this->get_streaming_tar();
-		$result = $streaming->run_chunk( $job_id, $files, $backup_path, $progress_callback );
+		if ( '' !== $file_list_path ) {
+			$result = $streaming->run_chunk_from_list( $job_id, $file_list_path, $total_files, $backup_path, $progress_callback );
+		} else {
+			$result = $streaming->run_chunk( $job_id, $files, $backup_path, $progress_callback );
+		}
 
 		// Handle result.
 		if ( StreamingTarBackup::RESULT_ERROR === $result['result'] ) {
@@ -1761,12 +1812,38 @@ final class BackupManager {
 				) );
 			}
 
-			// Step 2: Prepare file list - write directly to disk, not memory.
+			// Step 2: Write the special files and scan the file list straight to disk
+			// (never into memory or the checkpoint row).
 			$this->update_job_status( $job_id, 'processing', 10, 'Scanning files...' );
 
-			$file_list = $this->file_backup->prepare_file_list( $options );
-			$files = $file_list['files'] ?? array();
-			$total_files = count( $files );
+			$manifest_path = $temp_dir . '/manifest.json';
+			$db_file       = $temp_dir . '/database.sql';
+			$config_file   = $temp_dir . '/wp-config.php';
+
+			// Checkpoint the scan itself: if this request dies mid-scan, the status
+			// poll / cron can restart it instead of leaving the job in limbo.
+			$this->save_checkpoint( $job_id, array(
+				'phase'       => 'scan',
+				'db_file'     => file_exists( $db_file ) ? $db_file : '',
+				'temp_dir'    => $temp_dir,
+				'options'     => $options,
+				'backup_type' => 'full',
+			) );
+
+			$this->file_backup->backup_wp_config( $temp_dir );
+
+			// Placeholder manifest so its list entry exists; rewritten with the count after the scan.
+			$metadata = $this->create_backup_manifest( $job_id, 'full', $options );
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+			file_put_contents( $manifest_path, wp_json_encode( $metadata, JSON_PRETTY_PRINT ) );
+
+			$scan        = $this->file_backup->prepare_file_list_to_state(
+				$job_id,
+				$options,
+				$this->special_file_entries( $manifest_path, $db_file, $config_file )
+			);
+			$total_files = $scan['scanned'];
+			$total_all   = $scan['count'];
 
 			if ( 0 === $total_files ) {
 				throw new \RuntimeException( 'No files found to backup' );
@@ -1774,44 +1851,12 @@ final class BackupManager {
 
 			$this->logger->info( 'File list prepared', array( 'count' => $total_files ) );
 
-			// Check if file scan was truncated (incomplete backup warning).
-			if ( $file_list['truncated'] ?? false ) {
-				$this->logger->error( 'WARNING: File scan was truncated - backup may be incomplete!', array(
-					'files_found' => $total_files,
-					'tip'         => 'Consider using CLI backup (wp swish backup) or the pipeline-based backup for large sites.',
-				) );
-				$this->update_job_status( $job_id, 'processing', 12, 'Warning: Some files may be missing due to timeout...' );
-			}
-
-			// Step 3: Add special files (wp-config, manifest).
-			$this->update_job_status( $job_id, 'processing', 12, 'Adding configuration files...' );
-			$this->file_backup->backup_wp_config( $temp_dir );
-
-			// Create manifest.
+			// Final manifest with the real file count.
 			$metadata = $this->create_backup_manifest( $job_id, 'full', $options, array(
 				'count' => $total_files,
 			) );
-			$manifest_path = $temp_dir . '/manifest.json';
 			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
 			file_put_contents( $manifest_path, wp_json_encode( $metadata, JSON_PRETTY_PRINT ) );
-
-			// Add special files to the beginning of the file list.
-			$special_files = array();
-			if ( file_exists( $manifest_path ) ) {
-				$special_files[] = array( 'path' => $manifest_path, 'relative' => 'manifest.json' );
-			}
-			$db_file = $temp_dir . '/database.sql';
-			if ( file_exists( $db_file ) ) {
-				$special_files[] = array( 'path' => $db_file, 'relative' => 'database.sql' );
-			}
-			$config_file = $temp_dir . '/wp-config.php';
-			if ( file_exists( $config_file ) ) {
-				$special_files[] = array( 'path' => $config_file, 'relative' => 'wp-config.php' );
-			}
-
-			// Merge special files with regular files.
-			$all_files = array_merge( $special_files, $files );
-			$total_all = count( $all_files );
 
 			// Step 4: Create streaming archive.
 			$this->update_job_status( $job_id, 'processing', 15, 'Creating archive...' );
@@ -1831,7 +1876,7 @@ final class BackupManager {
 
 			// Run streaming backup chunk.
 			$streaming = $this->get_streaming_tar();
-			$result = $streaming->run_chunk( $job_id, $all_files, $backup_path, $progress_callback );
+			$result = $streaming->run_chunk_from_list( $job_id, $scan['list_path'], $total_all, $backup_path, $progress_callback );
 
 			// Handle result.
 			if ( StreamingTarBackup::RESULT_ERROR === $result['result'] ) {
@@ -1841,14 +1886,14 @@ final class BackupManager {
 			if ( StreamingTarBackup::RESULT_CONTINUE === $result['result'] ) {
 				// Save checkpoint for continuation.
 				$checkpoint = array(
-					'phase'         => 'streaming_files',
-					'backup_path'   => $backup_path,
-					'temp_dir'      => $temp_dir,
-					'files'         => $all_files,
-					'total_files'   => $total_all,
-					'processed'     => $result['processed'],
-					'options'       => $options,
-					'metadata'      => $metadata,
+					'phase'          => 'streaming_files',
+					'backup_path'    => $backup_path,
+					'temp_dir'       => $temp_dir,
+					'file_list_path' => $scan['list_path'],
+					'total_files'    => $total_all,
+					'processed'      => $result['processed'],
+					'options'        => $options,
+					'metadata'       => $metadata,
 				);
 				$this->save_checkpoint( $job_id, $checkpoint );
 				$this->schedule_continuation( $job_id );
@@ -1913,6 +1958,7 @@ final class BackupManager {
 			if ( isset( $temp_dir ) ) {
 				$this->cleanup_temp_directory( $temp_dir );
 			}
+			$this->delete_checkpoint( $job_id );
 
 			return array( 'error' => $e->getMessage() );
 		}
@@ -2307,14 +2353,31 @@ final class BackupManager {
 			$backup_path = $this->get_backup_directory() . '/' . $backup_filename;
 
 			$this->update_job_status( $job_id, 'processing', 10, 'Preparing file list...' );
-			$file_list = $this->file_backup->prepare_file_list( $options );
 
-			$files = $file_list['files'] ?? array();
-			$file_count = count( $files );
+			// A manifest makes the archive importable (verify_backup() requires one).
+			$temp_dir      = $this->get_temp_directory( $job_id );
+			$manifest_path = $temp_dir . '/manifest.json';
+			$metadata      = $this->create_backup_manifest( $job_id, 'files', $options );
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+			file_put_contents( $manifest_path, wp_json_encode( $metadata, JSON_PRETTY_PRINT ) );
+
+			$scan       = $this->file_backup->prepare_file_list_to_state(
+				$job_id,
+				$options,
+				$this->special_file_entries( $manifest_path, '', '' )
+			);
+			$file_count = $scan['scanned'];
+			$total_all  = $scan['count'];
 
 			if ( 0 === $file_count ) {
 				throw new \RuntimeException( 'No files found to backup' );
 			}
+
+			$metadata = $this->create_backup_manifest( $job_id, 'files', $options, array(
+				'count' => $file_count,
+			) );
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+			file_put_contents( $manifest_path, wp_json_encode( $metadata, JSON_PRETTY_PRINT ) );
 
 			$this->update_job_status(
 				$job_id,
@@ -2332,7 +2395,7 @@ final class BackupManager {
 
 			// Use streaming tar backup.
 			$streaming = $this->get_streaming_tar();
-			$result = $streaming->run_chunk( $job_id, $files, $backup_path, $progress_callback );
+			$result = $streaming->run_chunk_from_list( $job_id, $scan['list_path'], $total_all, $backup_path, $progress_callback );
 
 			// Handle result.
 			if ( StreamingTarBackup::RESULT_ERROR === $result['result'] ) {
@@ -2342,14 +2405,14 @@ final class BackupManager {
 			if ( StreamingTarBackup::RESULT_CONTINUE === $result['result'] ) {
 				// Save checkpoint for continuation.
 				$checkpoint = array(
-					'phase'       => 'streaming_files',
-					'backup_path' => $backup_path,
-					'temp_dir'    => '',
-					'files'       => $files,
-					'total_files' => $file_count,
-					'processed'   => $result['processed'],
-					'options'     => $options,
-					'metadata'    => array( 'type' => 'files' ),
+					'phase'          => 'streaming_files',
+					'backup_path'    => $backup_path,
+					'temp_dir'       => $temp_dir,
+					'file_list_path' => $scan['list_path'],
+					'total_files'    => $total_all,
+					'processed'      => $result['processed'],
+					'options'        => $options,
+					'metadata'       => $metadata,
 				);
 				$this->save_checkpoint( $job_id, $checkpoint );
 				$this->schedule_continuation( $job_id );
@@ -2390,14 +2453,21 @@ final class BackupManager {
 				'checksum'     => hash_file( 'sha256', $backup_path ),
 				'file_count'   => $file_count,
 				'destinations' => $upload_results,
+				'manifest'     => $metadata,
 			);
 
 			$this->complete_job( $job_id, $backup_result );
+			$this->cleanup_temp_directory( $temp_dir );
+			$this->delete_checkpoint( $job_id );
 
 			return $backup_result;
 
 		} catch ( \Exception $e ) {
 			$this->fail_job( $job_id, $e->getMessage() );
+			if ( isset( $temp_dir ) ) {
+				$this->cleanup_temp_directory( $temp_dir );
+			}
+			$this->delete_checkpoint( $job_id );
 			return array( 'error' => $e->getMessage() );
 		}
 	}

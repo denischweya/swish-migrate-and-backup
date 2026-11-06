@@ -240,7 +240,32 @@ final class BackupPipeline {
 			$directories[] = $upload_dir['basedir'];
 		}
 
-		return array_unique( array_filter( $directories, 'is_dir' ) );
+		$directories = array_values( array_unique( array_filter( $directories, 'is_dir' ) ) );
+
+		// A directory inside another one in the list would be indexed twice (the
+		// site root already contains wp-content on a standard install). Keep only
+		// the outermost directories.
+		$real = array();
+		foreach ( $directories as $dir ) {
+			$resolved     = realpath( $dir );
+			$real[ $dir ] = $resolved ? rtrim( str_replace( '\\', '/', $resolved ), '/' ) . '/' : null;
+		}
+
+		$outermost = array();
+		foreach ( $directories as $dir ) {
+			$nested = false;
+			foreach ( $directories as $other ) {
+				if ( $other !== $dir && $real[ $dir ] && $real[ $other ] && 0 === strpos( $real[ $dir ], $real[ $other ] ) ) {
+					$nested = true;
+					break;
+				}
+			}
+			if ( ! $nested ) {
+				$outermost[] = $dir;
+			}
+		}
+
+		return $outermost;
 	}
 
 	/**
@@ -374,22 +399,24 @@ final class BackupPipeline {
 	}
 
 	/**
-	 * Prepare the archive with manifest and database.
+	 * Prepare the archive: write the manifest, dump the database in time slices
+	 * and queue database.sql for streaming.
 	 *
-	 * This MUST be called before process_files() to ensure the manifest
-	 * and database are at the beginning of the archive.
+	 * Call repeatedly, passing back the returned 'checkpoint', until 'completed'
+	 * is true. The manifest is written on the first call. The database dump is
+	 * resumed from the checkpoint on every call and, when it is complete, the
+	 * dump file is added to the file queue so process_files() streams it into
+	 * the archive with the same resume support as any other file (it is never
+	 * read into memory). Must complete before process_files() is called.
 	 *
 	 * @param string $job_id       Job ID.
 	 * @param string $archive_path Path to the archive file.
 	 * @param array  $options      Backup options.
-	 * @return array Result with 'success', 'error'.
+	 * @param array  $checkpoint   Checkpoint returned by the previous call (empty to start).
+	 * @param int    $time_budget  Seconds the database dump may run in this call (0 = pipeline budget).
+	 * @return array Result with 'success', 'completed', 'checkpoint', 'archive_offset', 'progress', 'error'.
 	 */
-	public function prepare_archive( string $job_id, string $archive_path, array $options = array() ): array {
-		$this->logger->info( 'Preparing archive with manifest', array(
-			'job_id'  => $job_id,
-			'archive' => $archive_path,
-		) );
-
+	public function prepare_archive( string $job_id, string $archive_path, array $options = array(), array $checkpoint = array(), int $time_budget = 0 ): array {
 		// Create temp directory for manifest and database.
 		$temp_dir = dirname( $archive_path ) . '/temp-' . $job_id;
 		if ( ! is_dir( $temp_dir ) && ! wp_mkdir_p( $temp_dir ) ) {
@@ -399,66 +426,115 @@ final class BackupPipeline {
 			);
 		}
 
-		// Get stats for manifest.
-		$stats = FileQueue::get_job_stats( $job_id );
+		$manifest = null;
 
-		// Create manifest.
-		$manifest = $this->create_manifest( $job_id, $options, $stats );
-		$manifest_path = $temp_dir . '/manifest.json';
-		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
-		file_put_contents( $manifest_path, wp_json_encode( $manifest, JSON_PRETTY_PRINT ) );
+		if ( empty( $checkpoint['manifest_done'] ) ) {
+			$this->logger->info( 'Preparing archive with manifest', array(
+				'job_id'  => $job_id,
+				'archive' => $archive_path,
+			) );
 
-		// Initialize archiver.
-		$archiver = new SwishArchiver( $archive_path );
+			$stats = FileQueue::get_job_stats( $job_id );
+			$manifest = $this->create_manifest( $job_id, $options, $stats );
+			$manifest_path = $temp_dir . '/manifest.json';
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+			file_put_contents( $manifest_path, wp_json_encode( $manifest, JSON_PRETTY_PRINT ) );
 
-		if ( ! $archiver->open_for_write() ) {
-			return array(
-				'success' => false,
-				'error'   => 'Failed to create archive file',
-			);
-		}
+			$archiver = new SwishArchiver( $archive_path );
 
-		// Add manifest as first file.
-		$archiver->add_file_direct( $manifest_path, 'manifest.json' );
-
-		// Backup database if this is a full backup.
-		$type = $options['type'] ?? 'full';
-		$backup_database = $options['backup_database'] ?? ( 'full' === $type );
-
-		if ( $backup_database ) {
-			$this->logger->info( 'Creating database backup' );
-			$db_backup = new DatabaseBackup( $this->logger );
-			$db_path = $temp_dir . '/database.sql';
-			$db_result = $db_backup->backup( $db_path );
-
-			if ( $db_result && file_exists( $db_path ) ) {
-				$archiver->add_file_direct( $db_path, 'database.sql' );
-				$this->logger->info( 'Database backup added', array(
-					'size' => filesize( $db_path ),
-				) );
-			} else {
-				$this->logger->warning( 'Database backup failed or empty' );
+			if ( ! $archiver->open_for_write() ) {
+				return array(
+					'success' => false,
+					'error'   => 'Failed to create archive file',
+				);
 			}
-		}
 
-		// Close without finalizing - process_files will append more files.
-		$archiver->close( false );
+			// A retry after a crashed first attempt may find a half-written archive: start clean.
+			$archiver->truncate_to( 0 );
 
-		// Clean up temp files.
-		if ( file_exists( $manifest_path ) ) {
+			$bytes = 0;
+			if ( ! $archiver->add_file( $manifest_path, 'manifest.json', 0, $bytes, 0 ) ) {
+				$archiver->close( false );
+				return array(
+					'success' => false,
+					'error'   => 'Failed to write manifest to archive',
+				);
+			}
+
+			// Close without finalizing - process_files will append more files.
+			$archiver->close( false );
 			unlink( $manifest_path );
+
+			$checkpoint['manifest_done'] = true;
 		}
-		$db_path = $temp_dir . '/database.sql';
-		if ( file_exists( $db_path ) ) {
-			unlink( $db_path );
+
+		$type = $options['type'] ?? 'full';
+		$backup_database = $options['backup_database'] ?? ( 'files' !== $type );
+
+		if ( $backup_database && empty( $checkpoint['database_done'] ) ) {
+			$db_backup = new DatabaseBackup( $this->logger );
+			$db_path   = $temp_dir . '/database.sql';
+
+			// CLI has no request limit; browser requests get the pipeline time budget.
+			$time_slice = $this->cli_mode ? 3600 : max( 5, $time_budget > 0 ? $time_budget : $this->time_budget );
+
+			$db_result = $db_backup->backup_chunked( $db_path, $checkpoint['db'] ?? array(), null, $time_slice );
+
+			if ( isset( $db_result['error'] ) ) {
+				return array(
+					'success' => false,
+					'error'   => 'Database backup failed: ' . $db_result['error'],
+				);
+			}
+
+			if ( empty( $db_result['completed'] ) ) {
+				$checkpoint['db'] = $db_result['checkpoint'];
+
+				return array(
+					'success'        => true,
+					'completed'      => false,
+					'checkpoint'     => $checkpoint,
+					'archive_offset' => (int) filesize( $archive_path ),
+					'progress'       => $db_result['progress'] ?? array(),
+				);
+			}
+
+			// Queue the dump as a regular file: process_files() streams it with resume support.
+			// (A retry after a crash between queueing and saving the checkpoint must not queue it twice.)
+			global $wpdb;
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->delete(
+				FileQueue::get_table_name(),
+				array(
+					'job_id'        => $job_id,
+					'relative_path' => 'database.sql',
+				),
+				array( '%s', '%s' )
+			);
+			FileQueue::add_files_batch( $job_id, array(
+				array(
+					'path'     => $db_path,
+					'relative' => 'database.sql',
+					'size'     => (int) filesize( $db_path ),
+				),
+			) );
+
+			$this->logger->info( 'Database backup queued for archiving', array(
+				'size'   => filesize( $db_path ),
+				'tables' => $db_result['tables'] ?? 0,
+			) );
+
+			$checkpoint['database_done'] = true;
 		}
-		@rmdir( $temp_dir );
 
 		$this->logger->info( 'Archive prepared successfully' );
 
 		return array(
-			'success'  => true,
-			'manifest' => $manifest,
+			'success'        => true,
+			'completed'      => true,
+			'checkpoint'     => $checkpoint,
+			'archive_offset' => (int) filesize( $archive_path ),
+			'manifest'       => $manifest,
 		);
 	}
 
@@ -515,11 +591,19 @@ final class BackupPipeline {
 	 * This phase processes files from the queue and writes them to the archive.
 	 * NOTE: prepare_archive() MUST be called first to add manifest and database.
 	 *
+	 * The cursor records where the archive is known to be good. 'archive_offset'
+	 * is the end of the last fully written entry and 'partial' describes a
+	 * trailing entry that ran out of time ({file_id, entry_offset, bytes_written}).
+	 * Pass the cursor returned by the previous call back in: a large file is then
+	 * resumed where it stopped instead of being appended again from the start,
+	 * and anything a crashed request appended without recording is cut off.
+	 *
 	 * @param string $job_id       Job ID.
 	 * @param string $archive_path Path to the archive file.
-	 * @return array Result with 'completed', 'processed', 'stats'.
+	 * @param array  $cursor       Cursor from the previous call (empty on the first call).
+	 * @return array Result with 'completed', 'processed', 'stats', 'cursor'.
 	 */
-	public function process_files( string $job_id, string $archive_path ): array {
+	public function process_files( string $job_id, string $archive_path, array $cursor = array() ): array {
 		$this->start_time = microtime( true );
 		$processed = 0;
 		$failed = 0;
@@ -546,11 +630,50 @@ final class BackupPipeline {
 				'skipped'   => 0,
 				'error'     => 'Failed to open archive',
 				'stats'     => FileQueue::get_job_stats( $job_id ),
+				'cursor'    => $cursor,
 			);
+		}
+
+		// Make the archive tail agree with the cursor before appending anything.
+		$tail = $this->reconcile_archive_tail( $cursor );
+		if ( isset( $tail['error'] ) ) {
+			$this->archiver->close();
+			return array(
+				'completed' => false,
+				'processed' => 0,
+				'failed'    => 0,
+				'skipped'   => 0,
+				'error'     => $tail['error'],
+				'stats'     => FileQueue::get_job_stats( $job_id ),
+				'cursor'    => $cursor,
+			);
+		}
+		$partial   = $tail['partial'];
+		$committed = $this->archiver->get_end_position();
+		if ( null !== $partial ) {
+			$committed = (int) $partial['entry_offset'];
 		}
 
 		// Get batch of pending files.
 		$batch = FileQueue::get_pending_batch( $job_id, $this->process_batch_size );
+
+		// The partially written file must be the next one up; if the queue disagrees
+		// (it was reset or re-indexed), drop the partial entry and start it over.
+		if ( null !== $partial && ( empty( $batch ) || (int) $batch[0]['id'] !== (int) $partial['file_id'] ) ) {
+			$this->archiver->truncate_to( $committed );
+			FileQueue::update_progress( (int) $partial['file_id'], 0, 0 );
+			$partial   = null;
+			$committed = $this->archiver->get_end_position();
+		}
+
+		// Rows reset to pending by reset_stale_processing() may carry a stale
+		// bytes_written from a crashed request; only the cursor's partial is trusted.
+		foreach ( $batch as $i => $row ) {
+			if ( (int) ( $row['bytes_written'] ?? 0 ) > 0 && ( null === $partial || (int) $row['id'] !== (int) $partial['file_id'] ) ) {
+				FileQueue::update_progress( (int) $row['id'], 0, 0 );
+				$batch[ $i ]['bytes_written'] = 0;
+			}
+		}
 
 		$this->logger->info( 'Processing batch info', array(
 			'pending_count' => count( $batch ),
@@ -596,31 +719,38 @@ final class BackupPipeline {
 			$file_id = (int) $file_record['id'];
 			$file_path = $file_record['file_path'];
 			$relative_path = $file_record['relative_path'];
+			// Size captured at indexing time: the header is written with it and exactly
+			// that many bytes follow, even if the file changed since (see SwishArchiver::add_file).
 			$file_size = (int) $file_record['file_size'];
-			$bytes_written = (int) ( $file_record['bytes_written'] ?? 0 );
 
-			// Mark as processing.
-			FileQueue::mark_processing( $file_id );
+			$resuming      = null !== $partial && (int) $partial['file_id'] === $file_id;
+			$resume_offset = $resuming ? (int) $partial['bytes_written'] : 0;
+			$entry_offset  = $resuming ? (int) $partial['entry_offset'] : $this->archiver->get_end_position();
 
-			// Check if file still exists.
-			if ( ! file_exists( $file_path ) || ! is_readable( $file_path ) ) {
-				FileQueue::mark_skipped( $file_id, 'File not found or not readable' );
-				++$skipped;
-				continue;
-			}
+			// Mark as processing (a resumed file is the same attempt, not a new one).
+			FileQueue::mark_processing( $file_id, ! $resuming );
 
-			// Check file size - no per-file limit by default; filterable for constrained hosts.
-			$actual_size = filesize( $file_path );
-			$max_file_size = apply_filters( 'swish_backup_max_file_size', PHP_INT_MAX );
+			if ( ! $resuming ) {
+				// Check if file still exists.
+				if ( ! file_exists( $file_path ) || ! is_readable( $file_path ) ) {
+					FileQueue::mark_skipped( $file_id, 'File not found or not readable' );
+					++$skipped;
+					continue;
+				}
 
-			if ( $actual_size > $max_file_size ) {
-				FileQueue::mark_skipped( $file_id, 'File too large: ' . $this->format_bytes( $actual_size ) );
-				$this->logger->warning( 'Skipping large file', array(
-					'path' => $file_path,
-					'size' => $this->format_bytes( $actual_size ),
-				) );
-				++$skipped;
-				continue;
+				// Check file size - no per-file limit by default; filterable for constrained hosts.
+				$actual_size = filesize( $file_path );
+				$max_file_size = apply_filters( 'swish_backup_max_file_size', PHP_INT_MAX );
+
+				if ( $actual_size > $max_file_size ) {
+					FileQueue::mark_skipped( $file_id, 'File too large: ' . $this->format_bytes( $actual_size ) );
+					$this->logger->warning( 'Skipping large file', array(
+						'path' => $file_path,
+						'size' => $this->format_bytes( $actual_size ),
+					) );
+					++$skipped;
+					continue;
+				}
 			}
 
 			// Add file to archive.
@@ -629,44 +759,93 @@ final class BackupPipeline {
 				// CLI mode: no timeout (0), otherwise use remaining time budget.
 				$file_timeout = $this->cli_mode ? 0 : $this->get_remaining_time();
 				$this->logger->debug( 'Adding file to archive', array(
-					'file_id'      => $file_id,
-					'path'         => $relative_path,
-					'size'         => $this->format_bytes( $actual_size ),
-					'file_timeout' => $file_timeout,
+					'file_id'       => $file_id,
+					'path'          => $relative_path,
+					'size'          => $this->format_bytes( $file_size ),
+					'resume_offset' => $resume_offset,
+					'file_timeout'  => $file_timeout,
 				) );
 
 				$result = $this->archiver->add_file(
 					$file_path,
 					$relative_path,
-					$bytes_written,
+					$resume_offset,
 					$bytes,
-					$file_timeout
+					$file_timeout,
+					$file_size
 				);
 
 				if ( $result ) {
-					FileQueue::mark_completed( $file_id, $bytes );
+					FileQueue::mark_completed( $file_id, $resume_offset + $bytes );
 					++$processed;
+					$partial   = null;
+					$committed = $this->archiver->get_end_position();
 					$this->logger->debug( 'File completed', array(
 						'file_id' => $file_id,
 						'path'    => $relative_path,
-						'bytes'   => $bytes,
+						'bytes'   => $resume_offset + $bytes,
 					) );
-				} else {
-					// Partial write - reset to pending and restart from scratch.
-					// Note: Resuming partial files doesn't work correctly with append mode,
-					// so we restart the file from the beginning on next attempt.
+				} elseif ( 0 === $resume_offset + $bytes ) {
+					// Out of time before the first chunk: only the header is in the
+					// archive. Resuming at offset 0 would write a second header, so cut
+					// the entry and start it over next request.
+					$this->archiver->truncate_to( $entry_offset );
 					FileQueue::update_progress( $file_id, 0, 0 );
 					FileQueue::reset_to_pending( $file_id );
-					$this->logger->info( 'File timeout, reset to pending for fresh retry', array(
-						'file_id'         => $file_id,
-						'path'            => $relative_path,
-						'bytes_this_try'  => $bytes,
-						'file_size'       => $actual_size,
+					$partial   = null;
+					$committed = $entry_offset;
+					break; // Yield to next request.
+				} else {
+					// Out of time mid-file: record how far we got and continue from
+					// there next request. The header already carries the full size, so
+					// appending the remaining bytes later keeps the archive consistent.
+					$written_so_far = $resume_offset + $bytes;
+					FileQueue::update_progress( $file_id, $written_so_far, 0 );
+					FileQueue::reset_to_pending( $file_id );
+					$partial   = array(
+						'file_id'       => $file_id,
+						'entry_offset'  => $entry_offset,
+						'bytes_written' => $written_so_far,
+					);
+					$committed = $entry_offset;
+					$this->logger->info( 'File partially written, will resume next request', array(
+						'file_id'        => $file_id,
+						'path'           => $relative_path,
+						'bytes_written'  => $written_so_far,
+						'file_size'      => $file_size,
+						'bytes_this_try' => $bytes,
 					) );
 					break; // Yield to next request.
 				}
+			} catch ( ArchiveWriteException $e ) {
+				// The archive itself cannot be written (disk full, quota): retrying
+				// per file would spin forever. Cut back to the entry start, release
+				// the row and fail the step with the real reason.
+				$this->archiver->truncate_to( $entry_offset );
+				FileQueue::update_progress( $file_id, 0, 0 );
+				FileQueue::reset_to_pending( $file_id );
+				$this->archiver->close();
+				$this->logger->error( 'Archive write failed', array( 'error' => $e->getMessage() ) );
+
+				return array(
+					'completed' => false,
+					'processed' => $processed,
+					'failed'    => $failed,
+					'skipped'   => $skipped,
+					'error'     => $e->getMessage(),
+					'stats'     => FileQueue::get_job_stats( $job_id ),
+					'cursor'    => array(
+						'archive_offset' => $entry_offset,
+						'partial'        => null,
+					),
+				);
 			} catch ( \Exception $e ) {
-				FileQueue::mark_failed( $file_id, $e->getMessage(), $bytes_written );
+				// Whatever this entry wrote is unusable: cut the archive back to its start.
+				$this->archiver->truncate_to( $entry_offset );
+				$partial   = null;
+				$committed = $entry_offset;
+				FileQueue::update_progress( $file_id, 0, 0 );
+				FileQueue::mark_failed( $file_id, $e->getMessage(), 0 );
 				$this->logger->error( 'Failed to archive file', array(
 					'path'  => $file_path,
 					'error' => $e->getMessage(),
@@ -697,22 +876,121 @@ final class BackupPipeline {
 			'failed'    => $failed,
 			'skipped'   => $skipped,
 			'stats'     => $stats,
+			'cursor'    => array(
+				'archive_offset' => $committed,
+				'partial'        => $partial,
+			),
 		);
 	}
 
 	/**
-	 * Finalize the archive.
+	 * Make the archive tail match the cursor from the previous request.
+	 *
+	 * The cursor is saved once per request while queue rows are completed per
+	 * file, so after a hard kill the archive may hold complete entries the
+	 * cursor does not know about (their rows already say "completed" and will
+	 * never be rewritten). Those entries are kept: the walk from the cursor
+	 * advances over every structurally complete entry and cuts only the
+	 * trailing incomplete one. An entry whose row was not yet marked completed
+	 * is simply written again later (a harmless duplicate).
+	 *
+	 * Situations handled:
+	 * - the previous request ended mid-file and recorded it: if the entry is
+	 *   still incomplete keep exactly the recorded bytes and resume it; if it
+	 *   turned out complete (killed after finishing it), treat it as committed;
+	 * - the previous request died without recording what it appended: keep the
+	 *   complete entries, cut the incomplete tail;
+	 * - the archive is shorter than the committed size: it was modified or
+	 *   deleted underneath us and cannot be continued.
+	 *
+	 * @param array $cursor Cursor from the previous call.
+	 * @return array{partial: array|null, error?: string}
+	 */
+	private function reconcile_archive_tail( array $cursor ): array {
+		if ( ! isset( $cursor['archive_offset'] ) ) {
+			return array( 'partial' => null ); // No cursor (CLI/legacy caller): nothing recorded to reconcile.
+		}
+
+		$committed = (int) $cursor['archive_offset'];
+		$partial   = $cursor['partial'] ?? null;
+		$actual    = $this->archiver->get_end_position();
+
+		if ( $actual < $committed ) {
+			$this->logger->error( 'Archive is shorter than the committed size', array(
+				'committed' => $committed,
+				'actual'    => $actual,
+			) );
+			return array(
+				'partial' => null,
+				'error'   => 'The backup archive is shorter than expected; it was modified or deleted while the backup was running.',
+			);
+		}
+
+		if ( $actual === $committed ) {
+			return array( 'partial' => null ); // Nothing after the last committed entry.
+		}
+
+		// Keep every complete entry after the committed offset.
+		$kept = $this->archiver->find_last_complete_entry_end( $committed );
+
+		$has_partial = is_array( $partial ) && isset( $partial['file_id'], $partial['bytes_written'] ) && (int) $partial['bytes_written'] > 0;
+
+		if ( $has_partial && $kept === $committed ) {
+			// The recorded partial entry is still incomplete: resume it at the recorded byte.
+			$expected = $committed + SwishArchiver::HEADER_SIZE + (int) $partial['bytes_written'];
+
+			if ( $actual >= $expected ) {
+				if ( $actual > $expected ) {
+					$this->logger->warning( 'Cutting unrecorded bytes after partial entry', array(
+						'expected' => $expected,
+						'actual'   => $actual,
+					) );
+					$this->archiver->truncate_to( $expected );
+				}
+				$partial['entry_offset'] = $committed;
+				return array( 'partial' => $partial );
+			}
+
+			// Archive shorter than the recorded partial: restart that entry from scratch.
+			$this->archiver->truncate_to( $committed );
+			FileQueue::update_progress( (int) $partial['file_id'], 0, 0 );
+			return array( 'partial' => null );
+		}
+
+		if ( $has_partial ) {
+			// The partial entry was finished by a request that died before saving
+			// the cursor; its row is completed or will be rewritten. Either way the
+			// recorded offset is stale.
+			FileQueue::update_progress( (int) $partial['file_id'], 0, 0 );
+		}
+
+		if ( $actual > $kept ) {
+			$this->logger->warning( 'Cutting incomplete entry appended by a request that did not finish', array(
+				'committed' => $committed,
+				'kept'      => $kept,
+				'actual'    => $actual,
+			) );
+			$this->archiver->truncate_to( $kept );
+		}
+
+		return array( 'partial' => null );
+	}
+
+	/**
+	 * Finalize the archive: write the EOF marker, verify every entry, compute
+	 * the checksum, register-ready.
+	 *
+	 * Verification and hashing read the whole archive, which on a multi-gigabyte
+	 * backup takes longer than a request may run. Both are therefore resumable:
+	 * call again with the returned 'checkpoint' until 'completed' is true. The
+	 * time budget is the pipeline's (none in CLI mode).
 	 *
 	 * @param string $job_id       Job ID.
 	 * @param string $archive_path Path to the archive file.
-	 * @return array Result with 'success', 'size', 'checksum'.
+	 * @param array  $checkpoint   Checkpoint from the previous call (empty to start).
+	 * @return array Result with 'success', 'completed', 'checkpoint', and when completed 'size', 'checksum', 'stats'.
 	 */
-	public function finalize( string $job_id, string $archive_path ): array {
-		$this->logger->info( 'Finalizing archive', array(
-			'job_id' => $job_id,
-			'path'   => $archive_path,
-		) );
-
+	public function finalize( string $job_id, string $archive_path, array $checkpoint = array() ): array {
 		// Verify archive exists.
 		if ( ! file_exists( $archive_path ) ) {
 			return array(
@@ -721,25 +999,120 @@ final class BackupPipeline {
 			);
 		}
 
-		// Append EOF marker so SwishArchiver::is_valid() recognises the archive as complete.
+		$budget    = $this->cli_mode ? 0 : max( 1, $this->time_budget - ( microtime( true ) - $this->start_time ) );
 		$finalizer = new SwishArchiver( $archive_path );
-		if ( ! $finalizer->open_for_write() ) {
-			return array(
-				'success' => false,
-				'error'   => 'Failed to open archive to write EOF marker',
-			);
-		}
-		$finalizer->close( true );
 
-		// Calculate checksum.
-		$checksum = md5_file( $archive_path );
+		if ( empty( $checkpoint['verify_started'] ) ) {
+			$this->logger->info( 'Finalizing archive', array(
+				'job_id' => $job_id,
+				'path'   => $archive_path,
+			) );
+			$checkpoint['verify_started'] = true;
+		}
+
+		// Walk the archive header by header. Never register an archive the extractor
+		// could not read back: a structurally broken archive is deleted (it is useless
+		// and would otherwise sit unseen on disk). The walk also decides whether the
+		// EOF marker still has to be written: an archive that ends exactly on an entry
+		// boundary gets one, an archive that already ends with the marker (a previous
+		// finalize attempt) is left alone. Comparing the last block to null bytes is
+		// not enough, as an entry's content may end in null bytes itself.
+		if ( empty( $checkpoint['verified'] ) ) {
+			$check = $finalizer->verify_structure(
+				(int) ( $checkpoint['verify_pos'] ?? 0 ),
+				(int) ( $checkpoint['verify_entries'] ?? 0 ),
+				$budget
+			);
+
+			if ( ! $check['completed'] ) {
+				$checkpoint['verify_pos']     = $check['pos'];
+				$checkpoint['verify_entries'] = $check['entries'];
+
+				return array(
+					'success'    => true,
+					'completed'  => false,
+					'checkpoint' => $checkpoint,
+					'message'    => sprintf( 'Verifying archive: %s entries checked', number_format_i18n( $check['entries'] ) ),
+				);
+			}
+
+			$needs_eof = ! $check['valid']
+				&& 0 === strpos( (string) $check['error'], 'Archive ends without an EOF marker' )
+				&& (int) $check['pos'] === (int) filesize( $archive_path );
+
+			if ( $needs_eof ) {
+				if ( ! $finalizer->open_for_write() ) {
+					return array(
+						'success' => false,
+						'error'   => 'Failed to open archive to write EOF marker',
+					);
+				}
+				$finalizer->close( true );
+			} elseif ( ! $check['valid'] ) {
+				$this->logger->error( 'Archive failed structural verification', array(
+					'path'    => $archive_path,
+					'entries' => $check['entries'],
+					'error'   => $check['error'],
+				) );
+				wp_delete_file( $archive_path );
+
+				return array(
+					'success' => false,
+					'error'   => sprintf(
+						'Backup archive failed verification (%s) and was discarded. Please run the backup again.',
+						$check['error']
+					),
+				);
+			}
+
+			$checkpoint['verified'] = true;
+			$checkpoint['entries']  = $check['entries'];
+			$budget                 = $this->cli_mode ? 0 : max( 1, $this->time_budget - ( microtime( true ) - $this->start_time ) );
+		}
+
+		// Calculate checksum (resumable).
+		if ( empty( $checkpoint['checksum'] ) ) {
+			$hash = $finalizer->checksum_chunked(
+				(int) ( $checkpoint['hash_offset'] ?? 0 ),
+				(string) ( $checkpoint['hash_context'] ?? '' ),
+				$budget
+			);
+
+			if ( '' !== $hash['error'] ) {
+				return array(
+					'success' => false,
+					'error'   => 'Failed to checksum archive: ' . $hash['error'],
+				);
+			}
+
+			if ( ! $hash['completed'] ) {
+				$checkpoint['hash_offset']  = $hash['offset'];
+				$checkpoint['hash_context'] = $hash['context'];
+
+				return array(
+					'success'    => true,
+					'completed'  => false,
+					'checkpoint' => $checkpoint,
+					'message'    => sprintf( 'Computing checksum: %s of %s', size_format( $hash['offset'] ), size_format( (int) filesize( $archive_path ) ) ),
+				);
+			}
+
+			$checkpoint['checksum'] = $hash['checksum'];
+			unset( $checkpoint['hash_context'] );
+		}
+
+		$checksum = $checkpoint['checksum'];
 		$size = filesize( $archive_path );
 
 		// Get final stats.
 		$stats = FileQueue::get_job_stats( $job_id );
+		$stats['entries'] = (int) ( $checkpoint['entries'] ?? 0 );
 
 		// Clean up queue.
 		FileQueue::clear_job( $job_id );
+
+		// Clean up the temp directory used for manifest.json / database.sql.
+		$this->remove_temp_directory( dirname( $archive_path ) . '/temp-' . $job_id );
 
 		// Clean up state file.
 		$state_file = dirname( $archive_path ) . '/' . pathinfo( $archive_path, PATHINFO_FILENAME ) . '.state';
@@ -754,11 +1127,13 @@ final class BackupPipeline {
 		) );
 
 		return array(
-			'success'   => true,
-			'file_path' => $archive_path,
-			'size'      => $size,
-			'checksum'  => $checksum,
-			'stats'     => $stats,
+			'success'    => true,
+			'completed'  => true,
+			'checkpoint' => $checkpoint,
+			'file_path'  => $archive_path,
+			'size'       => $size,
+			'checksum'   => $checksum,
+			'stats'      => $stats,
 		);
 	}
 
@@ -940,14 +1315,19 @@ final class BackupPipeline {
 		}
 
 		// Check excluded plugins.
-		if ( ! empty( $this->exclude_plugins ) ) {
-			$plugins_dir = str_replace( '\\', '/', WP_PLUGIN_DIR ) . '/';
-			if ( strpos( $normalized_path, $plugins_dir ) === 0 ) {
-				$relative_to_plugins = substr( $normalized_path, strlen( $plugins_dir ) );
-				$plugin_folder = explode( '/', $relative_to_plugins )[0];
-				if ( in_array( $plugin_folder, $this->exclude_plugins, true ) ) {
-					return true;
-				}
+		$plugins_dir = str_replace( '\\', '/', WP_PLUGIN_DIR ) . '/';
+		if ( strpos( $normalized_path, $plugins_dir ) === 0 ) {
+			$relative_to_plugins = substr( $normalized_path, strlen( $plugins_dir ) );
+			$plugin_folder = explode( '/', $relative_to_plugins )[0];
+
+			// Never archive this plugin itself (same rule as FileBackup): restoring it
+			// over the copy that is running the import breaks the import mid-way.
+			if ( in_array( $plugin_folder, array( 'swish-migrate-and-backup', 'swish-migrate-and-backup-pro' ), true ) ) {
+				return true;
+			}
+
+			if ( ! empty( $this->exclude_plugins ) && in_array( $plugin_folder, $this->exclude_plugins, true ) ) {
+				return true;
 			}
 		}
 
@@ -1137,6 +1517,47 @@ final class BackupPipeline {
 			'uploads'   => $upload_dir['basedir'],
 		) );
 		return basename( $path );
+	}
+
+	/**
+	 * Remove what a job left on disk besides the archive: the temp directory
+	 * holding manifest.json / database.sql. Called when a job fails.
+	 *
+	 * @param string $job_id       Job ID.
+	 * @param string $archive_path Archive path (its directory hosts the temp dir).
+	 * @return void
+	 */
+	public function cleanup_job_files( string $job_id, string $archive_path ): void {
+		$this->remove_temp_directory( dirname( $archive_path ) . '/temp-' . $job_id );
+	}
+
+	/**
+	 * Remove a job temp directory and everything in it.
+	 *
+	 * @param string $dir Directory path.
+	 * @return void
+	 */
+	private function remove_temp_directory( string $dir ): void {
+		if ( ! is_dir( $dir ) ) {
+			return;
+		}
+
+		$files = new RecursiveIteratorIterator(
+			new RecursiveDirectoryIterator( $dir, RecursiveDirectoryIterator::SKIP_DOTS ),
+			RecursiveIteratorIterator::CHILD_FIRST
+		);
+
+		foreach ( $files as $file ) {
+			if ( $file->isDir() ) {
+				// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rmdir
+				@rmdir( $file->getPathname() );
+			} else {
+				wp_delete_file( $file->getPathname() );
+			}
+		}
+
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rmdir
+		@rmdir( $dir );
 	}
 
 	/**

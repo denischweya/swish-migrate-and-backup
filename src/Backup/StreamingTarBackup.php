@@ -124,6 +124,24 @@ final class StreamingTarBackup {
 	private int $byte_offset = 0;
 
 	/**
+	 * Size recorded in the header of the file currently being written
+	 * (-1 when no file is in progress). Exactly this many bytes are written
+	 * even if the file changes meanwhile.
+	 *
+	 * @var int
+	 */
+	private int $current_size = -1;
+
+	/**
+	 * Archive size when the state was last saved (-1 = unknown). Anything
+	 * beyond it was appended by a request that died before saving and is cut
+	 * off before writing resumes.
+	 *
+	 * @var int
+	 */
+	private int $archive_offset = -1;
+
+	/**
 	 * Total files to process.
 	 *
 	 * @var int
@@ -193,12 +211,97 @@ final class StreamingTarBackup {
 		string $output_path,
 		?callable $progress_callback = null
 	): array {
+		$this->begin( $job_id, $output_path, count( $files ), $progress_callback );
+
+		$index = $this->file_index;
+		$next  = function () use ( $files, &$index ) {
+			$file = $files[ $index ] ?? null;
+			++$index;
+			return $file;
+		};
+
+		return $this->run( $next );
+	}
+
+	/**
+	 * Run a backup chunk reading the file list lazily from a JSON-lines file.
+	 *
+	 * Same contract as run_chunk(), but the list never has to fit in memory or
+	 * in a checkpoint row: lines are read sequentially from $list_path (see
+	 * BackupState::save_file_list()) starting at the saved file index.
+	 *
+	 * @param string        $job_id            Job ID for state persistence.
+	 * @param string        $list_path         Path to the JSON-lines file list.
+	 * @param int           $total_files       Number of entries in the list.
+	 * @param string        $output_path       Output archive path (.swish).
+	 * @param callable|null $progress_callback Progress callback (progress, message, processed, total).
+	 * @return array{result: string, progress: float, processed: int, total: int, error?: string, path?: string}
+	 */
+	public function run_chunk_from_list(
+		string $job_id,
+		string $list_path,
+		int $total_files,
+		string $output_path,
+		?callable $progress_callback = null
+	): array {
+		$this->begin( $job_id, $output_path, $total_files, $progress_callback );
+
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen
+		$handle = @fopen( $list_path, 'r' );
+		if ( ! $handle ) {
+			return $this->error_result( 'Failed to open file list: ' . $list_path );
+		}
+
+		// Skip the entries already archived.
+		for ( $i = 0; $i < $this->file_index; $i++ ) {
+			if ( false === fgets( $handle ) ) {
+				break;
+			}
+		}
+
+		$next = function () use ( $handle ) {
+			while ( ( $line = fgets( $handle ) ) !== false ) {
+				$line = trim( $line );
+				if ( '' === $line ) {
+					continue;
+				}
+				$data = json_decode( $line, true );
+				if ( is_array( $data ) ) {
+					return $data;
+				}
+			}
+			return null;
+		};
+
+		$result = $this->run( $next );
+
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+		fclose( $handle );
+
+		return $result;
+	}
+
+	/**
+	 * Initialise a chunk: timing, job context and saved state.
+	 *
+	 * @param string        $job_id            Job ID.
+	 * @param string        $output_path       Archive path.
+	 * @param int           $total_files       Total entries.
+	 * @param callable|null $progress_callback Progress callback.
+	 * @return void
+	 */
+	private function begin( string $job_id, string $output_path, int $total_files, ?callable $progress_callback ): void {
 		$this->job_id            = $job_id;
 		$this->output_path       = $output_path;
 		$this->progress_callback = $progress_callback;
-		$this->total_files       = count( $files );
+		$this->total_files       = $total_files;
 		$this->start_time        = microtime( true );
 		$this->end_time          = $this->start_time + self::TIME_SLICE;
+		$this->file_index        = 0;
+		$this->byte_offset       = 0;
+		$this->processed_files   = 0;
+		$this->current_size      = -1;
+		$this->archive_offset    = -1;
 
 		// Restore state from previous chunk.
 		$this->restore_state();
@@ -210,11 +313,39 @@ final class StreamingTarBackup {
 			'total_files'  => $this->total_files,
 			'time_slice'   => self::TIME_SLICE,
 		) );
+	}
+
+	/**
+	 * Archive entries supplied by $next_file until done or out of time.
+	 *
+	 * @param callable $next_file Returns the next file array ['path','relative'] or null when exhausted.
+	 * @return array Result array.
+	 */
+	private function run( callable $next_file ): array {
+		// No saved state but a finished archive already at this path: the previous
+		// request wrote the EOF marker and cleaned up, then died before the job was
+		// marked complete. Do not rebuild it from scratch.
+		if ( 0 === $this->file_index && 0 === $this->byte_offset && file_exists( $this->output_path ) ) {
+			$existing = new SwishArchiver( $this->output_path );
+			if ( $existing->is_valid() && $existing->verify_structure()['valid'] ) {
+				$this->logger->info( 'Archive already finalized by a previous request', array( 'output_path' => $this->output_path ) );
+				return array(
+					'result'    => self::RESULT_COMPLETE,
+					'progress'  => 100.0,
+					'processed' => $this->total_files,
+					'total'     => $this->total_files,
+					'path'      => $this->output_path,
+					'size'      => (int) filesize( $this->output_path ),
+				);
+			}
+		}
 
 		// Open archive file for append.
 		if ( ! $this->open_archive() ) {
 			return $this->error_result( 'Failed to open archive: ' . $this->output_path );
 		}
+
+		$file = null;
 
 		// Process files until time slice expires or all done.
 		while ( $this->file_index < $this->total_files ) {
@@ -233,7 +364,13 @@ final class StreamingTarBackup {
 				return $this->continue_result();
 			}
 
-			$file = $files[ $this->file_index ];
+			if ( null === $file ) {
+				$file = $next_file();
+				if ( null === $file ) {
+					break; // List shorter than announced: nothing more to archive.
+				}
+			}
+
 			$result = $this->process_file( $file );
 
 			if ( ! $result ) {
@@ -242,7 +379,9 @@ final class StreamingTarBackup {
 					'path' => $file['path'] ?? 'unknown',
 				) );
 				$this->file_index++;
-				$this->byte_offset = 0;
+				$this->byte_offset  = 0;
+				$this->current_size = -1;
+				$file               = null;
 				continue;
 			}
 
@@ -250,6 +389,7 @@ final class StreamingTarBackup {
 			if ( 0 === $this->byte_offset ) {
 				$this->processed_files++;
 				$this->file_index++;
+				$file = null;
 
 				// Report progress every 100 files or every second.
 				if ( $this->processed_files % 100 === 0 ) {
@@ -281,6 +421,11 @@ final class StreamingTarBackup {
 	/**
 	 * Process a single file (or chunk of large file).
 	 *
+	 * The header is written with the file's size at that moment and exactly
+	 * that many bytes follow, across as many chunks and requests as needed. A
+	 * file that grows meanwhile is cut at the recorded size; one that shrinks
+	 * or disappears is padded with null bytes, so later entries stay readable.
+	 *
 	 * @param array $file File data with 'path' and 'relative' keys.
 	 * @return bool True if processed (even partially), false to skip.
 	 */
@@ -288,56 +433,46 @@ final class StreamingTarBackup {
 		$path     = $file['path'] ?? '';
 		$relative = $file['relative'] ?? '';
 
-		if ( empty( $path ) || ! file_exists( $path ) || ! is_readable( $path ) ) {
-			return false;
-		}
-
-		// Skip directories (we only archive files).
-		if ( is_dir( $path ) ) {
-			return false;
-		}
-
-		$file_size = filesize( $path );
-
-		// Write swish header for new files (byte_offset = 0).
 		if ( 0 === $this->byte_offset ) {
+			// New entry: nothing written yet, so missing/unreadable files can simply be skipped.
+			if ( empty( $path ) || ! file_exists( $path ) || ! is_readable( $path ) || is_dir( $path ) ) {
+				return false;
+			}
+
+			$file_size          = (int) filesize( $path );
+			$this->current_size = $file_size;
 			$this->write_swish_header( $relative, $file_size, filemtime( $path ) ?: time() );
+		} else {
+			// Resumed entry: stick to the size already in the header.
+			$file_size = $this->current_size >= 0 ? $this->current_size : (int) @filesize( $path );
 		}
 
 		// Handle empty files (0 bytes) - header already written, no content needed.
-		if ( 0 === $file_size ) {
-			$this->byte_offset = 0;
+		if ( $file_size <= $this->byte_offset ) {
+			$this->byte_offset  = 0;
+			$this->current_size = -1;
 			return true;
 		}
 
-		// Open file for reading.
-		$handle = fopen( $path, 'rb' );
-		if ( ! $handle ) {
-			return false;
-		}
+		// Read one chunk.
+		$to_read = min( self::CHUNK_SIZE, $file_size - $this->byte_offset );
+		$content = '';
 
-		// Seek to current offset for resumed files.
-		if ( $this->byte_offset > 0 ) {
-			fseek( $handle, $this->byte_offset );
-		}
-
-		// Read and write one chunk.
-		$bytes_remaining = $file_size - $this->byte_offset;
-		$to_read         = min( self::CHUNK_SIZE, $bytes_remaining );
-
-		// Safety check: ensure we have bytes to read.
-		if ( $to_read <= 0 ) {
+		$handle = @fopen( $path, 'rb' );
+		if ( $handle ) {
+			if ( $this->byte_offset > 0 ) {
+				fseek( $handle, $this->byte_offset );
+			}
+			$content = fread( $handle, $to_read );
 			fclose( $handle );
-			$this->byte_offset = 0;
-			return true;
+			if ( false === $content ) {
+				$content = '';
+			}
 		}
 
-		$content = fread( $handle, $to_read );
-
-		fclose( $handle );
-
-		if ( false === $content ) {
-			return false;
+		// Source shorter than the recorded size (shrank or vanished): pad.
+		if ( strlen( $content ) < $to_read ) {
+			$content .= str_repeat( "\0", $to_read - strlen( $content ) );
 		}
 
 		// Write to archive.
@@ -347,7 +482,8 @@ final class StreamingTarBackup {
 		// Check if file is complete.
 		if ( $this->byte_offset >= $file_size ) {
 			// Reset offset for next file (swish content is stored raw, no padding).
-			$this->byte_offset = 0;
+			$this->byte_offset  = 0;
+			$this->current_size = -1;
 		}
 
 		return true;
@@ -399,7 +535,23 @@ final class StreamingTarBackup {
 
 		$this->archive_handle = fopen( $this->output_path, $mode );
 
-		return false !== $this->archive_handle;
+		if ( false === $this->archive_handle ) {
+			return false;
+		}
+
+		// Drop bytes appended by a request that died before it could save state.
+		if ( 'ab' === $mode && $this->archive_offset >= 0 ) {
+			$stat = fstat( $this->archive_handle );
+			if ( $stat && (int) $stat['size'] > $this->archive_offset ) {
+				$this->logger->warning( 'Cutting unrecorded bytes from archive before resuming', array(
+					'recorded' => $this->archive_offset,
+					'actual'   => (int) $stat['size'],
+				) );
+				ftruncate( $this->archive_handle, $this->archive_offset );
+			}
+		}
+
+		return true;
 	}
 
 	/**
@@ -442,11 +594,15 @@ final class StreamingTarBackup {
 	 * @return void
 	 */
 	private function save_state(): void {
+		clearstatcache( true, $this->output_path );
+
 		$state_data = array(
 			'file_index'      => $this->file_index,
 			'byte_offset'     => $this->byte_offset,
 			'processed_files' => $this->processed_files,
 			'output_path'     => $this->output_path,
+			'current_size'    => $this->current_size,
+			'archive_offset'  => file_exists( $this->output_path ) ? (int) filesize( $this->output_path ) : 0,
 		);
 
 		$this->state->save_meta( $this->job_id, 'streaming_tar_state', $state_data );
@@ -461,9 +617,11 @@ final class StreamingTarBackup {
 		$state_data = $this->state->get_meta( $this->job_id, 'streaming_tar_state' );
 
 		if ( $state_data ) {
-			$this->file_index      = $state_data['file_index'] ?? 0;
-			$this->byte_offset     = $state_data['byte_offset'] ?? 0;
-			$this->processed_files = $state_data['processed_files'] ?? 0;
+			$this->file_index      = (int) ( $state_data['file_index'] ?? 0 );
+			$this->byte_offset     = (int) ( $state_data['byte_offset'] ?? 0 );
+			$this->processed_files = (int) ( $state_data['processed_files'] ?? 0 );
+			$this->current_size    = (int) ( $state_data['current_size'] ?? -1 );
+			$this->archive_offset  = (int) ( $state_data['archive_offset'] ?? -1 );
 
 			$this->logger->debug( 'Restored streaming backup state', $state_data );
 		}

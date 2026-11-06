@@ -255,6 +255,16 @@ For support, please open an issue on the GitHub repository.
 
 Condensed highlights — see [CHANGELOG.md](CHANGELOG.md) for full details.
 
+### 1.5.0 (2026-11-05)
+- Fixed: Backups page backups could hang or produce unreadable archives on real hosts — large files now resume from the exact byte instead of restarting, the database dump is chunked and streamed instead of loaded into memory, and a per-job lock stops two requests writing the same archive at once
+- Fixed: the database dump could silently drop tables and still report success; hosts with unlimited `max_execution_time` never archived a single file
+- Fixed: "Database" backups archived every file and "Files" backups included the database; enabling core files indexed `wp-content` twice
+- Fixed: archives are now verified header-by-header (in resumable steps) before being listed, and a broken archive is discarded instead of registered as good
+- Fixed: imports of large `.swish` archives now extract and place files in bounded, resumable chunks; the browser poll and server loopback can no longer run the same import step concurrently; "clear stale session" no longer fatals
+- Fixed: scheduled backups no longer stop at 50,000 files or fail with "checkpoint expired" on large sites — the file list now lives on disk instead of in the checkpoint row
+- Fixed: a request killed mid-step (host timeout, OOM, worker restart) no longer drops already-archived files, duplicates database rows, or leaves a scheduled scan stuck in "processing" forever
+- Added: filter `swish_import_time_budget` (seconds per import request, default 25)
+
 ### 1.4.0 (2026-08-03)
 - Added full translations for Spanish, French, Simplified Chinese, and Arabic, bundled in `languages/` (Japanese already available via translate.wordpress.org)
 

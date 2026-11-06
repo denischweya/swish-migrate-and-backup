@@ -840,6 +840,14 @@ final class DatabaseBackup {
 			);
 		}
 
+		// Cut back to the length recorded with the checkpoint: a slice that died
+		// after writing rows but before its checkpoint was saved must not leave
+		// those rows in front of the ones written again now.
+		if ( $is_resuming && isset( $checkpoint['file_offset'] ) ) {
+			ftruncate( $handle, (int) $checkpoint['file_offset'] );
+			fseek( $handle, 0, SEEK_END ); // Resync PHP's tracked position with the new end.
+		}
+
 		// Write header if starting fresh.
 		if ( ! $is_resuming ) {
 			$this->write_header( $handle );
@@ -863,6 +871,8 @@ final class DatabaseBackup {
 					'elapsed'            => round( microtime( true ) - $this->start_time, 2 ),
 				) );
 
+				fflush( $handle );
+				$file_offset = (int) ( fstat( $handle )['size'] ?? ftell( $handle ) );
 				// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
 				fclose( $handle );
 
@@ -873,6 +883,7 @@ final class DatabaseBackup {
 						'row_offset'         => $row_offset,
 						'last_pk_value'      => $last_pk_value,
 						'total_rows_written' => $total_rows_written,
+						'file_offset'        => $file_offset,
 					),
 					'progress' => array(
 						'tables_completed' => $tables_completed,
@@ -899,6 +910,8 @@ final class DatabaseBackup {
 					'percent_done'   => $result['total_rows'] > 0 ? round( ( $result['next_offset'] / $result['total_rows'] ) * 100 ) : 0,
 				) );
 
+				fflush( $handle );
+				$file_offset = (int) ( fstat( $handle )['size'] ?? ftell( $handle ) );
 				// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
 				fclose( $handle );
 
@@ -909,6 +922,7 @@ final class DatabaseBackup {
 						'row_offset'         => $result['next_offset'],
 						'last_pk_value'      => $result['last_pk_value'],
 						'total_rows_written' => $total_rows_written,
+						'file_offset'        => $file_offset,
 					),
 					'progress' => array(
 						'tables_completed' => $tables_completed,
