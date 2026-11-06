@@ -115,13 +115,36 @@ final class ImportPipeline {
 	}
 
 	/**
+	 * Time budget for one request, in seconds.
+	 *
+	 * @return int
+	 */
+	private function time_budget(): int {
+		// Same adaptive rule as the backup pipeline: 60% of the time left after the
+		// host's safety threshold, between 10 and 25 seconds; 25 when unlimited.
+		$budget   = self::TIME_BUDGET;
+		$max_exec = \SwishMigrateAndBackup\Core\ServerLimits::get_max_execution_time();
+		if ( $max_exec > 0 ) {
+			$threshold = \SwishMigrateAndBackup\Core\ServerLimits::get_safe_timeout_threshold();
+			$budget    = max( 10, min( self::TIME_BUDGET, (int) ( ( $max_exec - $threshold ) * 0.6 ) ) );
+		}
+
+		/**
+		 * Filters how long one import request may work before yielding.
+		 *
+		 * @param int $seconds Default: adaptive, at most 25.
+		 */
+		return max( 1, (int) apply_filters( 'swish_import_time_budget', $budget ) );
+	}
+
+	/**
 	 * Check if we have time remaining in the budget.
 	 *
 	 * @return bool True if we can continue.
 	 */
 	private function has_time_remaining(): bool {
 		$elapsed = microtime( true ) - $this->start_time;
-		return $elapsed < self::TIME_BUDGET;
+		return $elapsed < $this->time_budget();
 	}
 
 	/**
@@ -130,11 +153,16 @@ final class ImportPipeline {
 	 * @return float Remaining time.
 	 */
 	private function get_remaining_time(): float {
-		return max( 0, self::TIME_BUDGET - ( microtime( true ) - $this->start_time ) );
+		return max( 0, $this->time_budget() - ( microtime( true ) - $this->start_time ) );
 	}
 
 	/**
 	 * Execute the next chunk of the import pipeline.
+	 *
+	 * Two drivers call this for the same session: the browser's polling loop
+	 * and the server-side loopback request. A per-session MySQL lock makes sure
+	 * only one of them runs a step at a time; the other gets a 'busy' answer and
+	 * the state is left untouched.
 	 *
 	 * @param string $secret_key The secret key for authentication.
 	 * @return array Result with 'completed', 'phase', 'progress', etc.
@@ -161,19 +189,59 @@ final class ImportPipeline {
 			);
 		}
 
+		if ( ! $this->acquire_lock( $secret_key ) ) {
+			$phase = $state['phase'] ?? 'validate';
+			return array(
+				'success'     => true,
+				'completed'   => false,
+				'busy'        => true,
+				'phase'       => $phase,
+				'phase_label' => self::PHASE_LABELS[ $phase ] ?? ucfirst( $phase ),
+				'progress'    => (int) ( $state['progress'] ?? 0 ),
+				'message'     => 'Previous step is still running, waiting...',
+			);
+		}
+
 		// Set WP_IMPORTING constant to prevent certain hooks from running.
 		if ( ! defined( 'WP_IMPORTING' ) ) {
 			define( 'WP_IMPORTING', true );
 		}
 
 		try {
+			// Re-read under the lock: the state read above may predate the step the
+			// other driver just finished.
+			$state = ImportSession::get_state() ?: $state;
+
+			if ( in_array( $state['phase'] ?? '', array( 'completed', 'failed' ), true ) ) {
+				return array(
+					'success'   => 'completed' === $state['phase'],
+					'completed' => true,
+					'phase'     => $state['phase'],
+					'progress'  => 100,
+					'message'   => 'Import already ' . $state['phase'],
+					'error'     => $state['result']['error'] ?? null,
+				);
+			}
+
+			// Keep the extraction directory's mtime fresh for the whole import:
+			// BackupManager::cleanup_orphaned_files() removes temp directories
+			// untouched for an hour, and the database phases can take longer.
+			if ( ! empty( $state['extract_dir'] ) && is_dir( $state['extract_dir'] ) ) {
+				@touch( $state['extract_dir'] );
+			}
+
 			// Execute current phase.
 			$result = $this->execute_phase( $state );
+
+			$state_updates = $result['state_updates'] ?? array();
+			if ( isset( $result['progress'] ) ) {
+				$state_updates['progress'] = (int) $result['progress'];
+			}
 
 			// Update state with result.
 			if ( ! $result['completed'] ) {
 				// More work to do in current phase.
-				ImportSession::save_state( array_merge( $state, $result['state_updates'] ?? array() ) );
+				ImportSession::save_state( array_merge( $state, $state_updates ) );
 			} elseif ( $result['success'] ) {
 				// Move to next phase.
 				$next_phase = $this->get_next_phase( $state['phase_priority'] );
@@ -181,7 +249,7 @@ final class ImportPipeline {
 					ImportSession::update_phase(
 						$next_phase['name'],
 						$next_phase['priority'],
-						$result['state_updates'] ?? array()
+						$state_updates
 					);
 					$result['completed'] = false; // More phases to run.
 				} else {
@@ -201,7 +269,49 @@ final class ImportPipeline {
 				'error'     => $e->getMessage(),
 				'completed' => true,
 			);
+		} finally {
+			$this->release_lock( $secret_key );
 		}
+	}
+
+	/**
+	 * Lock name for an import session.
+	 *
+	 * @param string $secret_key Session secret key.
+	 * @return string
+	 */
+	private function lock_name( string $secret_key ): string {
+		return 'swish_import_' . substr( md5( $secret_key ), 0, 32 );
+	}
+
+	/**
+	 * Acquire the per-session lock (auto-released if the connection dies).
+	 *
+	 * @param string $secret_key Session secret key.
+	 * @return bool True if acquired.
+	 */
+	private function acquire_lock( string $secret_key ): bool {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$acquired = $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 0)', $this->lock_name( $secret_key ) ) );
+
+		// '0' means another driver holds it. NULL/error means the database cannot
+		// provide named locks at all; run unlocked rather than wait forever.
+		return '0' !== (string) $acquired;
+	}
+
+	/**
+	 * Release the per-session lock.
+	 *
+	 * @param string $secret_key Session secret key.
+	 * @return void
+	 */
+	private function release_lock( string $secret_key ): void {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $this->lock_name( $secret_key ) ) );
 	}
 
 	/**
@@ -373,18 +483,94 @@ final class ImportPipeline {
 			}
 		}
 
-		// For now, extract the full archive.
-		// TODO: Implement chunked extraction for very large archives.
-		$extracted = $this->restore_manager->extract_backup_public( $backup_path, $extract_dir );
+		$state_updates = array( 'extract_dir' => $extract_dir );
 
-		if ( ! $extracted ) {
-			return array(
-				'success'     => false,
-				'error'       => 'Failed to extract backup archive',
-				'completed'   => true,
-				'phase'       => 'extract',
-				'phase_label' => self::PHASE_LABELS['extract'],
+		// Keep the directory's mtime fresh: BackupManager::cleanup_orphaned_files()
+		// removes temp directories untouched for an hour, and a large import is
+		// easily longer than that.
+		@touch( $extract_dir );
+
+		if ( str_ends_with( strtolower( $backup_path ), '.swish' ) ) {
+			// .swish archives are extracted in time-bounded chunks, resuming from the
+			// archive/file offsets saved after every request. A multi-gigabyte archive
+			// therefore never needs one request to run to completion.
+			$archive_offset = (int) ( $state['archive_bytes_offset'] ?? 0 );
+			$file_offset    = (int) ( $state['file_bytes_offset'] ?? 0 );
+
+			$result = $this->restore_manager->extract_swish_chunk(
+				$backup_path,
+				$extract_dir,
+				$archive_offset,
+				$file_offset,
+				(int) max( 1, $this->get_remaining_time() )
 			);
+
+			if ( ! empty( $result['error'] ) ) {
+				return array(
+					'success'     => false,
+					'error'       => 'Failed to extract backup archive: ' . $result['error'],
+					'completed'   => true,
+					'phase'       => 'extract',
+					'phase_label' => self::PHASE_LABELS['extract'],
+				);
+			}
+
+			// A chunk always makes progress on a healthy archive (at least one block
+			// is written before the clock is checked). No progress at all means the
+			// archive or the destination is broken; do not loop on it forever.
+			if (
+				empty( $result['completed'] )
+				&& (int) $result['archive_offset'] === $archive_offset
+				&& (int) $result['file_offset'] === $file_offset
+				&& 0 === (int) ( $result['files_extracted'] ?? 0 )
+			) {
+				return array(
+					'success'     => false,
+					'error'       => 'Extraction made no progress; the archive may be truncated or the destination is not writable.',
+					'completed'   => true,
+					'phase'       => 'extract',
+					'phase_label' => self::PHASE_LABELS['extract'],
+				);
+			}
+
+			$files_extracted = (int) ( $state['files_extracted'] ?? 0 ) + (int) ( $result['files_extracted'] ?? 0 );
+			$state_updates   = array_merge( $state_updates, array(
+				'archive_bytes_offset' => (int) $result['archive_offset'],
+				'file_bytes_offset'    => (int) $result['file_offset'],
+				'files_extracted'      => $files_extracted,
+				'direct_layout'        => true,
+			) );
+
+			if ( empty( $result['completed'] ) ) {
+				$total   = max( 1, (int) filesize( $backup_path ) );
+				$percent = min( 99.0, ( (int) $result['archive_offset'] / $total ) * 100 );
+
+				return array(
+					'success'       => true,
+					'completed'     => false,
+					'phase'         => 'extract',
+					'phase_label'   => self::PHASE_LABELS['extract'],
+					'message'       => sprintf( 'Extracting archive: %d%%', (int) $percent ),
+					'detail'        => sprintf( '%s of %s unpacked (%d files)', size_format( (int) $result['archive_offset'] ), size_format( $total ), $files_extracted ),
+					'progress'      => $this->calculate_progress( 10, $percent ),
+					'bytes_done'    => (int) $result['archive_offset'],
+					'bytes_total'   => $total,
+					'state_updates' => $state_updates,
+				);
+			}
+		} else {
+			// Legacy ZIP / tar.gz backups: extracted in one go.
+			$extracted = $this->restore_manager->extract_backup_public( $backup_path, $extract_dir );
+
+			if ( ! $extracted ) {
+				return array(
+					'success'     => false,
+					'error'       => 'Failed to extract backup archive',
+					'completed'   => true,
+					'phase'       => 'extract',
+					'phase_label' => self::PHASE_LABELS['extract'],
+				);
+			}
 		}
 
 		// Calculate extracted size.
@@ -410,9 +596,7 @@ final class ImportPipeline {
 			'message'       => sprintf( 'Extracted %d files (%s)', $file_count, size_format( $extracted_size ) ),
 			'detail'        => 'Archive unpacked to temporary directory',
 			'progress'      => $this->calculate_progress( 10, 100 ),
-			'state_updates' => array(
-				'extract_dir' => $extract_dir,
-			),
+			'state_updates' => $state_updates,
 		);
 	}
 
@@ -996,9 +1180,10 @@ final class ImportPipeline {
 
 			// Skip MySQL-specific version comments but process the content.
 			if ( preg_match( '/^\/\*!\d+\s/', $trimmed ) ) {
-				// Remove version comment wrapper but keep content.
+				// Remove version comment wrapper but keep content (the closing "*/"
+				// sits before the statement's semicolon).
 				$trimmed = preg_replace( '/^\/\*!\d+\s/', '', $trimmed );
-				$trimmed = preg_replace( '/\s*\*\/$/', '', $trimmed );
+				$trimmed = preg_replace( '/\s*\*\/(?=\s*;?\s*$)/', '', $trimmed );
 				$line = $trimmed . "\n";
 			}
 
@@ -1256,6 +1441,12 @@ final class ImportPipeline {
 		$total_files = $state['total_files_count'] ?? 0;
 		$total_size = $state['total_files_size'] ?? 0;
 
+		// .swish archives were extracted straight into the WordPress layout, so the
+		// files are moved into place in time-bounded batches (no single long copy).
+		if ( ! empty( $state['direct_layout'] ) ) {
+			return $this->place_extracted_files( $state );
+		}
+
 		// Delegate to restore manager for file restoration.
 		// Use the already-extracted directory from the extract phase.
 		// Files are restored BEFORE database to ensure plugins/themes are available.
@@ -1285,6 +1476,299 @@ final class ImportPipeline {
 			'detail'      => $detail,
 			'progress'    => $this->calculate_progress( 200, 100 ),
 		);
+	}
+
+	/**
+	 * Files extracted to the temp directory that must never be placed in the site root.
+	 */
+	private const CONTENT_SKIP_ROOT_FILES = array( 'manifest.json', 'database.sql', 'wp-config.php' );
+
+	/**
+	 * Name of the file list used to move extracted files in batches.
+	 */
+	private const CONTENT_LIST_FILE = '.swish-content-files.list';
+
+	/**
+	 * Move the extracted site files into place, a time-bounded batch per request.
+	 *
+	 * The extraction directory mirrors the WordPress layout (wp-content/...,
+	 * optionally wp-admin, wp-includes and root PHP files). On the first call a
+	 * list of every extracted file is written; each call then moves files from
+	 * the current offset until the time budget is spent. rename() is used so a
+	 * file costs one syscall instead of a copy; copy+unlink is the fallback when
+	 * the temp directory sits on a different filesystem.
+	 *
+	 * @param array $state Import state.
+	 * @return array Phase result.
+	 */
+	private function place_extracted_files( array $state ): array {
+		$extract_dir = rtrim( $state['extract_dir'], '/' );
+		$list_path   = $extract_dir . '/' . self::CONTENT_LIST_FILE;
+		$destination = rtrim( ABSPATH, '/' );
+
+		@touch( $extract_dir ); // See phase_extract(): protect against orphan cleanup.
+
+		if ( ! file_exists( $list_path ) ) {
+			$total = $this->write_content_list( $extract_dir, $list_path );
+			$state['content_total']  = $total;
+			$state['content_offset'] = 0;
+
+			do_action( 'swish_backup_restore_before', $state['backup_path'], $state['options'] ?? array() );
+		} elseif ( ! isset( $state['content_total'] ) ) {
+			// The list was written but the request died before the state was saved.
+			$state['content_total'] = (int) count( file( $list_path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES ) ?: array() );
+		}
+
+		$offset      = (int) ( $state['content_offset'] ?? 0 );
+		$total       = (int) ( $state['content_total'] ?? 0 );
+		$file_offset = (int) ( $state['content_file_offset'] ?? 0 ); // Bytes of the current file already copied.
+		$moved       = 0;
+
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen
+		$handle = fopen( $list_path, 'r' );
+		if ( ! $handle ) {
+			return array(
+				'success'     => false,
+				'error'       => 'Cannot read the extracted file list',
+				'completed'   => true,
+				'phase'       => 'content',
+				'phase_label' => self::PHASE_LABELS['content'],
+			);
+		}
+
+		for ( $i = 0; $i < $offset; $i++ ) {
+			if ( false === fgets( $handle ) ) {
+				break;
+			}
+		}
+
+		while ( $this->has_time_remaining() ) {
+			$line = fgets( $handle );
+			if ( false === $line ) {
+				break;
+			}
+
+			$relative = trim( $line );
+
+			// The list came from our own extraction, but be strict anyway.
+			if ( '' === $relative || str_starts_with( $relative, '/' ) || preg_match( '#(^|/)\.\.(/|$)#', $relative ) ) {
+				++$offset;
+				continue;
+			}
+
+			$source = $extract_dir . '/' . $relative;
+			$target = $destination . '/' . $relative;
+
+			if ( ! file_exists( $source ) ) {
+				++$offset;
+				$file_offset = 0;
+				continue;
+			}
+
+			$parent = dirname( $target );
+			if ( ! is_dir( $parent ) ) {
+				wp_mkdir_p( $parent );
+			}
+
+			// PHP's rename() silently turns into a full copy when source and target
+			// are on different filesystems, which would make one request as long as
+			// the largest file. Only rename within the same device.
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rename
+			if ( 0 === $file_offset && $this->same_device( $source, $parent ) && @rename( $source, $target ) ) {
+				++$offset;
+				++$moved;
+				continue;
+			}
+
+			// Different filesystems (or rename refused): copy in time-bounded chunks,
+			// resuming mid-file on the next request.
+			if ( ! $this->copy_file_chunked( $source, $target, $file_offset ) ) {
+				break; // Out of time inside this file; $file_offset is saved below.
+			}
+
+			wp_delete_file( $source );
+			$file_offset = 0;
+			++$offset;
+			++$moved;
+		}
+
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+		fclose( $handle );
+
+		$completed = $offset >= $total;
+		$percent   = $total > 0 ? min( 100, ( $offset / $total ) * 100 ) : 100;
+
+		if ( $completed ) {
+			$manifest = array();
+			if ( file_exists( $extract_dir . '/manifest.json' ) ) {
+				// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+				$manifest = json_decode( (string) file_get_contents( $extract_dir . '/manifest.json' ), true ) ?: array();
+			}
+			do_action( 'swish_backup_restore_after', $state['backup_path'], $manifest );
+
+			$this->logger->info( 'Files placed', array( 'count' => $total ) );
+		}
+
+		return array(
+			'success'       => true,
+			'completed'     => $completed,
+			'phase'         => 'content',
+			'phase_label'   => self::PHASE_LABELS['content'],
+			'message'       => $completed
+				? 'Files restored successfully'
+				: sprintf( 'Restoring files: %d%%', (int) $percent ),
+			'detail'        => sprintf( '%d of %d files placed', min( $offset, $total ), $total ),
+			'progress'      => $this->calculate_progress( 200, $percent ),
+			'state_updates' => array(
+				'content_offset'      => $offset,
+				'content_total'       => $total,
+				'content_file_offset' => $file_offset,
+			),
+		);
+	}
+
+	/**
+	 * Whether two paths live on the same filesystem (so rename() is a cheap move).
+	 *
+	 * @param string $a First path (must exist).
+	 * @param string $b Second path (must exist).
+	 * @return bool
+	 */
+	private function same_device( string $a, string $b ): bool {
+		static $cache = array();
+
+		$key = dirname( $a ) . '|' . $b;
+		if ( ! isset( $cache[ $key ] ) ) {
+			$sa = @stat( dirname( $a ) );
+			$sb = @stat( $b );
+			$cache[ $key ] = $sa && $sb && $sa['dev'] === $sb['dev'];
+		}
+
+		return $cache[ $key ];
+	}
+
+	/**
+	 * Copy a file in 1 MB chunks, stopping when the time budget runs out.
+	 *
+	 * On resume the target is cut back to $file_offset first, so bytes written
+	 * by a request that died before saving its state are never duplicated.
+	 *
+	 * @param string $source      Source path.
+	 * @param string $target      Target path.
+	 * @param int    $file_offset In/out: bytes already copied.
+	 * @return bool True when the whole file has been copied, false when out of time.
+	 */
+	private function copy_file_chunked( string $source, string $target, int &$file_offset ): bool {
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen
+		$in = @fopen( $source, 'rb' );
+		if ( ! $in ) {
+			$this->logger->warning( 'Could not read extracted file', array( 'file' => $source ) );
+			$file_offset = 0;
+			return true; // Skip it rather than stall the import.
+		}
+
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen
+		$out = @fopen( $target, $file_offset > 0 ? 'c+b' : 'wb' );
+		if ( ! $out ) {
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+			fclose( $in );
+			$this->logger->warning( 'Could not write file', array( 'file' => $target ) );
+			$file_offset = 0;
+			return true;
+		}
+
+		if ( $file_offset > 0 ) {
+			ftruncate( $out, $file_offset );
+			fseek( $out, $file_offset, SEEK_SET );
+			fseek( $in, $file_offset, SEEK_SET );
+		}
+
+		$complete = true;
+		while ( ! feof( $in ) ) {
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fread
+			$chunk = fread( $in, 1048576 );
+			if ( false === $chunk || '' === $chunk ) {
+				break;
+			}
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite
+			$written = fwrite( $out, $chunk );
+			if ( false === $written || $written !== strlen( $chunk ) ) {
+				// Disk full or quota: a silently truncated file must never replace the original.
+				// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+				fclose( $in );
+				// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+				fclose( $out );
+				throw new \RuntimeException( sprintf( 'Failed to write %s (disk full or not writable).', str_replace( ABSPATH, '', $target ) ) );
+			}
+			$file_offset += strlen( $chunk );
+
+			if ( ! feof( $in ) && ! $this->has_time_remaining() ) {
+				$complete = false;
+				break;
+			}
+		}
+
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+		fclose( $in );
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+		fclose( $out );
+
+		if ( $complete ) {
+			$mtime = @filemtime( $source );
+			if ( $mtime ) {
+				@touch( $target, $mtime );
+			}
+		}
+
+		return $complete;
+	}
+
+	/**
+	 * Write the list of extracted files to move, one relative path per line.
+	 *
+	 * @param string $extract_dir Extraction directory.
+	 * @param string $list_path   Where to write the list.
+	 * @return int Number of files listed.
+	 */
+	private function write_content_list( string $extract_dir, string $list_path ): int {
+		$count = 0;
+		// Write to a temp name and rename at the end, so a request that dies
+		// half-way never leaves a short list that looks complete.
+		$tmp_path = $list_path . '.tmp';
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen
+		$out = fopen( $tmp_path, 'w' );
+		if ( ! $out ) {
+			return 0;
+		}
+
+		$iterator = new \RecursiveIteratorIterator(
+			new \RecursiveDirectoryIterator( $extract_dir, \RecursiveDirectoryIterator::SKIP_DOTS ),
+			\RecursiveIteratorIterator::LEAVES_ONLY
+		);
+
+		$base_len = strlen( $extract_dir ) + 1;
+		foreach ( $iterator as $file ) {
+			if ( ! $file->isFile() ) {
+				continue;
+			}
+			$relative = str_replace( '\\', '/', substr( $file->getPathname(), $base_len ) );
+
+			// Root-level backup metadata stays in the temp directory.
+			if ( false === strpos( $relative, '/' ) && ( in_array( $relative, self::CONTENT_SKIP_ROOT_FILES, true ) || self::CONTENT_LIST_FILE === $relative || self::CONTENT_LIST_FILE . '.tmp' === $relative ) ) {
+				continue;
+			}
+
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite
+			fwrite( $out, $relative . "\n" );
+			++$count;
+		}
+
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+		fclose( $out );
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rename
+		rename( $tmp_path, $list_path );
+
+		return $count;
 	}
 
 	/**

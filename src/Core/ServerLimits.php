@@ -127,9 +127,11 @@ final class ServerLimits {
 
 		$remaining = self::get_remaining_time( 0 );
 
-		// For unlimited time (local dev), enforce a soft limit of 120 seconds per chunk.
-		// This ensures backups can still be chunked and don't run forever.
-		if ( -1 === $remaining ) {
+		// For unlimited time (max_execution_time = 0, or set_time_limit(0) in a
+		// request), enforce a soft limit of 120 seconds per chunk. get_remaining_time()
+		// returns a float, so compare numerically: a strict `-1 ===` check never
+		// matched and made every chunk "out of time" before its first file.
+		if ( $remaining < 0 ) {
 			$elapsed = self::get_elapsed_time();
 			$soft_limit = apply_filters( 'swish_backup_soft_time_limit', 120.0 );
 			return $elapsed >= ( $soft_limit - $threshold_seconds );

@@ -502,6 +502,7 @@
 
 			this.activeJobs[jobId] = {
 				pollCount: 0,
+				errorCount: 0,
 				processTried: false
 			};
 
@@ -540,6 +541,17 @@
 				method: apiMethod
 			}).then(function(job) {
 				console.log('[SwishBackup] API response:', job);
+				jobState.errorCount = 0;
+
+				// The server is still running the previous step (slow host / proxy
+				// timed out our earlier request). Keep the UI as is and ask again.
+				if (job.busy) {
+					setTimeout(function() {
+						self.pollJobStatusNew(jobId);
+					}, 1500);
+					return;
+				}
+
 				// Normalize response - pipeline API uses different field names
 				const isComplete = job.completed === true || job.status === 'completed' || job.phase === 'complete';
 				const isFailed = job.status === 'failed' || job.phase === 'failed';
@@ -614,14 +626,20 @@
 					return;
 				}
 
-				// For other errors, retry with a limit
-				if (jobState.pollCount < 30) { // Max 30 seconds for transient errors
+				// Other errors are usually a proxy or PHP timeout on a long step, or a
+				// momentary 5xx while the server is busy. The step keeps running on the
+				// server (the next poll gets "busy" until it finishes), so retry with
+				// backoff and only give up after a long run of consecutive failures.
+				jobState.errorCount = (jobState.errorCount || 0) + 1;
+				if (jobState.errorCount <= 60) {
+					const delay = Math.min(1000 * Math.pow(1.5, jobState.errorCount - 1), 10000);
+					$('.swish-active-job-card[data-job-id="' + jobId + '"] .swish-job-step-text')
+						.text('Connection problem, retrying... (attempt ' + jobState.errorCount + ')');
 					setTimeout(function() {
 						self.pollJobStatusNew(jobId);
-					}, 1000);
+					}, delay);
 				} else {
-					// Give up after 30 seconds of errors
-					console.log('[SwishBackup] Giving up on job after too many errors:', jobId);
+					console.log('[SwishBackup] Giving up on job after too many consecutive errors:', jobId);
 					cleanupJobUI();
 				}
 			});
@@ -677,16 +695,17 @@
 		buildStepsList: function(job) {
 			const steps = [];
 			const currentPhase = job.phase || job.status || '';
-			const isPipeline = !!job.stats || currentPhase === 'indexing' || currentPhase === 'processing';
+			const isPipeline = !!job.stats || currentPhase === 'indexing' || currentPhase === 'preparing' || currentPhase === 'processing';
 
 			// Use appropriate phases based on job type
 			const phases = isPipeline
-				? ['indexing', 'processing', 'finalizing']
+				? ['indexing', 'preparing', 'processing', 'finalizing']
 				: ['initializing', 'database', 'files', 'finalizing'];
 
 			const phaseNames = {
 				// Pipeline phases
 				'indexing': 'Scanning files',
+				'preparing': 'Database backup',
 				'processing': 'Archiving files',
 				// Legacy phases
 				'initializing': 'Initialize',
@@ -716,6 +735,8 @@
 					// Add details based on phase
 					if (phase === 'indexing' && job.stats) {
 						detail = (job.stats.total || 0) + ' files found';
+					} else if (phase === 'preparing') {
+						detail = job.message || '';
 					} else if (phase === 'processing' && job.stats) {
 						const completed = (job.stats.completed || 0) + (job.stats.skipped || 0);
 						const total = job.stats.total || 0;
@@ -1851,10 +1872,11 @@
 						SwishBackup.showError('Import failed: ' + (response.error || 'Unknown error'));
 					}
 				} else {
-					// Continue polling with a small delay.
+					// Continue polling with a small delay (longer while the server
+					// reports that the previous step is still running).
 					setTimeout(function() {
 						SwishBackup.continueImportPipeline();
-					}, 100);
+					}, response.busy ? 1500 : 100);
 				}
 			}).catch(function(error) {
 				// Handle connection errors (may happen during database restore).

@@ -1296,6 +1296,60 @@ final class RestoreManager {
 	}
 
 	/**
+	 * Extract part of a .swish archive, resuming from saved offsets.
+	 *
+	 * Used by ImportPipeline to unpack large archives across many short
+	 * requests. Pass the returned 'archive_offset' and 'file_offset' back in
+	 * until 'completed' is true.
+	 *
+	 * @param string $backup_path    Path to .swish file.
+	 * @param string $output_dir     Output directory.
+	 * @param int    $archive_offset Byte offset in the archive to resume from.
+	 * @param int    $file_offset    Byte offset within the current entry.
+	 * @param int    $timeout        Seconds to work before yielding.
+	 * @return array{completed: bool, archive_offset: int, file_offset: int, files_extracted: int, error?: string}
+	 */
+	public function extract_swish_chunk( string $backup_path, string $output_dir, int $archive_offset, int $file_offset, int $timeout ): array {
+		try {
+			if ( ! is_dir( $output_dir ) && ! wp_mkdir_p( $output_dir ) ) {
+				return array(
+					'completed'       => false,
+					'error'           => 'Cannot create extraction directory',
+					'archive_offset'  => $archive_offset,
+					'file_offset'     => $file_offset,
+					'files_extracted' => 0,
+				);
+			}
+
+			$extractor = new \SwishMigrateAndBackup\Archive\SwishExtractor( $backup_path );
+
+			if ( ! $extractor->open() ) {
+				return array(
+					'completed'       => false,
+					'error'           => 'Failed to open .swish archive',
+					'archive_offset'  => $archive_offset,
+					'file_offset'     => $file_offset,
+					'files_extracted' => 0,
+				);
+			}
+
+			$result = $extractor->extract_all( $output_dir, $archive_offset, $file_offset, max( 1, $timeout ) );
+			$extractor->close();
+
+			return $result;
+		} catch ( \Exception $e ) {
+			$this->logger->error( 'Exception extracting .swish chunk: ' . $e->getMessage() );
+			return array(
+				'completed'       => false,
+				'error'           => $e->getMessage(),
+				'archive_offset'  => $archive_offset,
+				'file_offset'     => $file_offset,
+				'files_extracted' => 0,
+			);
+		}
+	}
+
+	/**
 	 * Extract .swish backup to directory.
 	 *
 	 * @param string $backup_path Path to .swish file.

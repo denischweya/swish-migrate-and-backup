@@ -17,6 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 use SwishMigrateAndBackup\Backup\BackupManager;
 use SwishMigrateAndBackup\Import\ImportPipeline;
 use SwishMigrateAndBackup\Import\ImportSession;
+use SwishMigrateAndBackup\Logger\Logger;
 use SwishMigrateAndBackup\Migration\Migrator;
 use SwishMigrateAndBackup\Queue\JobQueue;
 use SwishMigrateAndBackup\Queue\Scheduler;
@@ -83,6 +84,13 @@ final class RestController extends WP_REST_Controller {
 	private Scheduler $scheduler;
 
 	/**
+	 * Logger instance.
+	 *
+	 * @var Logger
+	 */
+	private Logger $logger;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param BackupManager  $backup_manager  Backup manager.
@@ -106,6 +114,7 @@ final class RestController extends WP_REST_Controller {
 		$this->storage_manager = $storage_manager;
 		$this->job_queue       = $job_queue;
 		$this->scheduler       = $scheduler;
+		$this->logger          = new Logger();
 	}
 
 	/**
@@ -1985,14 +1994,17 @@ final class RestController extends WP_REST_Controller {
 		$adaptive_batch = \SwishMigrateAndBackup\Core\ServerLimits::get_adaptive_file_batch_size( 150 );
 		$batch_size = $settings['pipeline_batch_size'] ?? $adaptive_batch;
 
-		// Build options.
+		// Build options. The backup type decides what goes in: a database backup
+		// contains no files and a files backup contains no database, whatever the
+		// content toggles in Settings say.
+		$with_files = 'database' !== $type;
 		$options = array(
 			'type'                 => $type,
-			'backup_database'      => $settings['backup_database'] ?? true,
-			'backup_plugins'       => $settings['backup_plugins'] ?? true,
-			'backup_themes'        => $settings['backup_themes'] ?? true,
-			'backup_uploads'       => $settings['backup_uploads'] ?? true,
-			'backup_core_files'    => $settings['backup_core_files'] ?? false,
+			'backup_database'      => 'files' !== $type && ( $settings['backup_database'] ?? true ),
+			'backup_plugins'       => $with_files && ( $settings['backup_plugins'] ?? true ),
+			'backup_themes'        => $with_files && ( $settings['backup_themes'] ?? true ),
+			'backup_uploads'       => $with_files && ( $settings['backup_uploads'] ?? true ),
+			'backup_core_files'    => $with_files && ( $settings['backup_core_files'] ?? false ),
 			'exclude_plugins'      => $settings['exclude_plugins'] ?? array(),
 			'exclude_themes'       => $settings['exclude_themes'] ?? array(),
 			'exclude_uploads'      => $settings['exclude_uploads'] ?? array(),
@@ -2027,51 +2039,42 @@ final class RestController extends WP_REST_Controller {
 		// Clear any previous data for this job.
 		\SwishMigrateAndBackup\Backup\FileQueue::clear_job( $job_id );
 
-		// Store job state.
+		// Store job state. Indexing itself happens in pipeline_continue(): on a
+		// large site it can outlive a proxy timeout, and the browser must already
+		// hold the job id (and keep polling) when that happens.
 		$job_state = array(
-			'job_id'       => $job_id,
-			'type'         => $type,
-			'phase'        => 'indexing',
-			'archive_path' => $archive_path,
-			'directories'  => $directories,
-			'options'      => $options,
-			'index_offset' => 0,
-			'started_at'   => gmdate( 'Y-m-d H:i:s' ),
+			'job_id'             => $job_id,
+			'type'               => $type,
+			'phase'              => 'indexing',
+			'archive_path'       => $archive_path,
+			'directories'        => $directories,
+			'options'            => $options,
+			'index_offset'       => 0,
+			'prepare_checkpoint' => array(),
+			'cursor'             => array(),
+			'started_at'         => gmdate( 'Y-m-d H:i:s' ),
 		);
-		update_option( 'swish_pipeline_job_' . $job_id, $job_state );
-
-		// Start indexing phase.
-		$result = $pipeline->index_files( $job_id, $directories, 0 );
-
-		// Update job state.
-		$job_state['index_offset'] = $result['offset'];
-		if ( $result['completed'] ) {
-			$job_state['phase'] = 'processing';
-		}
-		update_option( 'swish_pipeline_job_' . $job_id, $job_state );
-
-		// Get stats.
-		$stats = \SwishMigrateAndBackup\Backup\FileQueue::get_job_stats( $job_id );
-
-		// Calculate initial progress: indexing phase = 0-10%.
-		$overall_progress = $result['completed'] ? 10 : min( 9, $stats['total'] > 0 ? 5 : 2 );
+		$this->save_pipeline_job( $job_state );
 
 		return rest_ensure_response( array(
 			'success'   => true,
 			'job_id'    => $job_id,
-			'phase'     => $job_state['phase'],
-			'completed' => $result['completed'] && $stats['total'] === 0,
-			'indexed'   => $result['indexed'],
-			'stats'     => $stats,
-			'progress'  => $overall_progress,
-			'message'   => $result['completed']
-				? 'Indexing complete, ready to process ' . $stats['total'] . ' files'
-				: 'Indexing in progress (' . $result['indexed'] . ' files found so far)',
+			'phase'     => 'indexing',
+			'completed' => false,
+			'indexed'   => 0,
+			'stats'     => \SwishMigrateAndBackup\Backup\FileQueue::get_job_stats( $job_id ),
+			'progress'  => 1,
+			'message'   => __( 'Backup queued, scanning files...', 'swish-migrate-and-backup' ),
 		) );
 	}
 
 	/**
 	 * Continue a pipeline-based backup.
+	 *
+	 * Each call advances the job by one bounded step. A per-job MySQL lock makes
+	 * sure only one request writes to the archive at a time: when a proxy times
+	 * out a long step the browser retries, and the retry must wait for the
+	 * running step instead of appending to the same file concurrently.
 	 *
 	 * @param WP_REST_Request $request Request object.
 	 * @return WP_REST_Response|WP_Error
@@ -2089,160 +2092,316 @@ final class RestController extends WP_REST_Controller {
 			);
 		}
 
-		// Initialize pipeline.
+		if ( in_array( $job_state['phase'], array( 'complete', 'failed' ), true ) ) {
+			return rest_ensure_response( $this->pipeline_response( $job_state ) );
+		}
+
+		// Finish the step even if the browser or a proxy gives up on this request.
+		// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+		@ignore_user_abort( true );
+		// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+		@set_time_limit( 0 );
+
+		if ( ! $this->acquire_pipeline_lock( $job_id ) ) {
+			$response            = $this->pipeline_response( $job_state );
+			$response['busy']    = true;
+			$response['message'] = __( 'Previous step is still running, waiting...', 'swish-migrate-and-backup' );
+			return rest_ensure_response( $response );
+		}
+
+		try {
+			// Re-read under the lock: the state loaded above may predate the step
+			// another request just finished, and acting on a stale cursor would cut
+			// that step's entries out of the archive.
+			wp_cache_delete( 'swish_pipeline_job_' . $job_id, 'options' );
+			$fresh = get_option( 'swish_pipeline_job_' . $job_id );
+			if ( is_array( $fresh ) ) {
+				$job_state = $fresh;
+			}
+
+			if ( ! in_array( $job_state['phase'], array( 'complete', 'failed' ), true ) ) {
+				$job_state = $this->run_pipeline_step( $job_state );
+			}
+		} catch ( \Throwable $e ) {
+			$job_state = $this->fail_pipeline_job( $job_state, $e->getMessage() );
+		} finally {
+			$this->release_pipeline_lock( $job_id );
+		}
+
+		return rest_ensure_response( $this->pipeline_response( $job_state ) );
+	}
+
+	/**
+	 * Advance a pipeline job by one step and persist the new state.
+	 *
+	 * @param array $job_state Job state.
+	 * @return array Updated job state.
+	 */
+	private function run_pipeline_step( array $job_state ): array {
+		$job_id       = $job_state['job_id'];
+		$archive_path = $job_state['archive_path'];
+		$options      = $job_state['options'];
+
 		$pipeline = new \SwishMigrateAndBackup\Backup\BackupPipeline(
 			new \SwishMigrateAndBackup\Logger\Logger()
 		);
-		$pipeline->configure( $job_state['options'] );
+		$pipeline->configure( $options );
 
-		$phase = $job_state['phase'];
-		$result = array();
-
-		if ( 'indexing' === $phase ) {
-			// Continue indexing.
-			$result = $pipeline->index_files(
-				$job_id,
-				$job_state['directories'],
-				$job_state['index_offset']
-			);
-
-			$job_state['index_offset'] = $result['offset'];
-			if ( $result['completed'] ) {
-				$job_state['phase'] = 'processing';
-			}
-
-			$stats = \SwishMigrateAndBackup\Backup\FileQueue::get_job_stats( $job_id );
-
-			update_option( 'swish_pipeline_job_' . $job_id, $job_state );
-
-			// Calculate overall progress: indexing = 0-10%.
-			// Since we don't know total files until indexing completes, estimate based on completion.
-			$overall_progress = $result['completed'] ? 10 : min( 9, $stats['total'] > 0 ? 5 : 2 );
-
-			return rest_ensure_response( array(
-				'success'   => true,
-				'job_id'    => $job_id,
-				'phase'     => $job_state['phase'],
-				'completed' => false,
-				'indexed'   => $result['indexed'],
-				'stats'     => $stats,
-				'progress'  => $overall_progress,
-				'message'   => $result['completed']
-					? 'Indexing complete, ' . $stats['total'] . ' files to process'
-					: 'Indexing: ' . $stats['total'] . ' files found',
-			) );
-		}
-
-		if ( 'processing' === $phase ) {
-			// Prepare archive if not done yet (adds manifest and database).
-			if ( empty( $job_state['archive_prepared'] ) ) {
-				$prepare_result = $pipeline->prepare_archive(
+		switch ( $job_state['phase'] ) {
+			case 'indexing':
+				$result = $pipeline->index_files(
 					$job_id,
-					$job_state['archive_path'],
-					$job_state['options']
+					$job_state['directories'],
+					(int) $job_state['index_offset']
 				);
 
-				if ( ! $prepare_result['success'] ) {
-					return new WP_Error(
-						'prepare_failed',
-						$prepare_result['error'] ?? 'Failed to prepare archive',
-						array( 'status' => 500 )
-					);
+				$job_state['index_offset'] = $result['offset'];
+				if ( $result['completed'] ) {
+					$job_state['phase'] = 'preparing';
+				}
+				break;
+
+			case 'preparing':
+				$result = $pipeline->prepare_archive(
+					$job_id,
+					$archive_path,
+					$options,
+					$job_state['prepare_checkpoint'] ?? array(),
+					(int) ( $options['time_budget'] ?? 15 )
+				);
+
+				if ( empty( $result['success'] ) ) {
+					return $this->fail_pipeline_job( $job_state, $result['error'] ?? __( 'Failed to prepare archive.', 'swish-migrate-and-backup' ) );
 				}
 
-				$job_state['archive_prepared'] = true;
-				update_option( 'swish_pipeline_job_' . $job_id, $job_state );
-			}
+				$job_state['prepare_checkpoint'] = $result['checkpoint'] ?? array();
+				$job_state['prepare_progress']   = $result['progress'] ?? array();
+				if ( ! empty( $result['completed'] ) ) {
+					$job_state['phase']  = 'processing';
+					$job_state['cursor'] = array(
+						'archive_offset' => (int) $result['archive_offset'],
+						'partial'        => null,
+					);
+				}
+				break;
 
-			// Continue processing (archiving files).
-			$result = $pipeline->process_files( $job_id, $job_state['archive_path'] );
+			case 'processing':
+				$result = $pipeline->process_files( $job_id, $archive_path, $job_state['cursor'] ?? array() );
 
-			if ( $result['completed'] ) {
-				$job_state['phase'] = 'finalizing';
-			}
+				if ( ! empty( $result['error'] ) ) {
+					return $this->fail_pipeline_job( $job_state, $result['error'] );
+				}
 
-			update_option( 'swish_pipeline_job_' . $job_id, $job_state );
+				$job_state['cursor'] = $result['cursor'] ?? $job_state['cursor'];
+				if ( $result['completed'] ) {
+					$job_state['phase'] = 'finalizing';
+				}
+				break;
 
-			// Calculate overall progress: processing = 10-95%.
-			// stats['progress'] is 0-100 of processing phase only.
-			$processing_progress = $result['stats']['progress'] ?? 0;
-			$overall_progress = 10 + (int) ( $processing_progress * 0.85 );
-			if ( $result['completed'] ) {
-				$overall_progress = 95;
-			}
+			case 'finalizing':
+				$result = $pipeline->finalize( $job_id, $archive_path, $job_state['finalize_checkpoint'] ?? array() );
 
-			$completed_files = ( $result['stats']['completed'] ?? 0 ) + ( $result['stats']['skipped'] ?? 0 );
-			$total_files = $result['stats']['total'] ?? 0;
+				if ( empty( $result['success'] ) ) {
+					return $this->fail_pipeline_job( $job_state, $result['error'] ?? __( 'Failed to finalize backup.', 'swish-migrate-and-backup' ), false );
+				}
 
-			return rest_ensure_response( array(
-				'success'   => true,
-				'job_id'    => $job_id,
-				'phase'     => $job_state['phase'],
-				'completed' => false,
-				'processed' => $result['processed'],
-				'failed'    => $result['failed'],
-				'skipped'   => $result['skipped'],
-				'stats'     => $result['stats'],
-				'progress'  => $overall_progress,
-				'message'   => sprintf(
-					'Processing: %d/%d files (%d%%)',
-					$completed_files,
-					$total_files,
-					$processing_progress
-				),
-			) );
-		}
+				$job_state['finalize_checkpoint'] = $result['checkpoint'] ?? array();
+				$job_state['finalize_message']    = $result['message'] ?? '';
+				if ( empty( $result['completed'] ) ) {
+					break; // Verification / checksum continues next request.
+				}
 
-		if ( 'finalizing' === $phase ) {
-			// Finalize archive.
-			$result = $pipeline->finalize( $job_id, $job_state['archive_path'] );
-
-			if ( $result['success'] ) {
-				$job_state['phase'] = 'complete';
+				$job_state['phase']        = 'complete';
 				$job_state['completed_at'] = gmdate( 'Y-m-d H:i:s' );
-				$job_state['file_size'] = $result['size'];
-				$job_state['checksum'] = $result['checksum'];
+				$job_state['file_size']    = $result['size'];
+				$job_state['checksum']     = $result['checksum'];
+				$job_state['final_stats']  = $result['stats'] ?? array();
 
-				update_option( 'swish_pipeline_job_' . $job_id, $job_state );
-
-				// Register backup in the manager.
+				// Register backup in the manager so it appears in the Backups list.
 				$this->backup_manager->register_backup( array(
 					'job_id'    => $job_id,
 					'type'      => $job_state['type'],
-					'file_path' => $job_state['archive_path'],
+					'file_path' => $archive_path,
 					'file_size' => $result['size'],
 					'checksum'  => $result['checksum'],
 				) );
-
-				return rest_ensure_response( array(
-					'success'   => true,
-					'job_id'    => $job_id,
-					'phase'     => 'complete',
-					'completed' => true,
-					'progress'  => 100,
-					'file_path' => $job_state['archive_path'],
-					'file_size' => $result['size'],
-					'checksum'  => $result['checksum'],
-					'stats'     => $result['stats'],
-					'message'   => 'Backup completed successfully',
-				) );
-			}
-
-			return new WP_Error(
-				'finalize_failed',
-				$result['error'] ?? __( 'Failed to finalize backup.', 'swish-migrate-and-backup' ),
-				array( 'status' => 500 )
-			);
+				break;
 		}
 
-		// Already complete.
-		return rest_ensure_response( array(
-			'success'   => true,
-			'job_id'    => $job_id,
-			'phase'     => 'complete',
-			'completed' => true,
-			'message'   => 'Backup already completed',
+		$this->save_pipeline_job( $job_state );
+
+		return $job_state;
+	}
+
+	/**
+	 * Mark a pipeline job as failed and clean up what it left behind.
+	 *
+	 * @param array  $job_state      Job state.
+	 * @param string $error          Error message.
+	 * @param bool   $delete_archive Whether to delete the partial archive.
+	 * @return array Updated job state.
+	 */
+	private function fail_pipeline_job( array $job_state, string $error, bool $delete_archive = true ): array {
+		$job_state['phase']     = 'failed';
+		$job_state['error']     = $error;
+		$job_state['failed_at'] = gmdate( 'Y-m-d H:i:s' );
+		$this->save_pipeline_job( $job_state );
+
+		$this->logger->error( 'Pipeline backup failed', array(
+			'job_id' => $job_state['job_id'],
+			'error'  => $error,
 		) );
+
+		\SwishMigrateAndBackup\Backup\FileQueue::clear_job( $job_state['job_id'] );
+
+		if ( ! empty( $job_state['archive_path'] ) ) {
+			( new \SwishMigrateAndBackup\Backup\BackupPipeline( new Logger() ) )
+				->cleanup_job_files( $job_state['job_id'], $job_state['archive_path'] );
+
+			if ( $delete_archive && file_exists( $job_state['archive_path'] ) ) {
+				wp_delete_file( $job_state['archive_path'] );
+			}
+		}
+
+		return $job_state;
+	}
+
+	/**
+	 * Build the REST response for a pipeline job state.
+	 *
+	 * @param array $job_state Job state.
+	 * @return array Response data.
+	 */
+	private function pipeline_response( array $job_state ): array {
+		$job_id = $job_state['job_id'];
+		$phase  = $job_state['phase'];
+		$stats  = \SwishMigrateAndBackup\Backup\FileQueue::get_job_stats( $job_id );
+
+		$completed_files = ( $stats['completed'] ?? 0 ) + ( $stats['skipped'] ?? 0 );
+		$total_files     = $stats['total'] ?? 0;
+
+		switch ( $phase ) {
+			case 'indexing':
+				$progress = min( 4, 1 + (int) ( $total_files / 5000 ) );
+				$message  = sprintf(
+					/* translators: %d: number of files found so far */
+					__( 'Scanning files: %d found', 'swish-migrate-and-backup' ),
+					$total_files
+				);
+				break;
+
+			case 'preparing':
+				$db       = $job_state['prepare_progress'] ?? array();
+				$percent  = (int) ( $db['percent'] ?? 0 );
+				$progress = 5 + (int) ( $percent * 0.05 );
+				$message  = empty( $db )
+					? __( 'Preparing archive...', 'swish-migrate-and-backup' )
+					: sprintf(
+						/* translators: 1: tables done, 2: total tables */
+						__( 'Backing up database: %1$d/%2$d tables', 'swish-migrate-and-backup' ),
+						(int) ( $db['tables_completed'] ?? 0 ),
+						(int) ( $db['total_tables'] ?? 0 )
+					);
+				break;
+
+			case 'processing':
+				$progress = 10 + (int) ( ( $stats['progress'] ?? 0 ) * 0.85 );
+				$message  = sprintf(
+					/* translators: 1: files done, 2: total files, 3: percent */
+					__( 'Processing: %1$d/%2$d files (%3$d%%)', 'swish-migrate-and-backup' ),
+					$completed_files,
+					$total_files,
+					(int) ( $stats['progress'] ?? 0 )
+				);
+				break;
+
+			case 'finalizing':
+				$progress = empty( $job_state['finalize_checkpoint']['verified'] ) ? 96 : 98;
+				$message  = ! empty( $job_state['finalize_message'] )
+					? $job_state['finalize_message']
+					: __( 'Verifying archive...', 'swish-migrate-and-backup' );
+				break;
+
+			case 'complete':
+				$progress = 100;
+				$message  = __( 'Backup completed successfully', 'swish-migrate-and-backup' );
+				$stats    = $job_state['final_stats'] ?? $stats;
+				break;
+
+			case 'failed':
+				$progress = 0;
+				$message  = $job_state['error'] ?? __( 'Backup failed.', 'swish-migrate-and-backup' );
+				break;
+
+			default:
+				$progress = 0;
+				$message  = '';
+		}
+
+		$response = array(
+			'success'   => 'failed' !== $phase,
+			'job_id'    => $job_id,
+			'phase'     => $phase,
+			'completed' => 'complete' === $phase,
+			'stats'     => $stats,
+			'progress'  => $progress,
+			'message'   => $message,
+		);
+
+		if ( 'complete' === $phase ) {
+			$response['file_path'] = $job_state['archive_path'];
+			$response['file_size'] = $job_state['file_size'] ?? null;
+			$response['checksum']  = $job_state['checksum'] ?? null;
+		}
+
+		if ( 'failed' === $phase ) {
+			$response['error'] = $job_state['error'] ?? '';
+		}
+
+		return $response;
+	}
+
+	/**
+	 * Persist pipeline job state (not autoloaded: it is only read while polling).
+	 *
+	 * @param array $job_state Job state.
+	 * @return void
+	 */
+	private function save_pipeline_job( array $job_state ): void {
+		update_option( 'swish_pipeline_job_' . $job_state['job_id'], $job_state, false );
+	}
+
+	/**
+	 * Acquire the per-job pipeline lock.
+	 *
+	 * MySQL named locks are released automatically when the connection closes,
+	 * so a request that dies mid-step can never leave a job locked for good.
+	 *
+	 * @param string $job_id Job ID.
+	 * @return bool True if acquired.
+	 */
+	private function acquire_pipeline_lock( string $job_id ): bool {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$acquired = $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 0)', 'swish_pipeline_' . $job_id ) );
+
+		// '0' means another connection holds it. NULL/error means the database
+		// cannot provide named locks at all; run unlocked rather than wait forever.
+		return '0' !== (string) $acquired;
+	}
+
+	/**
+	 * Release the per-job pipeline lock.
+	 *
+	 * @param string $job_id Job ID.
+	 * @return void
+	 */
+	private function release_pipeline_lock( string $job_id ): void {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', 'swish_pipeline_' . $job_id ) );
 	}
 
 	/**
@@ -2264,22 +2423,16 @@ final class RestController extends WP_REST_Controller {
 			);
 		}
 
-		// Get queue stats.
-		$stats = \SwishMigrateAndBackup\Backup\FileQueue::get_job_stats( $job_id );
+		$response = $this->pipeline_response( $job_state );
 
-		return rest_ensure_response( array(
-			'job_id'       => $job_id,
-			'phase'        => $job_state['phase'],
-			'type'         => $job_state['type'],
-			'archive_path' => $job_state['archive_path'] ?? null,
-			'started_at'   => $job_state['started_at'] ?? null,
-			'completed_at' => $job_state['completed_at'] ?? null,
-			'file_size'    => $job_state['file_size'] ?? null,
-			'checksum'     => $job_state['checksum'] ?? null,
-			'stats'        => $stats,
-			'progress'     => $stats['progress'],
-			'completed'    => 'complete' === $job_state['phase'],
-		) );
+		$response['type']         = $job_state['type'];
+		$response['archive_path'] = $job_state['archive_path'] ?? null;
+		$response['started_at']   = $job_state['started_at'] ?? null;
+		$response['completed_at'] = $job_state['completed_at'] ?? null;
+		$response['file_size']    = $job_state['file_size'] ?? null;
+		$response['checksum']     = $job_state['checksum'] ?? null;
+
+		return rest_ensure_response( $response );
 	}
 
 	/**
@@ -2487,17 +2640,21 @@ final class RestController extends WP_REST_Controller {
 
 		// If not completed, spawn a non-blocking continuation request.
 		// This ensures the import continues even if the browser connection is lost.
-		if ( ! ( $result['completed'] ?? false ) && ( $result['success'] ?? true ) ) {
+		// Not while another request holds the step lock: that one is still running.
+		if ( ! ( $result['completed'] ?? false ) && ( $result['success'] ?? true ) && empty( $result['busy'] ) ) {
 			$pipeline->spawn_continuation( $secret_key );
 		}
 
 		return rest_ensure_response( array(
-			'success'   => $result['success'] ?? true,
-			'phase'     => $result['phase'] ?? $state['phase'],
-			'progress'  => $result['progress'] ?? 0,
-			'message'   => $result['message'] ?? 'Processing...',
-			'completed' => $result['completed'] ?? false,
-			'error'     => $result['error'] ?? null,
+			'success'     => $result['success'] ?? true,
+			'phase'       => $result['phase'] ?? $state['phase'],
+			'phase_label' => $result['phase_label'] ?? null,
+			'progress'    => $result['progress'] ?? 0,
+			'message'     => $result['message'] ?? 'Processing...',
+			'detail'      => $result['detail'] ?? '',
+			'completed'   => $result['completed'] ?? false,
+			'busy'        => ! empty( $result['busy'] ),
+			'error'       => $result['error'] ?? null,
 		) );
 	}
 

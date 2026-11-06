@@ -324,7 +324,7 @@ final class FileBackup {
 	 * @param array  $directories Directories to scan.
 	 * @return array Result with count, timeout status.
 	 */
-	public function scan_files_to_state( string $job_id, array $directories ): array {
+	public function scan_files_to_state( string $job_id, array $directories, bool $append = false ): array {
 		ServerLimits::init_timing();
 		$state = $this->get_state();
 
@@ -381,7 +381,7 @@ final class FileBackup {
 
 						// Write batch to disk periodically.
 						if ( count( $batch ) >= $batch_size ) {
-							if ( 0 === $file_count - count( $batch ) ) {
+							if ( ! $append && 0 === $file_count - count( $batch ) ) {
 								// First batch - create new file.
 								$state->save_file_list( $job_id, $batch );
 							} else {
@@ -411,7 +411,7 @@ final class FileBackup {
 
 		// Write remaining batch.
 		if ( ! empty( $batch ) ) {
-			if ( 0 === $file_count - count( $batch ) ) {
+			if ( ! $append && 0 === $file_count - count( $batch ) ) {
 				$state->save_file_list( $job_id, $batch );
 			} else {
 				$state->append_to_file_list( $job_id, $batch );
@@ -426,6 +426,71 @@ final class FileBackup {
 		return array(
 			'count'     => $file_count,
 			'timed_out' => false, // No longer times out.
+		);
+	}
+
+	/**
+	 * Resolve directories/exclusions from backup options and write the file
+	 * list straight to the job's on-disk list (no size cap, nothing kept in
+	 * memory).
+	 *
+	 * @param string $job_id  Job ID.
+	 * @param array  $options Backup options (same keys as prepare_file_list()).
+	 * @param array  $prepend Entries ['path','relative'] to put first (manifest, database...).
+	 * @return array{count: int, scanned: int, directories: array, list_path: string}
+	 */
+	public function prepare_file_list_to_state( string $job_id, array $options, array $prepend = array() ): array {
+		$directories = $this->get_backup_directories( $options );
+
+		// A directory inside another listed one (wp-content inside the site root
+		// when core files are included) would be scanned twice. Keep the outermost
+		// only, instead of remembering every path seen (which does not scale).
+		$real = array();
+		foreach ( $directories as $dir ) {
+			$resolved     = realpath( $dir );
+			$real[ $dir ] = $resolved ? rtrim( str_replace( '\\', '/', $resolved ), '/' ) . '/' : null;
+		}
+		$directories = array_values( array_filter( $directories, function ( $dir ) use ( $directories, $real ) {
+			foreach ( $directories as $other ) {
+				if ( $other !== $dir && $real[ $dir ] && $real[ $other ] && 0 === strpos( $real[ $dir ], $real[ $other ] ) ) {
+					return false;
+				}
+			}
+			return true;
+		} ) );
+
+		if ( ! empty( $options['exclude_files'] ) ) {
+			$this->set_exclude_patterns( $options['exclude_files'] );
+		}
+		if ( ! empty( $options['exclude_plugins'] ) ) {
+			$this->set_exclude_plugins( $options['exclude_plugins'] );
+		}
+		if ( ! empty( $options['exclude_themes'] ) ) {
+			$this->set_exclude_themes( $options['exclude_themes'] );
+		}
+		if ( ! empty( $options['exclude_uploads'] ) ) {
+			$this->set_exclude_uploads( $options['exclude_uploads'] );
+		}
+
+		$state = $this->get_state();
+
+		// Start the list with the special entries, then append the scan.
+		$state->save_file_list( $job_id, $prepend );
+		$scan = $this->scan_files_to_state( $job_id, $directories, true );
+
+		$count = count( $prepend ) + (int) $scan['count'];
+		$path  = $state->get_file_list_path( $job_id );
+
+		$state->save_meta( $job_id, 'file_list', array(
+			'count'     => $count,
+			'file_path' => $path,
+		), $path );
+
+		return array(
+			'count'       => $count,
+			'scanned'     => (int) $scan['count'],
+			'directories' => $directories,
+			'list_path'   => $path,
 		);
 	}
 

@@ -267,22 +267,36 @@ class Commands {
 		$stats = \SwishMigrateAndBackup\Backup\FileQueue::get_job_stats( $job_id );
 		WP_CLI::log( sprintf( 'Indexed %d files.', $stats['total'] ) );
 
-		// Prepare archive with manifest and database.
+		// Prepare archive with manifest and database (the dump is checkpointed; loop until done).
 		WP_CLI::log( 'Preparing archive with manifest and database...' );
-		$prepare_result = $pipeline->prepare_archive( $job_id, $archive_path, $options );
-		if ( ! $prepare_result['success'] ) {
-			WP_CLI::error( 'Failed to prepare archive: ' . ( $prepare_result['error'] ?? 'Unknown error' ) );
-			return;
-		}
+		$checkpoint = array();
+		do {
+			$prepare_result = $pipeline->prepare_archive( $job_id, $archive_path, $options, $checkpoint );
+			if ( ! $prepare_result['success'] ) {
+				WP_CLI::error( 'Failed to prepare archive: ' . ( $prepare_result['error'] ?? 'Unknown error' ) );
+				return;
+			}
+			$checkpoint = $prepare_result['checkpoint'] ?? array();
+		} while ( empty( $prepare_result['completed'] ) );
 
 		WP_CLI::log( 'Phase 2: Archiving files...' );
 
 		// Phase 2: Archive files in chunks.
 		$last_progress = -1;
 		$max_iterations = 10000; // Safety limit.
+		$cursor = array(
+			'archive_offset' => (int) ( $prepare_result['archive_offset'] ?? filesize( $archive_path ) ),
+			'partial'        => null,
+		);
 
 		for ( $i = 0; $i < $max_iterations; $i++ ) {
-			$result = $pipeline->process_files( $job_id, $archive_path );
+			$result = $pipeline->process_files( $job_id, $archive_path, $cursor );
+			$cursor = $result['cursor'] ?? $cursor;
+
+			if ( ! empty( $result['error'] ) ) {
+				WP_CLI::error( 'Backup failed: ' . $result['error'] );
+				return;
+			}
 
 			$progress = (int) ( $result['stats']['progress'] ?? 0 );
 			if ( $progress !== $last_progress && ( $progress % 5 === 0 || $result['completed'] ) ) {
@@ -297,13 +311,16 @@ class Commands {
 
 		WP_CLI::log( 'Phase 3: Finalizing...' );
 
-		// Phase 3: Finalize archive.
-		$final_result = $pipeline->finalize( $job_id, $archive_path );
-
-		if ( ! $final_result['success'] ) {
-			WP_CLI::error( 'Backup failed during finalization: ' . ( $final_result['error'] ?? 'Unknown error' ) );
-			return;
-		}
+		// Phase 3: Finalize archive (verification and checksum are resumable; CLI runs them to completion).
+		$final_checkpoint = array();
+		do {
+			$final_result = $pipeline->finalize( $job_id, $archive_path, $final_checkpoint );
+			if ( ! $final_result['success'] ) {
+				WP_CLI::error( 'Backup failed during finalization: ' . ( $final_result['error'] ?? 'Unknown error' ) );
+				return;
+			}
+			$final_checkpoint = $final_result['checkpoint'] ?? array();
+		} while ( empty( $final_result['completed'] ) );
 
 		// Register backup so it appears in the admin Backups list.
 		$backup_manager = Container::get_instance()->get( BackupManager::class );

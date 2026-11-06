@@ -4,7 +4,7 @@ Tags: backup, migration, restore, database, multisite
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.4.0
+Stable tag: 1.5.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -128,6 +128,26 @@ Yes. On multisite installations, go to Network Admin → Swish Backup to create 
 5. Schedules - Set up automatic scheduled backups
 
 == Changelog ==
+
+= 1.5.0 =
+* Fixed: backups started from the Backups page could run forever or produce unreadable archives on real hosts. Large files are now resumed from the exact byte where the previous request stopped instead of being appended again from the start; the database is dumped in time slices across requests and streamed into the archive instead of being read into memory; every entry is written with exactly the size recorded in its header even if the file changes during the backup
+* Fixed: the database dump silently dropped tables when it ran out of time and still reported success
+* Fixed: two requests could write the same archive at once after a proxy timeout; a per-job lock now serialises backup steps and the browser waits instead of starting a second writer
+* Fixed: starting a backup scanned the whole site inside the start request; scanning now happens in the continue steps so the browser always holds the job id
+* Fixed: the Backups page gave up on a backup after 30 polls; it now retries connection problems with backoff and shows the real error when a job fails
+* Fixed: "Database" backups archived every file and "Files" backups included the database
+* Fixed: with core files enabled, wp-content was indexed twice and archives were twice their real size
+* Fixed: archives are verified header by header before they are listed; a broken archive is discarded with a clear message instead of being registered as a good backup. Verification and checksum run in short resumable steps instead of one long request
+* Fixed: on hosts where PHP's max_execution_time is 0 (unlimited), backups never archived a single file because the time-limit check misread "unlimited" as "no time left"
+* Fixed: DISABLE KEYS / ENABLE KEYS hints in database dumps produced two SQL errors per table during import
+* Fixed: a request killed by the host mid-step (PHP-FPM timeout, out of memory, worker restart) could make the next step drop files that were already archived, give a resumed file a second header, or duplicate database rows; every resume point now re-checks the archive and dump on disk before continuing
+* Fixed: a full disk during a backup or import now fails the job with a clear message instead of retrying forever or installing a truncated file
+* Fixed: a scheduled backup killed while scanning files no longer stays in "processing" forever
+* Fixed: imports of larger .swish archives failed or stalled; extraction and file placement now run in bounded, resumable chunks, and the browser poll and the server loopback can no longer execute the same import step at the same time
+* Fixed: "clear stale session and start fresh" on the Migration page fataled
+* Fixed: scheduled backups silently stopped at 50,000 files and failed with "checkpoint expired" on large sites because the whole file list was stored in the checkpoint; the list now lives on disk. Files-only scheduled backups now include a manifest so they can be imported
+* Fixed: the plugin no longer archives or restores its own directory, so an import cannot overwrite the code running it
+* Added: filter `swish_import_time_budget` (seconds per import request, default 25)
 
 = 1.4.0 =
 * Added full translations for Spanish (Español), French (Français), Simplified Chinese (简体中文), and Arabic (العربية); Japanese was already available via translate.wordpress.org

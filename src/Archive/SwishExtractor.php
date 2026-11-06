@@ -25,6 +25,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 class SwishExtractor extends SwishArchiver {
 
 	/**
+	 * Reason the last extract_file() call failed for a reason other than time
+	 * (unwritable destination, truncated archive). Empty when it merely timed out.
+	 *
+	 * @var string
+	 */
+	private string $last_error = '';
+
+	/**
 	 * Open archive for reading.
 	 *
 	 * @return bool
@@ -84,11 +92,14 @@ class SwishExtractor extends SwishArchiver {
 	/**
 	 * Extract current file to destination.
 	 *
+	 * At least one chunk is always written before the clock is checked, so a
+	 * call with little or no time left still makes progress instead of looping.
+	 *
 	 * @param array  $header           File header from read_header().
 	 * @param string $destination_path Full path to write extracted file.
 	 * @param int    $file_offset      Byte offset within file (for resume).
 	 * @param int    $bytes_written    Output: bytes written in this call.
-	 * @param int    $timeout_seconds  Max seconds to run.
+	 * @param float  $timeout_seconds  Max seconds to run.
 	 * @return bool True if complete, false if timed out.
 	 */
 	public function extract_file(
@@ -96,7 +107,7 @@ class SwishExtractor extends SwishArchiver {
 		string $destination_path,
 		int &$file_offset = 0,
 		int &$bytes_written = 0,
-		int $timeout_seconds = 10
+		float $timeout_seconds = 10
 	): bool {
 		if ( ! $this->is_open() ) {
 			return false;
@@ -105,6 +116,7 @@ class SwishExtractor extends SwishArchiver {
 		$start_time = microtime( true );
 		$bytes_written = 0;
 		$remaining = $header['size'] - $file_offset;
+		$this->last_error = '';
 
 		// Create destination directory.
 		$dest_dir = dirname( $destination_path );
@@ -112,11 +124,21 @@ class SwishExtractor extends SwishArchiver {
 			wp_mkdir_p( $dest_dir );
 		}
 
-		// Open destination file.
-		$mode = ( 0 === $file_offset ) ? 'wb' : 'ab';
-		$dest_handle = fopen( $destination_path, $mode );
+		// Open destination file. When resuming, cut the file back to exactly
+		// $file_offset first: a request that died after writing more than it
+		// recorded must not leave those extra bytes in front of the resumed data.
+		if ( 0 === $file_offset ) {
+			$dest_handle = fopen( $destination_path, 'wb' );
+		} else {
+			$dest_handle = fopen( $destination_path, 'c+b' );
+			if ( $dest_handle ) {
+				ftruncate( $dest_handle, $file_offset );
+				fseek( $dest_handle, $file_offset, SEEK_SET );
+			}
+		}
 
 		if ( ! $dest_handle ) {
+			$this->last_error = 'Cannot write ' . $destination_path;
 			return false;
 		}
 
@@ -126,22 +148,19 @@ class SwishExtractor extends SwishArchiver {
 
 		// Stream content in chunks.
 		while ( $remaining > 0 ) {
-			// Check timeout.
-			if ( ( microtime( true ) - $start_time ) > $timeout_seconds ) {
-				fclose( $dest_handle );
-				return false; // Timed out.
-			}
-
 			$chunk_size = min( self::CHUNK_SIZE, $remaining );
 			$chunk = fread( $this->file_handle, $chunk_size );
 
 			if ( false === $chunk || '' === $chunk ) {
+				// Archive ended inside this entry: it is truncated.
+				$this->last_error = sprintf( 'Archive ends inside %s (%d of %d bytes missing)', $header['path'] ?? '?', $remaining, $header['size'] ?? 0 );
 				break;
 			}
 
 			$written = fwrite( $dest_handle, $chunk );
-			if ( false === $written ) {
+			if ( false === $written || $written !== strlen( $chunk ) ) {
 				fclose( $dest_handle );
+				$this->last_error = 'Failed to write ' . $destination_path . ' (disk full or not writable)';
 				return false;
 			}
 
@@ -150,6 +169,12 @@ class SwishExtractor extends SwishArchiver {
 			$remaining -= $written;
 
 			unset( $chunk );
+
+			// Check timeout (after making progress).
+			if ( $remaining > 0 && ( microtime( true ) - $start_time ) > $timeout_seconds ) {
+				fclose( $dest_handle );
+				return false; // Timed out.
+			}
 		}
 
 		fclose( $dest_handle );
@@ -293,6 +318,14 @@ class SwishExtractor extends SwishArchiver {
 				continue;
 			}
 
+			// Never unpack this plugin over the copy that is running the import
+			// (older archives may still contain it).
+			if ( preg_match( '#^wp-content/plugins/swish-migrate-and-backup(-pro)?/#', $entry_path ) ) {
+				$this->skip_file( $header );
+				$file_offset = 0;
+				continue;
+			}
+
 			$dest_path = $destination_dir . '/' . $entry_path;
 
 			$bytes = 0;
@@ -301,10 +334,21 @@ class SwishExtractor extends SwishArchiver {
 				$dest_path,
 				$file_offset,
 				$bytes,
-				(int) ( $timeout_seconds - ( microtime( true ) - $start_time ) )
+				$timeout_seconds - ( microtime( true ) - $start_time )
 			);
 
 			if ( ! $completed ) {
+				if ( '' !== $this->last_error ) {
+					// Not a timeout: the destination or the archive itself is broken.
+					return array(
+						'completed'       => false,
+						'error'           => $this->last_error,
+						'archive_offset'  => $header['content_offset'] - self::HEADER_SIZE,
+						'file_offset'     => $file_offset,
+						'files_extracted' => $files_extracted,
+					);
+				}
+
 				// Timed out mid-file.
 				return array(
 					'completed'       => false,
