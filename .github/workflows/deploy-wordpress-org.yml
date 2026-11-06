@@ -3,7 +3,7 @@ name: Deploy to WordPress.org
 on:
   push:
     tags:
-      - "v*"
+      - "v[0-9]*"
 
 jobs:
   deploy:
@@ -11,6 +11,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Verify tag matches plugin version and readme Stable tag
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PLUGIN_VERSION=$(grep -E '^[[:space:]]*\*[[:space:]]*Version:' swish-migrate-and-backup.php | head -1 | sed -E 's/.*Version:[[:space:]]*//' | tr -d '[:space:]\r')
+          README_STABLE=$(grep -E '^[[:space:]]*Stable tag:' readme.txt | head -1 | sed -E 's/.*Stable tag:[[:space:]]*//' | tr -d '[:space:]\r')
+          echo "tag=$TAG_VERSION  plugin header=$PLUGIN_VERSION  readme Stable tag=$README_STABLE"
+          if [ "$TAG_VERSION" != "$PLUGIN_VERSION" ] || [ "$TAG_VERSION" != "$README_STABLE" ]; then
+            echo "::error::Version mismatch — git tag ($TAG_VERSION), plugin header ($PLUGIN_VERSION), and readme Stable tag ($README_STABLE) must all match before deploying."
+            exit 1
+          fi
 
       - name: WordPress plugin deploy
         uses: 10up/action-wordpress-plugin-deploy@stable
