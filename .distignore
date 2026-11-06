@@ -3,6 +3,7 @@
 /.github
 /.claude
 /.playwright-mcp
+/.wordpress-org
 /node_modules
 /tests
 /src/js
